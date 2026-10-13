@@ -18,7 +18,7 @@ Noodle Agent 把资料整理和知识维护连接在一起：上传 PDF 后生�
 - **PDF 笔记**：解析文本与图片，规划目录，生成 AtomicNote 和 SourceNote，保留页码证据、公式、表格及图片关联。
 - **统一工作台**：上传与任务进度、笔记阅读、原 PDF 对照、知识体系和聊天；支持 Markdown、KaTeX、PDF.js。
 - **知识问答**：结合原子笔记和 Concept 的混合检索，按当前资料约束检索范围，回答附带来源证据。
-- **跨文档归并**：以 Concept / Module 聚合有效来源，由资料变更事件驱动重建，通过质量检查后发布；不确定的候选保留为待复核。
+- **跨文档归并**：以 Concept / Module 聚合有效来源，由资料变更事件驱动重建；新正文通过质量检查后发布，匹配的历史模块可复用，未通过的候选保留为待复核。
 - **版本与回退**：保留不可变笔记、模块和知识体系快照；来源删除采用逻辑删除，恢复后重新计算有效贡献。
 - **可控工具操作**：Harness 写工具请求一次性审批，领域写入使用版本校验；自动知识维护使用单独的规则与质量门禁。
 - **可恢复任务**：SQLite 持久化 Job、租约和阶段产物，结合解析缓存与有界并发处理模型任务。
@@ -104,7 +104,7 @@ npm run dev
 
 ```sh
 cp .env.example .env
-# 编辑 .env
+# 编辑 .env；容器模式设置 NOODLE_EXPORT_DIR=/data/noodle/exports
 docker compose up --build
 ```
 
@@ -155,6 +155,7 @@ Noodle_Agent/
 - [跨文档知识归并](./docs/KNOWLEDGE-SYNC.md)
 - [配置、运行与备份](./docs/OPERATIONS.md)
 - [测试策略与当前限制](./docs/TESTING.md)
+- [初始开源快照验证记录](./docs/RELEASE.md)（固定提交的历史结果）
 - [贡献指南](./CONTRIBUTING.md) · [安全报告](./SECURITY.md) · [第三方许可](./THIRD_PARTY_NOTICES.md)
 
 ## 当前边界

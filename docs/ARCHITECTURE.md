@@ -1,69 +1,93 @@
 # 架构与数据流
 
-Noodle Agent 服务于“阅读资料 → 形成笔记 → 建立知识体系 → 基于证据问答”的个人学习过程。设计中有两类不同的工作：会话需要及时响应，资料生成需要长时间运行、持久化和恢复。因此，主 Agent 与知识流水线通过工具和 HTTP 边界协作。
+Noodle Agent 将 PDF 整理成有页码证据的笔记，再把相关笔记归并为可复用的 Concept，供知识体系编排和问答使用。会话交互由 DeepSeek Harness 管理，耗时的资料生成与知识维护由 Python Worker 执行。
 
-## 进程与模块
+## 进程与代码边界
 
-DeepSeek Harness 负责会话、模型交互、上下文整理与工具调用。`src/contracts.ts` 定义领域契约，`src/http-provider.ts` 实现 HTTP 能力，`src/read-tools.ts` 与 `src/write-tools.ts` 注册工具；`src/agent-guidance.ts` 提供领域使用指引。
-
-Python 精简入口为 `noodle_agent.internal_api:create_app`。`services.py` 实现笔记、查询和版本相关服务；`db.py` 定义 SQLAlchemy 数据结构；`worker.py` 负责租约、调度和阶段执行。`adapters/` 隔离外部服务，`synthesis/` 处理跨文档知识。
-
-工作台位于 `services/noodle/src/noodle_agent/web/`，使用原生 JavaScript、HTML 和 CSS。聊天经同源代理访问 Harness，会话并未由前端另建一套 Agent 状态机。Marked、DOMPurify、KaTeX 和 PDF.js 分别处理 Markdown、安全清理、数学表达式和 PDF 阅读。
-
-## 一次 PDF 生成
-
-```mermaid
-flowchart TD
-    A[上传 PDF] --> B[保存 Blob / SourceVersion / Job]
-    B --> C[Worker 领取租约]
-    C --> D[解析缓存或 MinerU 解析]
-    D --> E[资料画像与知识规划]
-    E --> F[目录和原子笔记计划]
-    F --> G[图片理解与正文生成]
-    G --> H[结构 / 证据 / 内容质量检查]
-    H --> I[持久化不可变 NoteVersion]
-    I --> J[发布 SourceNoteVersion / 更新索引]
-    J --> K[入队知识同步事件]
-```
-
-上传接口快速返回 Job，Worker 完成耗时工作。阶段状态与产物写入数据库或文件存储，任务失败可查看时间线并重试。相同内容的 PDF 可以复用规范化解析缓存；解析复用不等于直接复用之前的所有生成内容。
-
-生成结果由正文块、证据、图片、原子笔记和资料目录共同构成。阅读器使用导航锚点在笔记位置和 PDF 物理页之间跳转。编辑创建新版本，保留原版本和审计记录。
-
-## 知识数据
-
-| 实体 | 用途 |
-| --- | --- |
-| Source / SourceVersion | 原始资料身份与上传版本 |
-| AtomicNote / NoteVersion | 有独立主题和证据的笔记身份与正文版本 |
-| SourceNote / SourceNoteVersion | 一份资料的阅读目录和笔记发布快照 |
-| Concept / ConceptModule | 跨资料共享知识点及其内容模块 |
-| ConceptVersion / ConceptModuleVersion | 知识点发布快照与模块不可变正文 |
-| ConceptContribution | 原子笔记对知识模块的贡献、来源和状态 |
-| Synthesis / SynthesisVersion / SynthesisNode | 知识体系、发布版本和树形编排节点 |
-| KnowledgeSyncEvent / Proposal / ModuleState | 资料变更任务、候选审核与模块失效状态 |
-| Job / 阶段产物 | 长任务的进度、租约、恢复与错误信息 |
-
-单个知识体系的编排结构是树；Concept 的身份独立于树的摆放位置，多个知识体系可以引用同一个 Concept。因此，多个知识体系及其共享引用形成逻辑图。当前使用关系数据库保存这些身份和关系，并非图数据库。
-
-## 问答链路
+| 部分 | 职责 | 代码入口 |
+| --- | --- | --- |
+| 工作台 | 上传、任务进度、笔记/PDF 阅读、知识体系和聊天 | `services/noodle/src/noodle_agent/web/workbench.*` |
+| Harness | 会话、模型交互、上下文、工具执行与审批 | DeepSeek Harness 依赖及 `scripts/start-harness.mjs` |
+| TypeScript 桥接 | 工具 Schema、能力契约和 HTTP 请求 | `src/contracts.ts`、`http-provider.ts`、`read-tools.ts`、`write-tools.ts` |
+| 精简 API | 接收文件、查询与编辑知识、代理 Harness 会话 | `services/noodle/src/noodle_agent/internal_api.py` |
+| Worker | 领取持久化任务，执行生成、模块更新和知识同步 | `services/noodle/src/noodle_agent/worker.py` |
+| 领域服务 | 笔记、版本、证据、检索与知识维护 | `services.py`、`synthesis/` |
+| 存储 | 关系数据、全文索引、向量和文件产物 | `db.py`、`adapters/blob.py` |
 
 ```mermaid
 flowchart LR
-    Q[问题与当前页面上下文] --> H[Harness 选择检索工具]
-    H --> S[范围过滤与混合检索]
-    S --> A[AtomicNote / Concept 候选]
-    A --> R[评分排序 / 截断 / 证据整理]
-    R --> G[基于证据生成回答]
-    G --> C[引用与阅读位置]
+    UI[工作台] --> API[Python API]
+    UI --> Proxy[同源会话代理]
+    Proxy --> H[DeepSeek Harness]
+    H --> Tools[TypeScript 工具与 HTTP Provider]
+    Tools --> API
+    API --> DB[(SQLite)]
+    W[Worker] --> DB
+    W --> Providers[解析 / 生成 / 向量 / 视觉服务]
+    W --> Files[原文与阶段产物]
 ```
 
-检索融合全文、关键词和向量信息，按资料版本、可见性与有效知识发布范围筛选。原子笔记保留原 PDF 页码，Concept 提供跨来源解释。排序逻辑位于知识服务代码中；当前没有独立部署的 cross-encoder reranker，也不应把候选打分描述为专用重排模型。
+当前前端使用原生 JavaScript、HTML 和 CSS。Marked、DOMPurify、KaTeX、PDF.js 分别用于 Markdown、安全清理、公式和 PDF 渲染。`agent/`、`api.py` 与 `web/app.*`、`web/index.html` 保留历史兼容实现；默认启动使用 `serve-internal` 和 `/app/`，不会初始化旧 LangGraph Agent。
 
-当前页面只传入有界的身份、版本与导航上下文，完整正文由工具按需读取。工具响应也有长度限制；Harness 的会话管理与领域知识版本管理分工明确。
+## PDF 生成
 
-## 一致性与错误处理
+```mermaid
+flowchart TD
+    A[接收 PDF] --> B[保存 Blob / SourceVersion / Job]
+    B --> C[Worker 领取任务并维持租约]
+    C --> D[解析缓存或解析器]
+    D --> E[资料画像与知识规划]
+    E --> F[资料目录与笔记计划]
+    F --> G[视觉处理与正文生成]
+    G --> H[质量评估与必要的修复]
+    H --> I[保存笔记版本 / 发布 SourceNote / 建立索引]
+    I --> J[尝试导出 Markdown]
+    I --> K[按配置入队知识同步事件]
+```
 
-领域写入通过预期版本防止陈旧更新。跨文档同步使用事件幂等、贡献指纹、模块状态 revision 和发布前检查，避免慢模型调用覆盖较新的来源状态。外部调用尽量在数据库事务之外执行。
+上传快速返回 Job。Worker 保存阶段状态与产物，支持恢复和指定阶段重启；并非每次重试都从原 PDF 重新解析。解析缓存复用规范化解析结果，后续知识生成仍需要运行。真实 PDF 由 MinerU 处理，fixture 解析器需要合成 sidecar。
 
-失效来源不继续进入有效问答。质量失败的候选不替换活动发布；失去有效支撑的模块进入失效或待重建状态。任务错误、重试、审计和质量结果可持久化查看。SQLite 的本地事务承担一致性边界，多实例与高并发部署尚需进一步验证。
+原子笔记的内容检查与 SourceNote 发布包含多阶段校验，失败候选、跳过内容和导出异常会形成错误或覆盖警告。`COMPLETED_WITH_WARNINGS` 表示仍需查看警告，不能当作内容完整且正确的保证。资料 Job 完成后，跨文档同步是另一项持久化工作。
+
+笔记由内容块、Claim、页码证据和图片关联构成。编辑创建新 NoteVersion 与资料发布快照。导航锚点帮助阅读器在笔记和原 PDF 之间定位。
+
+## 数据模型与存储
+
+| 实体 | 用途 |
+| --- | --- |
+| Source / SourceVersion / BlobObject | 来源身份、上传版本和原文件定位 |
+| AtomicNote / NoteVersion / NoteBlock | 原子笔记身份、版本和正文块 |
+| Claim / ClaimEvidence / EvidenceSpan | 正文论断与原文证据 |
+| SourceNote / SourceNoteVersion | 一份资料的目录与笔记发布快照 |
+| Concept / ConceptModule | 共享知识点及其语义模块 |
+| ConceptVersion / ConceptModuleVersion / ConceptReleaseModule | 知识发布与固定模块版本 |
+| ConceptContribution / KnowledgeContributionSelection | 原子笔记贡献及选中的正文块 |
+| Synthesis / SynthesisVersion / SynthesisNode | 知识体系与树形编排快照 |
+| KnowledgeSyncEvent / KnowledgeSyncProposal / KnowledgeModuleState | 同步任务、候选与模块失效状态 |
+| NoteEmbedding / ConceptEmbedding / FTS5 | 向量与全文检索 |
+
+SQLite 保存正文、身份、关系、向量、任务和版本，本地文件保存 PDF、图片和解析产物。当前没有独立图数据库或向量数据库。
+
+一个知识体系用父子节点表达一棵目录树。Concept 身份独立于目录位置，可以被多棵树引用；多个体系通过共享 Concept 形成逻辑图。每次发布的节点固定 `concept_version_id`，Concept 更新后再生成引用它的新体系快照。
+
+## RAG 问答
+
+`noodle_search_knowledge` 返回候选，`noodle_answer_knowledge` 调用领域问答服务。后者根据问题重新检索，并不直接消费上一次搜索工具的结果列表。
+
+1. 解析问题与可选 `source_version_id`。指定资料版本时只检索该资料的 AtomicNote；全局问题同时检索 AtomicNote 和 Concept。
+2. 使用 FTS5/BM25、标题与摘要相似度、向量信息生成候选分数。
+3. AtomicNote 当前使用 `0.55 × 非负余弦相似度 + 0.45 × 词法得分`；Concept 使用 `0.58 / 0.42` 权重。两类分数不是统一校准的概率。
+4. 分别排序、过滤相关性阈值。两类都有结果时，按名额交错返回 Concept 和 AtomicNote，保留综合解释与原文证据；原子笔记得分另乘 `0.97`。
+5. 生成带引用的回答，再检查来源和知识发布是否发生变化。若发现失效，返回 `SOURCE_CHANGED` 提示并清除命中列表。
+
+当前没有独立 cross-encoder 重排模型。向量保存在 SQLite 中并由应用代码计算相似度；未配置真实向量服务时使用确定性 HashEmbedding，主要用于离线验证。
+
+页面上下文传递有界的实体、版本和导航信息，正文由工具读取。Python 代理限制上下文长度，HTTP Provider 限制正文输出长度；会话压缩由 Harness 负责。这些措施减少上下文增长，但不等于完整的知识摘要记忆系统。
+
+## 一致性与当前边界
+
+手动 Harness 写工具使用一次性审批；领域写入通过预期版本检查限制陈旧更新。资料事件驱动的自动维护使用独立的来源、质量和发布规则，详见 [跨文档归并](./KNOWLEDGE-SYNC.md)。
+
+Worker 使用持久化租约和心跳，模块发布检查租约、来源快照、revision 与 Concept 活动版本。模型生成在发布事务外执行。失效活动模块会使相应 Concept 暂停正常读取与检索；历史版本仍用于追踪。
+
+数据库目前同时保留启动补表补列和 Alembic 迁移，尚未统一为唯一版本升级入口。API 也未实现完整多用户认证与隔离。文件规模、迁移和扩展性限制见 [测试与限制](./TESTING.md)。

@@ -9,11 +9,13 @@
 noodle serve-internal --host 127.0.0.1 --port 8000
 ```
 
-该入口只暴露 `/internal/v1`，不会初始化旧 LangGraph Agent 或旧 Web UI。
+该入口提供 `/internal/v1` 领域接口、`/app/` 工作台和 `/health`，API 文档位于
+`/internal/docs`；不会初始化旧 LangGraph Agent 或旧 Web UI。
 后台流水线由独立进程运行：
 
 ```powershell
 noodle worker
 ```
 
-旧 `noodle serve` 仅作为迁移期回滚入口保留，不是 Noodle_Agent 的默认运行方式。
+`noodle serve-legacy` 是保留的兼容入口，使用历史 Python Agent/API，不属于默认
+DeepSeek Harness 运行链路。完整配置和数据维护见 [运行指南](../../docs/OPERATIONS.md)。

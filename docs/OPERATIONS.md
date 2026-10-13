@@ -1,63 +1,113 @@
-# 运行、配置与备份
+# 运行、配置与数据维护
 
-## 运行模式
+## 安装与启动
 
-Windows 的 `npm run dev` 启动精简 API、Worker 和 Harness，服务信息与日志记录在 `.runtime/local/`。使用激活环境中的 Python，或者设置 `NOODLE_PYTHON`。`npm stop` 只清理项目 PID 文件记录的进程。
+从仓库根目录安装 Node 和 Python 依赖，复制根目录 `.env.example` 为 `.env`。Windows 统一启动使用 PowerShell：
 
-在其他平台，可以用 Docker Compose，或者在三个终端分别启动：
+```powershell
+npm ci
+python -m pip install -e "./services/noodle[dev]"
+Copy-Item .env.example .env
+npm run dev
+```
+
+配置文件已存在时不要重复覆盖。激活 Python 环境，或者通过 `NOODLE_PYTHON` 指定可执行文件。默认入口是工作台 `http://127.0.0.1:8000/app/`、API 文档 `/internal/docs` 和 Harness `http://127.0.0.1:3080`。
+
+`npm run dev` 启动 API、Worker 和 Harness；退出时回收进程，强制关闭终端后可使用 `npm stop`。端口 8000 已被占用时需停止原服务或调整启动参数；Harness 端口由 `NOODLE_DSH_WEB_PORT` 配置，并应同步调整 `NOODLE_HARNESS_WEB_URL`。
+
+Linux/macOS 可以用 Compose，或者在三个终端分别执行：
 
 ```sh
-# 从仓库根目录运行，先安装 Python 与 Node 依赖
 python -m noodle_agent.cli serve-internal --host 127.0.0.1 --port 8000
 python -m noodle_agent.cli worker
 npm run harness
 ```
 
-先复制根目录 `.env.example` 为 `.env`。独立启动 Harness 时，需要设置 `DSH_WEB_PORT` 环境变量才能改变其端口；Windows 统一启动器会把 `NOODLE_DSH_WEB_PORT` 转换为该变量。使用统一工作台时，`NOODLE_HARNESS_WEB_URL` 应指向实际 Harness 地址。
+独立启动 Harness 改端口时，使用进程环境变量 `DSH_WEB_PORT`；它不应写入 `.env`。Windows 启动器会从 `NOODLE_DSH_WEB_PORT` 转换该值。
 
-## 主要配置
+## 配置与优先级
+
+Python 配置从当前工作目录读取 `.env`，已经存在的环境变量优先。Node 的 `npm run harness` 也加载根目录 `.env`。建议从仓库根目录运行，并同时核对知识生成和 Harness 会话模型是否可用。
 
 | 配置 | 含义 |
 | --- | --- |
-| `NOODLE_DATA_DIR` | SQLite、Blob、解析与生成产物目录 |
-| `NOODLE_EXPORT_DIR` | Markdown 等导出目录 |
+| `NOODLE_DATA_DIR` | 知识数据库和文件目录 |
+| `NOODLE_DATABASE_URL` | 可覆盖数据库连接；当前实现面向 SQLite，不代表其他数据库已兼容 |
+| `NOODLE_EXPORT_DIR` | 导出目录 |
 | `NOODLE_PARSER` | `fixture` 或 `mineru` |
-| `NOODLE_LLM` | `fixture`、`deepseek`、`openai` 或 `openai-compatible` |
-| `LLM_*` / `DEEPSEEK_*` | 知识生成与问答配置；通用配置优先 |
-| `DASHSCOPE_*` / `EMBEDDING_*` | 向量接口、模型和维度 |
-| `DOUBAO_API_KEY` / `VISION_*` | 图片理解接口 |
-| `KNOWLEDGE_AUTO_SYNC` | 是否自动维护跨文档知识 |
+| `NOODLE_LLM` | `fixture`、`deepseek`、`openai`、`openai-compatible` |
+| `LLM_*` / `DEEPSEEK_*` | 领域生成与问答接口；通用配置优先，特定模型名按账号配置 |
+| `EMBEDDING_*` / `DASHSCOPE_*` | 向量服务配置；未提供密钥和模型时使用 HashEmbedding |
+| `DOUBAO_API_KEY` / `VISION_*` | 图片理解配置 |
+| `KNOWLEDGE_AUTO_SYNC` | 发布和编辑时是否入队增量事件；删除、恢复和已入队处理见 [归并机制](./KNOWLEDGE-SYNC.md) |
 | `PARSE_CACHE_ENABLED` | 是否复用相同内容的规范化解析 |
-| `*_CONCURRENCY` | 规划、正文、Judge 与视觉任务的有界并发 |
-| `WORKER_*` | 轮询、租约与心跳间隔 |
+| `*_CONCURRENCY` | 规划、生成、Judge、视觉处理的有界并发 |
+| `WORKER_*` | 资料任务租约、心跳与轮询；同步事件租约当前在代码中固定为 180 秒 |
 
-不同 `.env` 的数据目录不得被两个独立部署同时写入。相对路径按启动工作目录解析，建议始终在仓库根目录启动。更改向量模型或维度后应重新建立对应索引，不能混用不同模型产生的向量。
+根目录模板使用 `./data/noodle`。直接调用 Python 且没有配置时，数据默认是 `./.noodle`。**Windows 统一启动器在未设置进程环境变量时会显式指定仓库的 `data/noodle`，仅更改 `.env` 的 `NOODLE_DATA_DIR` 不会覆盖这个值。** 自定义目录可以在启动前设置：
 
-## 无密钥示例
+```powershell
+$env:NOODLE_DATA_DIR = "D:/NoodleData"
+$env:NOODLE_EXPORT_DIR = "D:/NoodleData/exports"
+npm run dev
+```
+
+相对路径按工作目录解析。API 和 Worker 应共享同一知识库；不要让两个无协调的独立部署同时使用它。向量服务变更后须重新准备相应索引，同一模型名下的维度或模型行为变化也需要注意旧向量兼容性。
+
+## 无密钥验证与真实资料
 
 ```sh
-python -m noodle_agent.cli create-demo --dir .runtime/demo-input
 python scripts/delivery-check.py --browser
 ```
 
-第一个命令创建项目自产的合成 PDF 和解析 sidecar。第二个命令执行隔离演示链路，并在报告中给出产物目录。fixture 需要合成 sidecar；普通工作台上传不会自动把另一个目录的 sidecar 视为解析结果。任意真实 PDF 应切换到 MinerU。
+该脚本在隔离目录中创建合成 PDF、安装 fixture sidecar、启动真实进程并验证阅读器，报告给出产物位置。没有浏览器时省略 `--browser`；浏览器路径可通过 `EDGE_EXECUTABLE` 设置。
 
-## 备份与迁移
+`python -m noodle_agent.cli create-demo --dir .runtime/demo-input` 只创建合成输入。它与隔离脚本是独立入口，生成的 sidecar 不会随着普通工作台 PDF 上传自动复制。fixture 不能理解任意 PDF；真实资料需要配置 MinerU、生成模型及可用密钥。真实模式会将文件、片段或图片发送到相应服务。
 
-先停止 API、Worker 和 Harness，再备份完整 `data/noodle/`、本地 `.env` 和 Harness 状态目录。SQLite 与文件产物共同构成知识库，只备份数据库不能恢复原 PDF 和图片。
+## Docker Compose
 
-资料删除属于逻辑删除，会停止其有效引用，不等同于物理擦除 Blob 或永久清除历史。处理个人数据时需要同时考虑原文件、历史版本、导出与备份。当前没有统一永久清除 API。
+Compose 把宿主机 `data/noodle/` 挂载为 `/data/noodle`，把 `data/dsh/` 挂载为 Harness 的 `/data/dsh`。当前固定本机映射端口为 8000 和 3080，脚本专用的端口变量不会自动改变 Compose 映射。
 
-移动已经有真实数据的安装目录时，需处理持久化产物中的绝对路径，并重新安装 Python editable 包；仅改目录名称可能使旧图片或解析产物无法读取。新克隆与新数据目录不需要迁移。
+根目录 `.env.example` 的导出路径是相对路径。**使用当前 Compose 时，应在容器使用的 `.env` 中设置 `NOODLE_EXPORT_DIR=/data/noodle/exports`，使导出位于持久化挂载内。** Windows 本地模式与容器模式应使用各自合适的导出路径。
 
-## 故障排查
+```sh
+docker compose config --quiet
+docker compose up --build
+```
 
-- 工作台显示异常：查看 API 与浏览器日志；更新静态资源后刷新浏览器缓存。
-- 上传完成但没有笔记：查看 Job 的阶段、时间线和错误，确认 Worker 在运行，且解析器不是缺少 sidecar 的 fixture。
-- 笔记完成但知识点未更新：检查自动同步开关、知识同步事件与候选状态；待复核不表示生成任务失败。
-- 问答没有命中：确认资料笔记已发布、当前资料范围是否正确、有效来源是否仍存在，以及向量配置是否一致。
-- 模型超时或限流：检查服务商配置，按额度降低并发；任务重试前查看保留的阶段产物。
+CI 验证镜像构建和 Compose 配置，未覆盖真实模型下的完整容器 UI 演示。
 
-## 部署边界
+## 存储与备份
 
-服务默认用于本机可信环境。内部 API 可以读取、上传和修改知识，不能直接暴露到公网。远程使用需要补充认证、访问控制、HTTPS、限流和隔离存储。当前 CI 检查部署配置与构建，不代表生产安全或多租户能力已验收。
+| 位置 | 内容 |
+| --- | --- |
+| `data/noodle/noodle.db` | 笔记正文、知识点、体系、证据、向量、任务和历史版本 |
+| `data/noodle/blobs/` | 按内容哈希保存的 PDF 和图片 |
+| `data/noodle/uploads/` | 上传接收文件 |
+| `data/noodle/artifacts/` | 解析和生成阶段产物 |
+| `data/noodle/exports/` | 按本地模板配置的 Markdown 导出 |
+| `data/noodle/logs/` | 领域日志 |
+| `.runtime/dsh-home/` | 默认本地 Harness 配置与会话，含 `sessions/`、`storages/` |
+| `.runtime/local/` | 启动日志与 PID |
+
+`DSH_HOME` 或 `NOODLE_RUNTIME_DIR` 可以改变 Harness 状态位置。备份前停止 API、Worker 和 Harness，保存实际知识数据目录、原文与产物、导出目录、Harness home 和私有配置。SQLite 与 Blob 需要一起保存；`.runtime/` 包含会话，不能全部当作临时缓存。
+
+来源删除是逻辑删除，原文件、历史、导出和备份仍可能存在。当前没有覆盖全部存储的统一永久清除 API。
+
+移动已有安装目录时，需处理产物和数据库中的绝对路径、Harness 工作区映射与会话目录，并重新安装 Python editable 包。当前没有通用的一键搬迁命令。
+
+## 数据库升级现状
+
+服务启动使用 `Database.init()` 创建缺失表并补充部分字段、索引。仓库另有 Alembic `0001` 至 `0009` 迁移与测试，常规启动不自动运行 `alembic upgrade head`。
+
+两条路径尚未统一。自动补齐不会同步推进 Alembic 版本号；初始迁移又引用当前 ORM 模型，不能把记录的迁移号当作完整结构证明。更新有真实数据的安装前，应备份并检查版本变化，避免直接给未经核对的数据库设置迁移号。当前没有保证任意旧库均能无损升级或降级的承诺。
+
+## 故障排查与部署边界
+
+- 没有笔记：查看 Job 时间线、Worker 日志和解析器配置。
+- 笔记完成但知识点未更新：查看同步事件及 proposals；待复核与资料 Job 是不同状态。
+- 问答无命中：检查资料范围、当前有效来源与向量模型配置。
+- 页面异常：查看浏览器/API 日志，静态资源更新后刷新缓存。
+- 模型超时或限流：降低相应并发并查看阶段产物，决定是否重试。
+
+内部 API 面向可信本地环境，缺少完整认证和多用户隔离。远程部署需要补充认证、HTTPS、访问控制和限流。默认不要将这些内部接口直接开放到公网。
