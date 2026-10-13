@@ -243,12 +243,6 @@ def build_parser() -> argparse.ArgumentParser:
     show_concept_update.add_argument("job_id")
     export = sub.add_parser("export", help="Export active notes to local Markdown")
     export.add_argument("source_version_id", nargs="?")
-    serve_legacy = sub.add_parser(
-        "serve-legacy",
-        help="Run the archived LangGraph compatibility API (not used by Noodle_Agent)",
-    )
-    serve_legacy.add_argument("--host", default="127.0.0.1")
-    serve_legacy.add_argument("--port", type=int, default=8000)
     serve_internal = sub.add_parser(
         "serve-internal",
         help="Run the domain-only API for DeepSeek Harness",
@@ -261,22 +255,36 @@ def build_parser() -> argparse.ArgumentParser:
     worker.add_argument("--lease-seconds", type=int)
     worker.add_argument("--heartbeat-seconds", type=int)
     worker.add_argument("--once", action="store_true")
+    sub.add_parser("db-upgrade", help="Upgrade the SQLite schema with backup")
+    sub.add_parser("db-status", help="Show database and migration versions")
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    if args.command in {"db-upgrade", "db-status"}:
+        from .db import Database
+        from .storage.runner import status
+
+        settings = Settings.from_env()
+        settings.ensure_directories()
+        database = Database(settings.database_url)
+        try:
+            if args.command == "db-upgrade":
+                database.init()
+                _print(database.last_migration)
+            else:
+                _print(status(database.engine))
+        finally:
+            database.close()
+        return
     if args.command == "create-demo":
         _print(_create_demo(args.dir.resolve()))
         return
-    if args.command in {"serve-legacy", "serve-internal"}:
+    if args.command == "serve-internal":
         import uvicorn
 
-        app_path = (
-            "noodle_agent.api:create_app"
-            if args.command == "serve-legacy"
-            else "noodle_agent.internal_api:create_app"
-        )
+        app_path = "noodle_agent.internal_api:create_app"
         uvicorn.run(app_path, factory=True, host=args.host, port=args.port)
         return
     service = _service()

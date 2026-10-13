@@ -48,7 +48,7 @@ flowchart LR
 
 ## 快速开始
 
-需要 Node.js 22.19+ 或 24+、Python 3.12+。统一启动脚本使用 PowerShell；Linux/macOS 可使用 Docker Compose，或分别启动三个进程。
+需要 Node.js 22.19+ 或 24+、Python 3.12+。统一启停入口使用 Node.js，在 Windows、Linux 和 macOS 上使用相同的 npm 命令。
 
 ### 安装
 
@@ -60,6 +60,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e "./services/noodle[dev]"
 Copy-Item .env.example .env
+# Linux/macOS：source .venv/bin/activate，并使用 cp .env.example .env
 ```
 
 使用已有 Python 环境时，可省略创建虚拟环境。`NOODLE_PYTHON` 可以指定 Python 可执行文件。启动前确认 `python -c "import noodle_agent; print(noodle_agent.__file__)"` 指向本仓库的 `services/noodle/src`。
@@ -104,11 +105,15 @@ npm run dev
 
 ```sh
 cp .env.example .env
-# 编辑 .env；容器模式设置 NOODLE_EXPORT_DIR=/data/noodle/exports
+# 编辑 .env；Compose 已将数据和导出目录配置到持久化挂载中
 docker compose up --build
 ```
 
 Compose 启动 API、Worker 和 Harness，并把本地数据挂载到 `data/`。默认只绑定本机地址。当前 API 面向可信本地环境，尚不具备完整的多用户认证与权限隔离；部署说明见 [运行与配置](./docs/OPERATIONS.md)。
+
+## 数据库升级
+
+API、Worker 和 `npm run db:upgrade` 共用版本迁移入口；`npm run db:status` 只查询版本。首次启动创建新库，旧库需要升级时先自动生成 SQLite 备份，再在事务中迁移。当前版本为 `0010`；不支持的旧结构会报错并回滚，不会直接设置版本号。迁移与恢复说明见 [运行指南](./docs/OPERATIONS.md)。
 
 ## 无密钥验证
 
@@ -117,6 +122,7 @@ npm run check:release
 npm run typecheck
 npm test
 npm run build
+npm run test:launcher
 python -m ruff check services/noodle/src services/noodle/tests
 python -m pytest services/noodle/tests
 python scripts/delivery-check.py
@@ -133,13 +139,14 @@ Noodle_Agent/
 ├── src/                       # Harness 插件、工具、HTTP Provider、契约
 ├── services/noodle/
 │   ├── src/noodle_agent/
+│   │   ├── application/       # 按业务能力拆分的领域服务
+│   │   ├── http/              # API 路由、DTO 与会话网关
+│   │   ├── storage/           # ORM、FTS 与唯一 Alembic 升级入口
 │   │   ├── adapters/          # 解析、LLM、向量、视觉与存储接口
 │   │   ├── synthesis/         # Concept、知识体系、归并与自动同步
 │   │   ├── prompts/           # 生成、审核和视觉提示词
 │   │   ├── web/               # 工作台与第三方前端资源
 │   │   └── …                  # API、服务、数据库、Worker、质量检查
-│   ├── migrations/            # 数据库迁移相关配置
-│   ├── skills/                # 知识服务技能说明
 │   └── tests/                 # Python 回归测试
 ├── scripts/                   # 启动、停止、发布检查与隔离验收
 ├── tests/                     # TypeScript 工具与 HTTP 契约测试
@@ -155,12 +162,11 @@ Noodle_Agent/
 - [跨文档知识归并](./docs/KNOWLEDGE-SYNC.md)
 - [配置、运行与备份](./docs/OPERATIONS.md)
 - [测试策略与当前限制](./docs/TESTING.md)
-- [初始开源快照验证记录](./docs/RELEASE.md)（固定提交的历史结果）
 - [贡献指南](./CONTRIBUTING.md) · [安全报告](./SECURITY.md) · [第三方许可](./THIRD_PARTY_NOTICES.md)
 
 ## 当前边界
 
-新安装的仓库没有预置个人知识库。课程 PDF、教材原图、真实生成笔记、截图档案、数据库和模型密钥均不随仓库分发。遗留 LangGraph 接口仅作为兼容代码保留，默认主 Agent 是 DeepSeek Harness。
+新安装的仓库没有预置个人知识库。课程 PDF、教材原图、真实生成笔记、截图档案、数据库和模型密钥均不随仓库分发。历史 Python Agent、旧 API 与旧 Web UI 已从发布源码移除，主 Agent 使用 DeepSeek Harness。
 
 自动归并仍可能把语义相近但不同的内容归到同一候选；Judge 也可能判断错误。系统用有效来源、证据绑定、版本冲突检查和待复核状态限制发布，但真实内容仍需要人工抽查。知识体系的自动编排以已有分组为基础，复杂重组、知识点拆分、多用户部署和大规模吞吐仍是后续方向。
 

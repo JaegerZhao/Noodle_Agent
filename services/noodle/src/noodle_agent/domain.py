@@ -229,9 +229,7 @@ class NoteBlockDraft(BaseModel):
             return "\n".join(item.strip() for item in self.items if item.strip())
         if kind == "TABLE":
             rows = [self.table_headers, *self.table_rows]
-            return "\n".join(
-                " | ".join(str(cell).strip() for cell in row) for row in rows if row
-            )
+            return "\n".join(" | ".join(str(cell).strip() for cell in row) for row in rows if row)
         if kind == "IMAGE":
             return self.caption.strip() or self.purpose.strip()
         return self.text.strip()

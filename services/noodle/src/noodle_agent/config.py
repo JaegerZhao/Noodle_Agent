@@ -36,7 +36,6 @@ def _first_env(*names: str) -> str | None:
 class Settings:
     data_dir: Path
     export_dir: Path
-    skills_dir: Path
     database_url: str
     parser: str
     llm: str
@@ -93,9 +92,6 @@ class Settings:
         raw_export = Path(os.getenv("NOODLE_EXPORT_DIR", str(data_dir / "exports")))
         export_dir = raw_export if raw_export.is_absolute() else (base / raw_export)
         export_dir = export_dir.resolve()
-        raw_skills = Path(os.getenv("NOODLE_SKILLS_DIR", "./skills"))
-        skills_dir = raw_skills if raw_skills.is_absolute() else (base / raw_skills)
-        skills_dir = skills_dir.resolve()
         db_url = os.getenv("NOODLE_DATABASE_URL", f"sqlite:///{data_dir / 'noodle.db'}")
         llm = os.getenv("NOODLE_LLM", "fixture").lower()
         llm_api_key = _first_env("LLM_API_KEY", "DEEPSEEK_API_KEY", "DeepSeek_API_KEY")
@@ -113,15 +109,13 @@ class Settings:
         embedding_model = _first_env("EMBEDDING_MODEL")
         if _first_env("DASHSCOPE_API_KEY"):
             embedding_base_url = (
-                embedding_base_url
-                or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                embedding_base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1"
             )
             embedding_model = embedding_model or "text-embedding-v4"
 
         return cls(
             data_dir=data_dir,
             export_dir=export_dir,
-            skills_dir=skills_dir,
             database_url=db_url,
             parser=os.getenv("NOODLE_PARSER", "fixture").lower(),
             llm=llm,
@@ -149,29 +143,19 @@ class Settings:
             vision_base_url=os.getenv(
                 "VISION_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"
             ),
-            vision_model=os.getenv(
-                "VISION_MODEL", "doubao-seed-2-1-turbo-260628"
-            ),
+            vision_model=os.getenv("VISION_MODEL", "doubao-seed-2-1-turbo-260628"),
             vision_timeout_seconds=float(os.getenv("VISION_TIMEOUT_SECONDS", "120")),
             vision_max_retries=max(0, int(os.getenv("VISION_MAX_RETRIES", "2"))),
             vision_reasoning_effort=os.getenv("VISION_REASONING_EFFORT", "low"),
             vision_concurrency=max(1, int(os.getenv("VISION_CONCURRENCY", "4"))),
             vision_batch_size=max(1, int(os.getenv("VISION_BATCH_SIZE", "4"))),
-            vision_max_output_tokens=max(
-                256, int(os.getenv("VISION_MAX_OUTPUT_TOKENS", "900"))
-            ),
-            knowledge_concurrency=max(
-                1, int(os.getenv("KNOWLEDGE_CONCURRENCY", "4"))
-            ),
+            vision_max_output_tokens=max(256, int(os.getenv("VISION_MAX_OUTPUT_TOKENS", "900"))),
+            knowledge_concurrency=max(1, int(os.getenv("KNOWLEDGE_CONCURRENCY", "4"))),
             planning_single_call_concept_limit=max(
                 1, int(os.getenv("PLANNING_SINGLE_CALL_CONCEPT_LIMIT", "18"))
             ),
-            planning_shard_size=max(
-                2, int(os.getenv("PLANNING_SHARD_SIZE", "8"))
-            ),
-            planning_concurrency=max(
-                1, int(os.getenv("PLANNING_CONCURRENCY", "3"))
-            ),
+            planning_shard_size=max(2, int(os.getenv("PLANNING_SHARD_SIZE", "8"))),
+            planning_concurrency=max(1, int(os.getenv("PLANNING_CONCURRENCY", "3"))),
             draft_concurrency=max(1, int(os.getenv("DRAFT_CONCURRENCY", "4"))),
             judge_batch_size=max(1, int(os.getenv("JUDGE_BATCH_SIZE", "4"))),
             judge_concurrency=max(1, int(os.getenv("JUDGE_CONCURRENCY", "4"))),
@@ -181,14 +165,14 @@ class Settings:
             ),
             worker_poll_seconds=max(0.2, float(os.getenv("WORKER_POLL_SECONDS", "1"))),
             worker_lease_seconds=max(30, int(os.getenv("WORKER_LEASE_SECONDS", "180"))),
-            worker_heartbeat_seconds=max(
-                5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "30"))
+            worker_heartbeat_seconds=max(5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "30"))),
+            parse_cache_enabled=os.getenv("PARSE_CACHE_ENABLED", "true").lower()
+            in {"1", "true", "yes"},
+            knowledge_auto_sync=os.getenv("KNOWLEDGE_AUTO_SYNC", "true").lower()
+            in {"1", "true", "yes"},
+            harness_web_url=os.getenv("NOODLE_HARNESS_WEB_URL", "http://127.0.0.1:3080").rstrip(
+                "/"
             ),
-            parse_cache_enabled=os.getenv("PARSE_CACHE_ENABLED", "true").lower() in {"1", "true", "yes"},
-            knowledge_auto_sync=os.getenv("KNOWLEDGE_AUTO_SYNC", "true").lower() in {"1", "true", "yes"},
-            harness_web_url=os.getenv(
-                "NOODLE_HARNESS_WEB_URL", "http://127.0.0.1:3080"
-            ).rstrip("/"),
         )
 
     @property

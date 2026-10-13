@@ -6,11 +6,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from noodle_agent.adapters.knowledge.common import _sections
 from noodle_agent.adapters.llm import (
     OpenAIEmbedding,
     OpenAIKnowledgeAgent,
     _loads_structured_json,
-    _sections,
 )
 from noodle_agent.config import Settings
 from noodle_agent.domain import (
@@ -26,12 +26,8 @@ from noodle_agent.domain import (
 
 class DeepSeekConfigurationTest(unittest.TestCase):
     def test_structured_json_repairs_unescaped_latex_commands(self) -> None:
-        payload = _loads_structured_json(
-            r'{"latex":"\underbrace{x}_{group}+\beta+\frac{1}{2}"}'
-        )
-        self.assertEqual(
-            payload["latex"], r"\underbrace{x}_{group}+\beta+\frac{1}{2}"
-        )
+        payload = _loads_structured_json(r'{"latex":"\underbrace{x}_{group}+\beta+\frac{1}{2}"}')
+        self.assertEqual(payload["latex"], r"\underbrace{x}_{group}+\beta+\frac{1}{2}")
 
     def test_slide_titles_remain_one_extraction_unit(self) -> None:
         blocks = []
@@ -93,13 +89,12 @@ class DeepSeekConfigurationTest(unittest.TestCase):
         )
         self.assertEqual(settings.embedding_dimensions, 1024)
 
-    @patch("noodle_agent.adapters.llm.OpenAI")
+    @patch("noodle_agent.adapters.knowledge.common.OpenAI")
     def test_text_embedding_v4_batches_at_ten_rows(self, openai) -> None:
         def create(**kwargs):
             response = MagicMock()
             response.data = [
-                MagicMock(embedding=[0.0] * kwargs["dimensions"])
-                for _ in kwargs["input"]
+                MagicMock(embedding=[0.0] * kwargs["dimensions"]) for _ in kwargs["input"]
             ]
             return response
 
@@ -136,9 +131,7 @@ class DeepSeekConfigurationTest(unittest.TestCase):
             page_count=1,
             markdown="知识点",
             parser_name="test",
-            blocks=[
-                ParsedBlock(block_id="b1", page_index=0, page_label="1", text="知识点")
-            ],
+            blocks=[ParsedBlock(block_id="b1", page_index=0, page_label="1", text="知识点")],
         )
         agent.build_plan(document)
         calls = openai.return_value.chat.completions.create.call_args_list
@@ -146,7 +139,9 @@ class DeepSeekConfigurationTest(unittest.TestCase):
         self.assertEqual(calls[1].kwargs["model"], "deepseek-v4-pro")
 
     @patch("noodle_agent.adapters.llm.OpenAI")
-    def test_occam_generation_materializes_candidates_and_uses_one_source_plan(self, openai) -> None:
+    def test_occam_generation_materializes_candidates_and_uses_one_source_plan(
+        self, openai
+    ) -> None:
         payloads = [
             {
                 "document_type": "COURSE_MATERIAL",
@@ -271,9 +266,9 @@ class DeepSeekConfigurationTest(unittest.TestCase):
     @patch("noodle_agent.adapters.llm.OpenAI")
     def test_question_answering_uses_flash(self, openai) -> None:
         response = MagicMock()
-        response.choices[0].message.content = (
-            '{"answer":"答案","used_note_ids":["n1"],"coverage_warning":null}'
-        )
+        response.choices[
+            0
+        ].message.content = '{"answer":"答案","used_note_ids":["n1"],"coverage_warning":null}'
         openai.return_value.chat.completions.create.return_value = response
         settings = MagicMock(
             llm_api_key="test-key",
@@ -297,7 +292,9 @@ class DeepSeekConfigurationTest(unittest.TestCase):
     @patch("noodle_agent.adapters.llm.OpenAI")
     def test_question_answering_with_empty_used_ids_returns_no_citations(self, openai) -> None:
         response = MagicMock()
-        response.choices[0].message.content = (
+        response.choices[
+            0
+        ].message.content = (
             '{"answer":"知识库证据不足。","used_note_ids":[],"coverage_warning":null}'
         )
         openai.return_value.chat.completions.create.return_value = response
@@ -487,14 +484,10 @@ class DeepSeekConfigurationTest(unittest.TestCase):
 
         self.assertEqual(bundle.schema_version, "source-plan-v2")
         self.assertEqual(len(bundle.note_set_plan.notes), 2)
-        self.assertEqual(
-            bundle.note_set_plan.notes[0].evidence_block_ids, ["b1", "b2"]
-        )
+        self.assertEqual(bundle.note_set_plan.notes[0].evidence_block_ids, ["b1", "b2"])
         self.assertEqual(bundle.note_set_plan.notes[0].asset_block_ids, ["img1"])
         self.assertEqual(bundle.note_set_plan.notes[1].evidence_block_ids, ["b3"])
-        self.assertEqual(
-            openai.return_value.chat.completions.create.call_count, 1
-        )
+        self.assertEqual(openai.return_value.chat.completions.create.call_count, 1)
 
 
 if __name__ == "__main__":

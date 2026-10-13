@@ -20,6 +20,7 @@ npm run check:release
 npm run typecheck
 npm test
 npm run build
+npm run test:launcher
 python -m ruff check services/noodle/src services/noodle/tests
 python -m pytest services/noodle/tests
 python scripts/delivery-check.py
@@ -29,7 +30,9 @@ python scripts/delivery-check.py
 
 ## 代码与发布
 
-- `src/` 放 Harness 桥接，Python 领域逻辑放 `services/noodle/src/noodle_agent/`。
+- `src/` 放 Harness 桥接；Python 业务放 `application/`，HTTP 路由放 `http/`，持久化放 `storage/`。门面负责装配与公共契约，避免重新聚合成大业务文件。
+- 数据模型变更必须增加版本迁移。迁移使用明确的历史结构，不引用随业务变化的当前 ORM；同步更新冻结结构校验与升级回归测试。
+- `docs/` 保留当前架构、运行与测试说明，历史个人演示档案不进入发布源码。
 - 任务恢复、来源失效和版本冲突属于知识更新的必要约束，不得由重试或模型成功返回绕过。
 - 保留第三方许可声明；新增依赖时检查许可兼容性。
 - 新增环境变量须更新 `.env.example`，不要加入真实值或个人绝对路径。

@@ -97,9 +97,7 @@ class BackboneSourceMigrator:
                 raise FileNotFoundError(pdf_path)
 
             original_blob = _blob_row(session, self.blobs, pdf_path, "application/pdf")
-            source = session.scalar(
-                select(Source).where(Source.title == MIGRATION_SOURCE_TITLE)
-            )
+            source = session.scalar(select(Source).where(Source.title == MIGRATION_SOURCE_TITLE))
             if source is None:
                 source = Source(source_type="PDF", title=MIGRATION_SOURCE_TITLE)
                 session.add(source)
@@ -181,11 +179,14 @@ class BackboneSourceMigrator:
                 .where(BackboneSection.corpus_id == corpus.id)
                 .order_by(BackboneSection.sort_order)
             ).all()
-            outline_count = session.scalar(
-                select(func.count()).select_from(OutlineNode).where(
-                    OutlineNode.parse_run_id == parse_run.id
+            outline_count = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(OutlineNode)
+                    .where(OutlineNode.parse_run_id == parse_run.id)
                 )
-            ) or 0
+                or 0
+            )
             if not outline_count:
                 outline_by_section: dict[str, OutlineNode] = {}
                 for section in sections:
@@ -213,9 +214,9 @@ class BackboneSourceMigrator:
                     select(DocumentBlock).where(DocumentBlock.parse_run_id == parse_run.id)
                 ).all()
             }
-            reading_order = max(
-                (item.reading_order for item in document_blocks.values()), default=-1
-            ) + 1
+            reading_order = (
+                max((item.reading_order for item in document_blocks.values()), default=-1) + 1
+            )
             section_document_blocks: dict[tuple[str, str], DocumentBlock] = {}
             note_by_section: dict[str, tuple[AtomicNote, NoteVersion]] = {}
             migrated_note_blocks = 0
@@ -310,9 +311,7 @@ class BackboneSourceMigrator:
                         parent_version_id=note.active_version_id,
                         title=legacy_version.title,
                         thesis=legacy_version.summary,
-                        tags_json=_json(
-                            ["机器学习", "PML", "基准教材", section.number]
-                        ),
+                        tags_json=_json(["机器学习", "PML", "基准教材", section.number]),
                         quality_status="AUTO_VALIDATED",
                         review_status="UNREVIEWED",
                         content_sha256=content_hash,
@@ -407,9 +406,7 @@ class BackboneSourceMigrator:
                     document_blocks[external_id] = document_block
                     reading_order += 1
                 visual = session.scalar(
-                    select(VisualAsset).where(
-                        VisualAsset.document_block_id == document_block.id
-                    )
+                    select(VisualAsset).where(VisualAsset.document_block_id == document_block.id)
                 )
                 if visual is None:
                     image_path = (corpus_root / figure.storage_key).resolve()
@@ -529,9 +526,7 @@ class BackboneSourceMigrator:
                         level=section.level,
                         order_index=section.sort_order,
                         learning_goal="",
-                        source_sections_json=_json(
-                            [f"P.{section.start_page}–{section.end_page}"]
-                        ),
+                        source_sections_json=_json([f"P.{section.start_page}–{section.end_page}"]),
                     )
                     session.add(node)
                     session.flush()
@@ -579,13 +574,9 @@ class BackboneSourceMigrator:
                 folder = LibraryFolder(name="基准教材", sort_order=0)
                 session.add(folder)
                 session.flush()
-            entry = session.scalar(
-                select(LibraryEntry).where(LibraryEntry.source_id == source.id)
-            )
+            entry = session.scalar(select(LibraryEntry).where(LibraryEntry.source_id == source.id))
             if entry is None:
-                session.add(
-                    LibraryEntry(folder_id=folder.id, source_id=source.id, sort_order=0)
-                )
+                session.add(LibraryEntry(folder_id=folder.id, source_id=source.id, sort_order=0))
 
             return BackboneMigrationReport(
                 source_id=source.id,
@@ -597,11 +588,11 @@ class BackboneSourceMigrator:
                 atomic_notes=len(note_by_section),
                 note_blocks=(
                     session.scalar(
-                        select(func.count()).select_from(NoteBlock).join(
-                            NoteVersion, NoteVersion.id == NoteBlock.note_version_id
-                        ).join(AtomicNote, AtomicNote.id == NoteVersion.note_id).where(
-                            AtomicNote.source_version_id == source_version.id
-                        )
+                        select(func.count())
+                        .select_from(NoteBlock)
+                        .join(NoteVersion, NoteVersion.id == NoteBlock.note_version_id)
+                        .join(AtomicNote, AtomicNote.id == NoteVersion.note_id)
+                        .where(AtomicNote.source_version_id == source_version.id)
                     )
                     or migrated_note_blocks
                 ),

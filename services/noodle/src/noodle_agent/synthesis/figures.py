@@ -50,9 +50,7 @@ def figure_candidates(page: fitz.Page) -> list[FigureCandidate]:
                 caption_rect |= next_rect
                 caption_parts.append(next_text)
                 previous_rect = next_rect
-            captions.append(
-                (caption_rect, match.group("label"), " ".join(caption_parts))
-            )
+            captions.append((caption_rect, match.group("label"), " ".join(caption_parts)))
     if not captions:
         return []
 

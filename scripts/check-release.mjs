@@ -20,7 +20,6 @@ for (const path of paths) {
     issues.push(`${path}: private/runtime artifact in source snapshot`)
     continue
   }
-  if (path.startsWith("docs/") && !/^docs\/(?:ARCHITECTURE\.md|KNOWLEDGE-SYNC\.md|OPERATIONS\.md|TESTING\.md|RELEASE\.md|assets\/[^/]+)$/.test(path)) issues.push(`${path}: non-public documentation`)
   const absolute = resolve(root, path)
   let size
   try { if (lstatSync(absolute).isSymbolicLink()) issues.push(`${path}: symlink requires review`); size = statSync(absolute).size } catch { issues.push(`${path}: tracked file missing`); continue }

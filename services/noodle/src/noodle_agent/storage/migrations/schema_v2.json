@@ -1,0 +1,2478 @@
+{
+  "tables": [
+    {
+      "name": "audit_events",
+      "sql": "CREATE TABLE audit_events (\n\tid VARCHAR(36) NOT NULL, \n\tactor VARCHAR(100) NOT NULL, \n\taction VARCHAR(100) NOT NULL, \n\trisk_level VARCHAR(10) NOT NULL, \n\ttarget_type VARCHAR(50) NOT NULL, \n\ttarget_id VARCHAR(100) NOT NULL, \n\tdetail_json TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "actor",
+        "action",
+        "risk_level",
+        "target_type",
+        "target_id",
+        "detail_json",
+        "created_at"
+      ]
+    },
+    {
+      "name": "backbone_corpora",
+      "sql": "CREATE TABLE backbone_corpora (\n\tid VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(160) NOT NULL, \n\tdomain_key VARCHAR(120) NOT NULL, \n\ttitle TEXT NOT NULL, \n\tauthors_json TEXT NOT NULL, \n\tedition_label VARCHAR(120) NOT NULL, \n\tlanguage VARCHAR(20) NOT NULL, \n\tsource_url TEXT NOT NULL, \n\tlicense_note TEXT NOT NULL, \n\tlocal_path TEXT NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tpage_count INTEGER NOT NULL, \n\tmanifest_json TEXT NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "stable_key",
+        "domain_key",
+        "title",
+        "authors_json",
+        "edition_label",
+        "language",
+        "source_url",
+        "license_note",
+        "local_path",
+        "content_sha256",
+        "page_count",
+        "manifest_json",
+        "status",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "blob_objects",
+      "sql": "CREATE TABLE blob_objects (\n\tid VARCHAR(36) NOT NULL, \n\tstorage_backend VARCHAR(20) NOT NULL, \n\tstorage_key TEXT NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tmedia_type VARCHAR(100) NOT NULL, \n\tbyte_size INTEGER NOT NULL, \n\tderived_from_blob_id VARCHAR(36), \n\tlifecycle_state VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (storage_key), \n\tFOREIGN KEY(derived_from_blob_id) REFERENCES blob_objects (id)\n)",
+      "columns": [
+        "id",
+        "storage_backend",
+        "storage_key",
+        "content_sha256",
+        "media_type",
+        "byte_size",
+        "derived_from_blob_id",
+        "lifecycle_state",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concepts",
+      "sql": "CREATE TABLE concepts (\n\tid VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(220) NOT NULL, \n\tdomain_key VARCHAR(120) NOT NULL, \n\tcanonical_name TEXT NOT NULL, \n\toriginal_name TEXT NOT NULL, \n\tactive_version_id VARCHAR(36), \n\tstatus VARCHAR(30) NOT NULL, \n\tvisibility VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "stable_key",
+        "domain_key",
+        "canonical_name",
+        "original_name",
+        "active_version_id",
+        "status",
+        "visibility",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "knowledge_sync_events",
+      "sql": "CREATE TABLE knowledge_sync_events (\n\tid VARCHAR(36) NOT NULL, \n\tevent_key VARCHAR(240) NOT NULL, \n\tsource_id VARCHAR(36) NOT NULL, \n\tevent_type VARCHAR(40) NOT NULL, \n\tpayload_json TEXT NOT NULL, \n\tstatus VARCHAR(40) NOT NULL, \n\tresult_json TEXT NOT NULL, \n\terror_detail TEXT NOT NULL, \n\tlease_owner VARCHAR(120), \n\tlease_expires_at DATETIME, \n\tattempt_count INTEGER NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "event_key",
+        "source_id",
+        "event_type",
+        "payload_json",
+        "status",
+        "result_json",
+        "error_detail",
+        "lease_owner",
+        "lease_expires_at",
+        "attempt_count",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "library_folders",
+      "sql": "CREATE TABLE library_folders (\n\tid VARCHAR(36) NOT NULL, \n\tparent_id VARCHAR(36), \n\tname TEXT NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (parent_id, name), \n\tFOREIGN KEY(parent_id) REFERENCES library_folders (id)\n)",
+      "columns": [
+        "id",
+        "parent_id",
+        "name",
+        "sort_order",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "sources",
+      "sql": "CREATE TABLE sources (\n\tid VARCHAR(36) NOT NULL, \n\tsource_type VARCHAR(20) NOT NULL, \n\ttitle TEXT NOT NULL, \n\tvisibility VARCHAR(30) NOT NULL, \n\tcurrent_version_id VARCHAR(36), \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "source_type",
+        "title",
+        "visibility",
+        "current_version_id",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "syntheses",
+      "sql": "CREATE TABLE syntheses (\n\tid VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(160) NOT NULL, \n\tdomain_key VARCHAR(120) NOT NULL, \n\ttitle TEXT NOT NULL, \n\tdescription TEXT NOT NULL, \n\tactive_version_id VARCHAR(36), \n\tvisibility VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id)\n)",
+      "columns": [
+        "id",
+        "stable_key",
+        "domain_key",
+        "title",
+        "description",
+        "active_version_id",
+        "visibility",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "agent_attachments",
+      "sql": "CREATE TABLE agent_attachments (\n\tid VARCHAR(36) NOT NULL, \n\tconversation_id VARCHAR(36), \n\tmessage_id VARCHAR(36), \n\tblob_id VARCHAR(36) NOT NULL, \n\toriginal_name TEXT NOT NULL, \n\tattachment_type VARCHAR(30) NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tvision_json TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tconsumed_at DATETIME, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(blob_id) REFERENCES blob_objects (id)\n)",
+      "columns": [
+        "id",
+        "conversation_id",
+        "message_id",
+        "blob_id",
+        "original_name",
+        "attachment_type",
+        "status",
+        "vision_json",
+        "created_at",
+        "consumed_at"
+      ]
+    },
+    {
+      "name": "backbone_sections",
+      "sql": "CREATE TABLE backbone_sections (\n\tid VARCHAR(36) NOT NULL, \n\tcorpus_id VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(220) NOT NULL, \n\tparent_id VARCHAR(36), \n\tnumber VARCHAR(80) NOT NULL, \n\ttitle TEXT NOT NULL, \n\tlevel INTEGER NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tnode_kind VARCHAR(30) NOT NULL, \n\tstart_page INTEGER NOT NULL, \n\tend_page INTEGER NOT NULL, \n\tconcept_id VARCHAR(36), \n\tstatus VARCHAR(30) NOT NULL, \n\tsource_locator_json TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (corpus_id, stable_key), \n\tFOREIGN KEY(corpus_id) REFERENCES backbone_corpora (id), \n\tFOREIGN KEY(parent_id) REFERENCES backbone_sections (id)\n)",
+      "columns": [
+        "id",
+        "corpus_id",
+        "stable_key",
+        "parent_id",
+        "number",
+        "title",
+        "level",
+        "sort_order",
+        "node_kind",
+        "start_page",
+        "end_page",
+        "concept_id",
+        "status",
+        "source_locator_json",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "concept_aliases",
+      "sql": "CREATE TABLE concept_aliases (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_id VARCHAR(36) NOT NULL, \n\talias TEXT NOT NULL, \n\tnormalized_alias VARCHAR(240) NOT NULL, \n\talias_type VARCHAR(30) NOT NULL, \n\tcreated_by VARCHAR(100) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (normalized_alias), \n\tFOREIGN KEY(concept_id) REFERENCES concepts (id)\n)",
+      "columns": [
+        "id",
+        "concept_id",
+        "alias",
+        "normalized_alias",
+        "alias_type",
+        "created_by",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_modules",
+      "sql": "CREATE TABLE concept_modules (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_id VARCHAR(36) NOT NULL, \n\tmodule_key VARCHAR(180) NOT NULL, \n\tsemantic_role VARCHAR(40) NOT NULL, \n\tvisibility VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (concept_id, module_key), \n\tFOREIGN KEY(concept_id) REFERENCES concepts (id)\n)",
+      "columns": [
+        "id",
+        "concept_id",
+        "module_key",
+        "semantic_role",
+        "visibility",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "concept_relations",
+      "sql": "CREATE TABLE concept_relations (\n\tid VARCHAR(36) NOT NULL, \n\tsource_concept_id VARCHAR(36) NOT NULL, \n\ttarget_concept_id VARCHAR(36) NOT NULL, \n\trelation_type VARCHAR(40) NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tsource_ref TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (source_concept_id, target_concept_id, relation_type), \n\tFOREIGN KEY(source_concept_id) REFERENCES concepts (id), \n\tFOREIGN KEY(target_concept_id) REFERENCES concepts (id)\n)",
+      "columns": [
+        "id",
+        "source_concept_id",
+        "target_concept_id",
+        "relation_type",
+        "status",
+        "source_ref",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_versions",
+      "sql": "CREATE TABLE concept_versions (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_id VARCHAR(36) NOT NULL, \n\tversion_no INTEGER NOT NULL, \n\ttitle TEXT NOT NULL, \n\toriginal_title TEXT NOT NULL, \n\tscope TEXT NOT NULL, \n\tsummary TEXT NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tschema_version VARCHAR(60) NOT NULL, \n\tprompt_version VARCHAR(60) NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (concept_id, version_no), \n\tFOREIGN KEY(concept_id) REFERENCES concepts (id)\n)",
+      "columns": [
+        "id",
+        "concept_id",
+        "version_no",
+        "title",
+        "original_title",
+        "scope",
+        "summary",
+        "content_sha256",
+        "schema_version",
+        "prompt_version",
+        "status",
+        "created_at"
+      ]
+    },
+    {
+      "name": "knowledge_sync_proposals",
+      "sql": "CREATE TABLE knowledge_sync_proposals (\n\tid VARCHAR(36) NOT NULL, \n\tevent_id VARCHAR(36) NOT NULL, \n\tnote_version_id VARCHAR(36) NOT NULL, \n\ttarget_key VARCHAR(240) NOT NULL, \n\tdecision VARCHAR(40) NOT NULL, \n\tstatus VARCHAR(40) NOT NULL, \n\tpayload_json TEXT NOT NULL, \n\terror_detail TEXT NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (event_id, note_version_id, target_key), \n\tFOREIGN KEY(event_id) REFERENCES knowledge_sync_events (id)\n)",
+      "columns": [
+        "id",
+        "event_id",
+        "note_version_id",
+        "target_key",
+        "decision",
+        "status",
+        "payload_json",
+        "error_detail"
+      ]
+    },
+    {
+      "name": "library_entries",
+      "sql": "CREATE TABLE library_entries (\n\tid VARCHAR(36) NOT NULL, \n\tfolder_id VARCHAR(36) NOT NULL, \n\tsource_id VARCHAR(36) NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (source_id), \n\tFOREIGN KEY(folder_id) REFERENCES library_folders (id), \n\tFOREIGN KEY(source_id) REFERENCES sources (id)\n)",
+      "columns": [
+        "id",
+        "folder_id",
+        "source_id",
+        "sort_order",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "source_notes",
+      "sql": "CREATE TABLE source_notes (\n\tid VARCHAR(36) NOT NULL, \n\tsource_id VARCHAR(36) NOT NULL, \n\tactive_version_id VARCHAR(36), \n\tvisibility VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(source_id) REFERENCES sources (id)\n)",
+      "columns": [
+        "id",
+        "source_id",
+        "active_version_id",
+        "visibility",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "source_versions",
+      "sql": "CREATE TABLE source_versions (\n\tid VARCHAR(36) NOT NULL, \n\tsource_id VARCHAR(36) NOT NULL, \n\tversion_no INTEGER NOT NULL, \n\toriginal_blob_id VARCHAR(36) NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tmedia_type VARCHAR(100) NOT NULL, \n\tbyte_size INTEGER NOT NULL, \n\toriginal_name TEXT NOT NULL, \n\tcanonical_parse_run_id VARCHAR(36), \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (source_id, version_no), \n\tFOREIGN KEY(source_id) REFERENCES sources (id), \n\tFOREIGN KEY(original_blob_id) REFERENCES blob_objects (id)\n)",
+      "columns": [
+        "id",
+        "source_id",
+        "version_no",
+        "original_blob_id",
+        "content_sha256",
+        "media_type",
+        "byte_size",
+        "original_name",
+        "canonical_parse_run_id",
+        "created_at"
+      ]
+    },
+    {
+      "name": "synthesis_versions",
+      "sql": "CREATE TABLE synthesis_versions (\n\tid VARCHAR(36) NOT NULL, \n\tsynthesis_id VARCHAR(36) NOT NULL, \n\tbackbone_corpus_id VARCHAR(36) NOT NULL, \n\tversion_no INTEGER NOT NULL, \n\ttitle TEXT NOT NULL, \n\tsummary TEXT NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tcoverage_json TEXT NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (synthesis_id, version_no), \n\tFOREIGN KEY(synthesis_id) REFERENCES syntheses (id), \n\tFOREIGN KEY(backbone_corpus_id) REFERENCES backbone_corpora (id)\n)",
+      "columns": [
+        "id",
+        "synthesis_id",
+        "backbone_corpus_id",
+        "version_no",
+        "title",
+        "summary",
+        "status",
+        "coverage_json",
+        "content_sha256",
+        "created_at"
+      ]
+    },
+    {
+      "name": "atomic_notes",
+      "sql": "CREATE TABLE atomic_notes (\n\tid VARCHAR(36) NOT NULL, \n\tsource_id VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(200) NOT NULL, \n\tactive_version_id VARCHAR(36), \n\tvisibility VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (source_version_id, stable_key), \n\tFOREIGN KEY(source_id) REFERENCES sources (id), \n\tFOREIGN KEY(source_version_id) REFERENCES source_versions (id)\n)",
+      "columns": [
+        "id",
+        "source_id",
+        "source_version_id",
+        "stable_key",
+        "active_version_id",
+        "visibility",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "backbone_figures",
+      "sql": "CREATE TABLE backbone_figures (\n\tid VARCHAR(36) NOT NULL, \n\tcorpus_id VARCHAR(36) NOT NULL, \n\tsection_id VARCHAR(36) NOT NULL, \n\tconcept_id VARCHAR(36) NOT NULL, \n\tpage_number INTEGER NOT NULL, \n\tfigure_label VARCHAR(80) NOT NULL, \n\tcaption TEXT NOT NULL, \n\tcaption_zh TEXT NOT NULL, \n\tstorage_key TEXT NOT NULL, \n\timage_sha256 VARCHAR(64) NOT NULL, \n\tbbox_json TEXT NOT NULL, \n\twidth_px INTEGER NOT NULL, \n\theight_px INTEGER NOT NULL, \n\textraction_method VARCHAR(60) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (corpus_id, figure_label), \n\tFOREIGN KEY(corpus_id) REFERENCES backbone_corpora (id), \n\tFOREIGN KEY(section_id) REFERENCES backbone_sections (id), \n\tFOREIGN KEY(concept_id) REFERENCES concepts (id)\n)",
+      "columns": [
+        "id",
+        "corpus_id",
+        "section_id",
+        "concept_id",
+        "page_number",
+        "figure_label",
+        "caption",
+        "caption_zh",
+        "storage_key",
+        "image_sha256",
+        "bbox_json",
+        "width_px",
+        "height_px",
+        "extraction_method",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_blocks",
+      "sql": "CREATE TABLE concept_blocks (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_version_id VARCHAR(36) NOT NULL, \n\tblock_key VARCHAR(160) NOT NULL, \n\tblock_type VARCHAR(40) NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tcontent_text TEXT NOT NULL, \n\tcontent_json TEXT NOT NULL, \n\tsource_role VARCHAR(30) NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (concept_version_id, block_key), \n\tFOREIGN KEY(concept_version_id) REFERENCES concept_versions (id)\n)",
+      "columns": [
+        "id",
+        "concept_version_id",
+        "block_key",
+        "block_type",
+        "sort_order",
+        "content_text",
+        "content_json",
+        "source_role",
+        "content_sha256",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_build_records",
+      "sql": "CREATE TABLE concept_build_records (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_id VARCHAR(36) NOT NULL, \n\tconcept_version_id VARCHAR(36) NOT NULL, \n\tinput_sha256 VARCHAR(64) NOT NULL, \n\tprompt_version VARCHAR(100) NOT NULL, \n\tmodel_name VARCHAR(200) NOT NULL, \n\tresult_status VARCHAR(30) NOT NULL, \n\tfallback_used BOOLEAN NOT NULL, \n\tfallback_detail TEXT NOT NULL, \n\toutput_sha256 VARCHAR(64) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (concept_id, input_sha256, prompt_version), \n\tFOREIGN KEY(concept_id) REFERENCES concepts (id), \n\tFOREIGN KEY(concept_version_id) REFERENCES concept_versions (id)\n)",
+      "columns": [
+        "id",
+        "concept_id",
+        "concept_version_id",
+        "input_sha256",
+        "prompt_version",
+        "model_name",
+        "result_status",
+        "fallback_used",
+        "fallback_detail",
+        "output_sha256",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_embeddings",
+      "sql": "CREATE TABLE concept_embeddings (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_version_id VARCHAR(36) NOT NULL, \n\tmodel_name VARCHAR(200) NOT NULL, \n\tdimensions INTEGER NOT NULL, \n\tvector_json TEXT NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (concept_version_id, model_name), \n\tFOREIGN KEY(concept_version_id) REFERENCES concept_versions (id)\n)",
+      "columns": [
+        "id",
+        "concept_version_id",
+        "model_name",
+        "dimensions",
+        "vector_json",
+        "content_sha256",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_merge_records",
+      "sql": "CREATE TABLE concept_merge_records (\n\tid VARCHAR(36) NOT NULL, \n\tsource_concept_id VARCHAR(36) NOT NULL, \n\ttarget_concept_id VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\ttarget_version_id VARCHAR(36) NOT NULL, \n\tmerged_target_version_id VARCHAR(36) NOT NULL, \n\tactor VARCHAR(100) NOT NULL, \n\trationale TEXT NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(source_concept_id) REFERENCES concepts (id), \n\tFOREIGN KEY(target_concept_id) REFERENCES concepts (id), \n\tFOREIGN KEY(source_version_id) REFERENCES concept_versions (id), \n\tFOREIGN KEY(target_version_id) REFERENCES concept_versions (id), \n\tFOREIGN KEY(merged_target_version_id) REFERENCES concept_versions (id)\n)",
+      "columns": [
+        "id",
+        "source_concept_id",
+        "target_concept_id",
+        "source_version_id",
+        "target_version_id",
+        "merged_target_version_id",
+        "actor",
+        "rationale",
+        "status",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_module_versions",
+      "sql": "CREATE TABLE concept_module_versions (\n\tid VARCHAR(36) NOT NULL, \n\tmodule_id VARCHAR(36) NOT NULL, \n\tversion_no INTEGER NOT NULL, \n\trender_type VARCHAR(40) NOT NULL, \n\ttitle TEXT NOT NULL, \n\tpayload_json TEXT NOT NULL, \n\tplain_text TEXT NOT NULL, \n\torigin VARCHAR(40) NOT NULL, \n\tlock_state VARCHAR(30) NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tcreated_by VARCHAR(100) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (module_id, version_no), \n\tFOREIGN KEY(module_id) REFERENCES concept_modules (id)\n)",
+      "columns": [
+        "id",
+        "module_id",
+        "version_no",
+        "render_type",
+        "title",
+        "payload_json",
+        "plain_text",
+        "origin",
+        "lock_state",
+        "content_sha256",
+        "created_by",
+        "created_at"
+      ]
+    },
+    {
+      "name": "knowledge_module_states",
+      "sql": "CREATE TABLE knowledge_module_states (\n\tmodule_id VARCHAR(36) NOT NULL, \n\trevision INTEGER NOT NULL, \n\tdirty BOOLEAN NOT NULL, \n\tmanifest_sha256 VARCHAR(64) NOT NULL, \n\tevent_id VARCHAR(36) NOT NULL, \n\terror_detail TEXT NOT NULL, \n\tPRIMARY KEY (module_id), \n\tFOREIGN KEY(module_id) REFERENCES concept_modules (id)\n)",
+      "columns": [
+        "module_id",
+        "revision",
+        "dirty",
+        "manifest_sha256",
+        "event_id",
+        "error_detail"
+      ]
+    },
+    {
+      "name": "parse_runs",
+      "sql": "CREATE TABLE parse_runs (\n\tid VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\tprovider VARCHAR(50) NOT NULL, \n\tprovider_task_id VARCHAR(200), \n\tparser_version VARCHAR(100), \n\trequest_hash VARCHAR(64) NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\traw_artifact_blob_id VARCHAR(36), \n\terror_code VARCHAR(100), \n\terror_detail TEXT, \n\tstarted_at DATETIME NOT NULL, \n\tcompleted_at DATETIME, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(source_version_id) REFERENCES source_versions (id), \n\tFOREIGN KEY(raw_artifact_blob_id) REFERENCES blob_objects (id)\n)",
+      "columns": [
+        "id",
+        "source_version_id",
+        "provider",
+        "provider_task_id",
+        "parser_version",
+        "request_hash",
+        "status",
+        "raw_artifact_blob_id",
+        "error_code",
+        "error_detail",
+        "started_at",
+        "completed_at"
+      ]
+    },
+    {
+      "name": "synthesis_nodes",
+      "sql": "CREATE TABLE synthesis_nodes (\n\tid VARCHAR(36) NOT NULL, \n\tsynthesis_version_id VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(220) NOT NULL, \n\tparent_id VARCHAR(36), \n\ttitle TEXT NOT NULL, \n\toriginal_title TEXT NOT NULL, \n\tlevel INTEGER NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tnode_kind VARCHAR(30) NOT NULL, \n\tconcept_id VARCHAR(36), \n\tconcept_version_id VARCHAR(36), \n\tsource_locator_json TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (synthesis_version_id, stable_key), \n\tFOREIGN KEY(synthesis_version_id) REFERENCES synthesis_versions (id), \n\tFOREIGN KEY(parent_id) REFERENCES synthesis_nodes (id), \n\tFOREIGN KEY(concept_id) REFERENCES concepts (id), \n\tFOREIGN KEY(concept_version_id) REFERENCES concept_versions (id)\n)",
+      "columns": [
+        "id",
+        "synthesis_version_id",
+        "stable_key",
+        "parent_id",
+        "title",
+        "original_title",
+        "level",
+        "sort_order",
+        "node_kind",
+        "concept_id",
+        "concept_version_id",
+        "source_locator_json",
+        "created_at"
+      ]
+    },
+    {
+      "name": "synthesis_reference_sources",
+      "sql": "CREATE TABLE synthesis_reference_sources (\n\tid VARCHAR(36) NOT NULL, \n\tsynthesis_version_id VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\tsource_role VARCHAR(40) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (synthesis_version_id, source_version_id), \n\tFOREIGN KEY(synthesis_version_id) REFERENCES synthesis_versions (id), \n\tFOREIGN KEY(source_version_id) REFERENCES source_versions (id)\n)",
+      "columns": [
+        "id",
+        "synthesis_version_id",
+        "source_version_id",
+        "source_role",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_release_modules",
+      "sql": "CREATE TABLE concept_release_modules (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_version_id VARCHAR(36) NOT NULL, \n\tmodule_id VARCHAR(36) NOT NULL, \n\tmodule_version_id VARCHAR(36) NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (concept_version_id, module_id), \n\tUNIQUE (concept_version_id, sort_order), \n\tFOREIGN KEY(concept_version_id) REFERENCES concept_versions (id), \n\tFOREIGN KEY(module_id) REFERENCES concept_modules (id), \n\tFOREIGN KEY(module_version_id) REFERENCES concept_module_versions (id)\n)",
+      "columns": [
+        "id",
+        "concept_version_id",
+        "module_id",
+        "module_version_id",
+        "sort_order"
+      ]
+    },
+    {
+      "name": "jobs",
+      "sql": "CREATE TABLE jobs (\n\tid VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36), \n\tstatus VARCHAR(40) NOT NULL, \n\tstage VARCHAR(40) NOT NULL, \n\tprogress FLOAT NOT NULL, \n\tstate_json TEXT NOT NULL, \n\twarning_json TEXT NOT NULL, \n\tattempt_count INTEGER NOT NULL, \n\tnext_attempt_at DATETIME, \n\tlease_owner VARCHAR(120), \n\tlease_expires_at DATETIME, \n\theartbeat_at DATETIME, \n\terror_code VARCHAR(100), \n\terror_detail TEXT, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(source_version_id) REFERENCES source_versions (id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id)\n)",
+      "columns": [
+        "id",
+        "source_version_id",
+        "parse_run_id",
+        "status",
+        "stage",
+        "progress",
+        "state_json",
+        "warning_json",
+        "attempt_count",
+        "next_attempt_at",
+        "lease_owner",
+        "lease_expires_at",
+        "heartbeat_at",
+        "error_code",
+        "error_detail",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "knowledge_maps",
+      "sql": "CREATE TABLE knowledge_maps (\n\tid VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tversion_no INTEGER NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tsummary TEXT NOT NULL, \n\tmap_json TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(source_version_id) REFERENCES source_versions (id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id)\n)",
+      "columns": [
+        "id",
+        "source_version_id",
+        "parse_run_id",
+        "version_no",
+        "status",
+        "summary",
+        "map_json",
+        "created_at"
+      ]
+    },
+    {
+      "name": "note_versions",
+      "sql": "CREATE TABLE note_versions (\n\tid VARCHAR(36) NOT NULL, \n\tnote_id VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tversion_no INTEGER NOT NULL, \n\tparent_version_id VARCHAR(36), \n\ttitle TEXT NOT NULL, \n\tthesis TEXT NOT NULL, \n\ttags_json TEXT NOT NULL, \n\tquality_status VARCHAR(30) NOT NULL, \n\treview_status VARCHAR(30) NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tcreated_by VARCHAR(100) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (note_id, version_no), \n\tFOREIGN KEY(note_id) REFERENCES atomic_notes (id), \n\tFOREIGN KEY(source_version_id) REFERENCES source_versions (id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id), \n\tFOREIGN KEY(parent_version_id) REFERENCES note_versions (id)\n)",
+      "columns": [
+        "id",
+        "note_id",
+        "source_version_id",
+        "parse_run_id",
+        "version_no",
+        "parent_version_id",
+        "title",
+        "thesis",
+        "tags_json",
+        "quality_status",
+        "review_status",
+        "content_sha256",
+        "created_by",
+        "created_at"
+      ]
+    },
+    {
+      "name": "outline_nodes",
+      "sql": "CREATE TABLE outline_nodes (\n\tid VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tparent_id VARCHAR(36), \n\ttitle TEXT NOT NULL, \n\tlevel INTEGER NOT NULL, \n\tstart_page_index INTEGER NOT NULL, \n\tend_page_index INTEGER NOT NULL, \n\tsource VARCHAR(30) NOT NULL, \n\tconfidence FLOAT, \n\torder_index INTEGER NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id), \n\tFOREIGN KEY(parent_id) REFERENCES outline_nodes (id)\n)",
+      "columns": [
+        "id",
+        "parse_run_id",
+        "parent_id",
+        "title",
+        "level",
+        "start_page_index",
+        "end_page_index",
+        "source",
+        "confidence",
+        "order_index"
+      ]
+    },
+    {
+      "name": "source_note_versions",
+      "sql": "CREATE TABLE source_note_versions (\n\tid VARCHAR(36) NOT NULL, \n\tsource_note_id VARCHAR(36) NOT NULL, \n\tsource_version_id VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tversion_no INTEGER NOT NULL, \n\tparent_version_id VARCHAR(36), \n\ttitle TEXT NOT NULL, \n\tsummary TEXT NOT NULL, \n\tlearning_goal TEXT NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tcreated_by VARCHAR(100) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (source_note_id, version_no), \n\tFOREIGN KEY(source_note_id) REFERENCES source_notes (id), \n\tFOREIGN KEY(source_version_id) REFERENCES source_versions (id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id), \n\tFOREIGN KEY(parent_version_id) REFERENCES source_note_versions (id)\n)",
+      "columns": [
+        "id",
+        "source_note_id",
+        "source_version_id",
+        "parse_run_id",
+        "version_no",
+        "parent_version_id",
+        "title",
+        "summary",
+        "learning_goal",
+        "content_sha256",
+        "created_by",
+        "created_at"
+      ]
+    },
+    {
+      "name": "source_pages",
+      "sql": "CREATE TABLE source_pages (\n\tid VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tpage_index INTEGER NOT NULL, \n\tpage_label VARCHAR(50) NOT NULL, \n\twidth FLOAT, \n\theight FLOAT, \n\tmapping_status VARCHAR(30) NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (parse_run_id, page_index), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id)\n)",
+      "columns": [
+        "id",
+        "parse_run_id",
+        "page_index",
+        "page_label",
+        "width",
+        "height",
+        "mapping_status"
+      ]
+    },
+    {
+      "name": "concept_contributions",
+      "sql": "CREATE TABLE concept_contributions (\n\tid VARCHAR(36) NOT NULL, \n\tmodule_id VARCHAR(36) NOT NULL, \n\tatomic_note_version_id VARCHAR(36), \n\tsource_role VARCHAR(40) NOT NULL, \n\tsource_ref TEXT NOT NULL, \n\tcontribution_role VARCHAR(40) NOT NULL, \n\tdecision_status VARCHAR(30) NOT NULL, \n\trationale TEXT NOT NULL, \n\tassigned_by VARCHAR(100) NOT NULL, \n\tsuperseded_by_id VARCHAR(36), \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tdecided_at DATETIME, \n\tPRIMARY KEY (id), \n\tUNIQUE (module_id, atomic_note_version_id, contribution_role), \n\tFOREIGN KEY(module_id) REFERENCES concept_modules (id), \n\tFOREIGN KEY(atomic_note_version_id) REFERENCES note_versions (id), \n\tFOREIGN KEY(superseded_by_id) REFERENCES concept_contributions (id)\n)",
+      "columns": [
+        "id",
+        "module_id",
+        "atomic_note_version_id",
+        "source_role",
+        "source_ref",
+        "contribution_role",
+        "decision_status",
+        "rationale",
+        "assigned_by",
+        "superseded_by_id",
+        "created_at",
+        "updated_at",
+        "decided_at"
+      ]
+    },
+    {
+      "name": "document_blocks",
+      "sql": "CREATE TABLE document_blocks (\n\tid VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tpage_id VARCHAR(36) NOT NULL, \n\texternal_block_id VARCHAR(200) NOT NULL, \n\tblock_type VARCHAR(40) NOT NULL, \n\treading_order INTEGER NOT NULL, \n\ttext_content TEXT NOT NULL, \n\tbbox_json TEXT, \n\tmetadata_json TEXT NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (parse_run_id, external_block_id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id), \n\tFOREIGN KEY(page_id) REFERENCES source_pages (id)\n)",
+      "columns": [
+        "id",
+        "parse_run_id",
+        "page_id",
+        "external_block_id",
+        "block_type",
+        "reading_order",
+        "text_content",
+        "bbox_json",
+        "metadata_json"
+      ]
+    },
+    {
+      "name": "llm_call_events",
+      "sql": "CREATE TABLE llm_call_events (\n\tid VARCHAR(36) NOT NULL, \n\ttrace_id VARCHAR(36) NOT NULL, \n\tjob_id VARCHAR(36), \n\tstage VARCHAR(60), \n\tnote_key VARCHAR(200), \n\toperation VARCHAR(100) NOT NULL, \n\tprovider VARCHAR(50) NOT NULL, \n\tmodel VARCHAR(200) NOT NULL, \n\tprompt_version VARCHAR(100), \n\tstatus VARCHAR(30) NOT NULL, \n\tinput_sha256 VARCHAR(64) NOT NULL, \n\toutput_sha256 VARCHAR(64), \n\tinput_chars INTEGER NOT NULL, \n\toutput_chars INTEGER, \n\tprompt_tokens INTEGER, \n\tcompletion_tokens INTEGER, \n\ttotal_tokens INTEGER, \n\tresponse_id VARCHAR(200), \n\tattempt INTEGER NOT NULL, \n\terror_code VARCHAR(100), \n\terror_detail TEXT, \n\tstarted_at DATETIME NOT NULL, \n\tcompleted_at DATETIME, \n\tduration_ms INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(job_id) REFERENCES jobs (id)\n)",
+      "columns": [
+        "id",
+        "trace_id",
+        "job_id",
+        "stage",
+        "note_key",
+        "operation",
+        "provider",
+        "model",
+        "prompt_version",
+        "status",
+        "input_sha256",
+        "output_sha256",
+        "input_chars",
+        "output_chars",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "response_id",
+        "attempt",
+        "error_code",
+        "error_detail",
+        "started_at",
+        "completed_at",
+        "duration_ms"
+      ]
+    },
+    {
+      "name": "note_blocks",
+      "sql": "CREATE TABLE note_blocks (\n\tid VARCHAR(36) NOT NULL, \n\tnote_version_id VARCHAR(36) NOT NULL, \n\tblock_key VARCHAR(200) NOT NULL, \n\tprevious_block_id VARCHAR(36), \n\tparent_block_id VARCHAR(36), \n\tblock_type VARCHAR(40) NOT NULL, \n\torder_index INTEGER NOT NULL, \n\tcontent_text TEXT NOT NULL, \n\tcontent_json TEXT NOT NULL, \n\tcontent_hash VARCHAR(64) NOT NULL, \n\torigin VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (note_version_id, block_key), \n\tFOREIGN KEY(note_version_id) REFERENCES note_versions (id), \n\tFOREIGN KEY(previous_block_id) REFERENCES note_blocks (id), \n\tFOREIGN KEY(parent_block_id) REFERENCES note_blocks (id)\n)",
+      "columns": [
+        "id",
+        "note_version_id",
+        "block_key",
+        "previous_block_id",
+        "parent_block_id",
+        "block_type",
+        "order_index",
+        "content_text",
+        "content_json",
+        "content_hash",
+        "origin",
+        "created_at"
+      ]
+    },
+    {
+      "name": "note_candidates",
+      "sql": "CREATE TABLE note_candidates (\n\tid VARCHAR(36) NOT NULL, \n\tknowledge_map_id VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(200) NOT NULL, \n\tpayload_json TEXT NOT NULL, \n\tvalidation_status VARCHAR(30) NOT NULL, \n\tfailure_json TEXT NOT NULL, \n\trepair_attempts INTEGER NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (knowledge_map_id, stable_key), \n\tFOREIGN KEY(knowledge_map_id) REFERENCES knowledge_maps (id)\n)",
+      "columns": [
+        "id",
+        "knowledge_map_id",
+        "stable_key",
+        "payload_json",
+        "validation_status",
+        "failure_json",
+        "repair_attempts"
+      ]
+    },
+    {
+      "name": "note_embeddings",
+      "sql": "CREATE TABLE note_embeddings (\n\tid VARCHAR(36) NOT NULL, \n\tnote_version_id VARCHAR(36) NOT NULL, \n\tmodel_name VARCHAR(200) NOT NULL, \n\tdimension INTEGER NOT NULL, \n\tvector_json TEXT NOT NULL, \n\tcontent_hash VARCHAR(64) NOT NULL, \n\tready BOOLEAN NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (note_version_id, model_name), \n\tFOREIGN KEY(note_version_id) REFERENCES note_versions (id)\n)",
+      "columns": [
+        "id",
+        "note_version_id",
+        "model_name",
+        "dimension",
+        "vector_json",
+        "content_hash",
+        "ready",
+        "created_at"
+      ]
+    },
+    {
+      "name": "quality_evaluations",
+      "sql": "CREATE TABLE quality_evaluations (\n\tid VARCHAR(36) NOT NULL, \n\tknowledge_map_id VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(200) NOT NULL, \n\tcontent_sha256 VARCHAR(64) NOT NULL, \n\tevaluator_model VARCHAR(200) NOT NULL, \n\tprompt_version VARCHAR(100) NOT NULL, \n\tpassed BOOLEAN NOT NULL, \n\tissues_json TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (knowledge_map_id, stable_key, content_sha256, evaluator_model, prompt_version), \n\tFOREIGN KEY(knowledge_map_id) REFERENCES knowledge_maps (id)\n)",
+      "columns": [
+        "id",
+        "knowledge_map_id",
+        "stable_key",
+        "content_sha256",
+        "evaluator_model",
+        "prompt_version",
+        "passed",
+        "issues_json",
+        "created_at"
+      ]
+    },
+    {
+      "name": "source_note_outline_nodes",
+      "sql": "CREATE TABLE source_note_outline_nodes (\n\tid VARCHAR(36) NOT NULL, \n\tsource_note_version_id VARCHAR(36) NOT NULL, \n\tstable_key VARCHAR(200) NOT NULL, \n\tparent_id VARCHAR(36), \n\ttitle TEXT NOT NULL, \n\tlevel INTEGER NOT NULL, \n\torder_index INTEGER NOT NULL, \n\tlearning_goal TEXT NOT NULL, \n\tsource_sections_json TEXT NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (source_note_version_id, stable_key), \n\tFOREIGN KEY(source_note_version_id) REFERENCES source_note_versions (id), \n\tFOREIGN KEY(parent_id) REFERENCES source_note_outline_nodes (id)\n)",
+      "columns": [
+        "id",
+        "source_note_version_id",
+        "stable_key",
+        "parent_id",
+        "title",
+        "level",
+        "order_index",
+        "learning_goal",
+        "source_sections_json"
+      ]
+    },
+    {
+      "name": "stage_events",
+      "sql": "CREATE TABLE stage_events (\n\tid VARCHAR(36) NOT NULL, \n\ttrace_id VARCHAR(36) NOT NULL, \n\tjob_id VARCHAR(36) NOT NULL, \n\tstage VARCHAR(60) NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tprogress FLOAT, \n\tdetail_json TEXT NOT NULL, \n\tstarted_at DATETIME NOT NULL, \n\tcompleted_at DATETIME, \n\tduration_ms INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(job_id) REFERENCES jobs (id)\n)",
+      "columns": [
+        "id",
+        "trace_id",
+        "job_id",
+        "stage",
+        "status",
+        "progress",
+        "detail_json",
+        "started_at",
+        "completed_at",
+        "duration_ms"
+      ]
+    },
+    {
+      "name": "claims",
+      "sql": "CREATE TABLE claims (\n\tid VARCHAR(36) NOT NULL, \n\tnote_version_id VARCHAR(36) NOT NULL, \n\tnote_block_id VARCHAR(36) NOT NULL, \n\torder_index INTEGER NOT NULL, \n\tclaim_text TEXT NOT NULL, \n\tclaim_type VARCHAR(30) NOT NULL, \n\tsupport_status VARCHAR(30) NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(note_version_id) REFERENCES note_versions (id), \n\tFOREIGN KEY(note_block_id) REFERENCES note_blocks (id)\n)",
+      "columns": [
+        "id",
+        "note_version_id",
+        "note_block_id",
+        "order_index",
+        "claim_text",
+        "claim_type",
+        "support_status"
+      ]
+    },
+    {
+      "name": "concept_evidence_links",
+      "sql": "CREATE TABLE concept_evidence_links (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_block_id VARCHAR(36) NOT NULL, \n\tsource_role VARCHAR(30) NOT NULL, \n\tsource_ref TEXT NOT NULL, \n\tsource_locator_json TEXT NOT NULL, \n\tdocument_block_id VARCHAR(36), \n\tnote_block_id VARCHAR(36), \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (concept_block_id, source_ref, source_role), \n\tFOREIGN KEY(concept_block_id) REFERENCES concept_blocks (id), \n\tFOREIGN KEY(document_block_id) REFERENCES document_blocks (id), \n\tFOREIGN KEY(note_block_id) REFERENCES note_blocks (id)\n)",
+      "columns": [
+        "id",
+        "concept_block_id",
+        "source_role",
+        "source_ref",
+        "source_locator_json",
+        "document_block_id",
+        "note_block_id",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_update_jobs",
+      "sql": "CREATE TABLE concept_update_jobs (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_id VARCHAR(36) NOT NULL, \n\tmodule_id VARCHAR(36) NOT NULL, \n\tatomic_note_version_id VARCHAR(36) NOT NULL, \n\tcontribution_id VARCHAR(36) NOT NULL, \n\toperation VARCHAR(30) NOT NULL, \n\tsupersedes_contribution_id VARCHAR(36), \n\texpected_concept_version_id VARCHAR(36) NOT NULL, \n\tcandidate_concept_version_id VARCHAR(36), \n\tstatus VARCHAR(30) NOT NULL, \n\tactor VARCHAR(100) NOT NULL, \n\trationale TEXT NOT NULL, \n\tinput_sha256 VARCHAR(64) NOT NULL, \n\tfallback_used BOOLEAN NOT NULL, \n\tfallback_detail TEXT NOT NULL, \n\terror_code VARCHAR(100) NOT NULL, \n\terror_detail TEXT NOT NULL, \n\tresult_json TEXT NOT NULL, \n\tattempt_count INTEGER NOT NULL, \n\tnext_attempt_at DATETIME, \n\tlease_owner VARCHAR(120), \n\tlease_expires_at DATETIME, \n\theartbeat_at DATETIME, \n\tcreated_at DATETIME NOT NULL, \n\tupdated_at DATETIME NOT NULL, \n\tcompleted_at DATETIME, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(concept_id) REFERENCES concepts (id), \n\tFOREIGN KEY(module_id) REFERENCES concept_modules (id), \n\tFOREIGN KEY(atomic_note_version_id) REFERENCES note_versions (id), \n\tFOREIGN KEY(contribution_id) REFERENCES concept_contributions (id), \n\tFOREIGN KEY(supersedes_contribution_id) REFERENCES concept_contributions (id), \n\tFOREIGN KEY(expected_concept_version_id) REFERENCES concept_versions (id), \n\tFOREIGN KEY(candidate_concept_version_id) REFERENCES concept_versions (id)\n)",
+      "columns": [
+        "id",
+        "concept_id",
+        "module_id",
+        "atomic_note_version_id",
+        "contribution_id",
+        "operation",
+        "supersedes_contribution_id",
+        "expected_concept_version_id",
+        "candidate_concept_version_id",
+        "status",
+        "actor",
+        "rationale",
+        "input_sha256",
+        "fallback_used",
+        "fallback_detail",
+        "error_code",
+        "error_detail",
+        "result_json",
+        "attempt_count",
+        "next_attempt_at",
+        "lease_owner",
+        "lease_expires_at",
+        "heartbeat_at",
+        "created_at",
+        "updated_at",
+        "completed_at"
+      ]
+    },
+    {
+      "name": "evidence_spans",
+      "sql": "CREATE TABLE evidence_spans (\n\tid VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tpage_id VARCHAR(36) NOT NULL, \n\tdocument_block_id VARCHAR(36), \n\tquoted_text TEXT NOT NULL, \n\tnormalized_text_hash VARCHAR(64) NOT NULL, \n\tevidence_level VARCHAR(40) NOT NULL, \n\tconfidence FLOAT, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id), \n\tFOREIGN KEY(page_id) REFERENCES source_pages (id), \n\tFOREIGN KEY(document_block_id) REFERENCES document_blocks (id)\n)",
+      "columns": [
+        "id",
+        "parse_run_id",
+        "page_id",
+        "document_block_id",
+        "quoted_text",
+        "normalized_text_hash",
+        "evidence_level",
+        "confidence"
+      ]
+    },
+    {
+      "name": "knowledge_contribution_selections",
+      "sql": "CREATE TABLE knowledge_contribution_selections (\n\tcontribution_id VARCHAR(36) NOT NULL, \n\tblock_ids_json TEXT NOT NULL, \n\tevent_id VARCHAR(36) NOT NULL, \n\tPRIMARY KEY (contribution_id), \n\tFOREIGN KEY(contribution_id) REFERENCES concept_contributions (id)\n)",
+      "columns": [
+        "contribution_id",
+        "block_ids_json",
+        "event_id"
+      ]
+    },
+    {
+      "name": "source_note_unit_placements",
+      "sql": "CREATE TABLE source_note_unit_placements (\n\tid VARCHAR(36) NOT NULL, \n\tsource_note_version_id VARCHAR(36) NOT NULL, \n\toutline_node_id VARCHAR(36) NOT NULL, \n\tnote_id VARCHAR(36) NOT NULL, \n\tnote_version_id VARCHAR(36) NOT NULL, \n\torder_index INTEGER NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (source_note_version_id, note_version_id), \n\tUNIQUE (outline_node_id, order_index), \n\tFOREIGN KEY(source_note_version_id) REFERENCES source_note_versions (id), \n\tFOREIGN KEY(outline_node_id) REFERENCES source_note_outline_nodes (id), \n\tFOREIGN KEY(note_id) REFERENCES atomic_notes (id), \n\tFOREIGN KEY(note_version_id) REFERENCES note_versions (id)\n)",
+      "columns": [
+        "id",
+        "source_note_version_id",
+        "outline_node_id",
+        "note_id",
+        "note_version_id",
+        "order_index"
+      ]
+    },
+    {
+      "name": "visual_assets",
+      "sql": "CREATE TABLE visual_assets (\n\tid VARCHAR(36) NOT NULL, \n\tparse_run_id VARCHAR(36) NOT NULL, \n\tpage_id VARCHAR(36) NOT NULL, \n\tdocument_block_id VARCHAR(36) NOT NULL, \n\tblob_id VARCHAR(36) NOT NULL, \n\tasset_type VARCHAR(40) NOT NULL, \n\tcaption TEXT NOT NULL, \n\tbbox_json TEXT, \n\textraction_method VARCHAR(30) NOT NULL, \n\tquality_status VARCHAR(30) NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(parse_run_id) REFERENCES parse_runs (id), \n\tFOREIGN KEY(page_id) REFERENCES source_pages (id), \n\tUNIQUE (document_block_id), \n\tFOREIGN KEY(document_block_id) REFERENCES document_blocks (id), \n\tFOREIGN KEY(blob_id) REFERENCES blob_objects (id)\n)",
+      "columns": [
+        "id",
+        "parse_run_id",
+        "page_id",
+        "document_block_id",
+        "blob_id",
+        "asset_type",
+        "caption",
+        "bbox_json",
+        "extraction_method",
+        "quality_status"
+      ]
+    },
+    {
+      "name": "claim_evidence",
+      "sql": "CREATE TABLE claim_evidence (\n\tid VARCHAR(36) NOT NULL, \n\tclaim_id VARCHAR(36) NOT NULL, \n\tspan_id VARCHAR(36) NOT NULL, \n\trole VARCHAR(30) NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (claim_id, span_id), \n\tFOREIGN KEY(claim_id) REFERENCES claims (id), \n\tFOREIGN KEY(span_id) REFERENCES evidence_spans (id)\n)",
+      "columns": [
+        "id",
+        "claim_id",
+        "span_id",
+        "role"
+      ]
+    },
+    {
+      "name": "concept_content_evidence",
+      "sql": "CREATE TABLE concept_content_evidence (\n\tid VARCHAR(36) NOT NULL, \n\tmodule_version_id VARCHAR(36) NOT NULL, \n\tcontent_block_key VARCHAR(220) NOT NULL, \n\tcontribution_id VARCHAR(36) NOT NULL, \n\tnote_block_id VARCHAR(36) NOT NULL, \n\tevidence_span_id VARCHAR(36) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (module_version_id, content_block_key, evidence_span_id), \n\tFOREIGN KEY(module_version_id) REFERENCES concept_module_versions (id), \n\tFOREIGN KEY(contribution_id) REFERENCES concept_contributions (id), \n\tFOREIGN KEY(note_block_id) REFERENCES note_blocks (id), \n\tFOREIGN KEY(evidence_span_id) REFERENCES evidence_spans (id)\n)",
+      "columns": [
+        "id",
+        "module_version_id",
+        "content_block_key",
+        "contribution_id",
+        "note_block_id",
+        "evidence_span_id",
+        "created_at"
+      ]
+    },
+    {
+      "name": "concept_module_assets",
+      "sql": "CREATE TABLE concept_module_assets (\n\tid VARCHAR(36) NOT NULL, \n\tmodule_version_id VARCHAR(36) NOT NULL, \n\tvisual_asset_id VARCHAR(36) NOT NULL, \n\tcontent_block_key VARCHAR(220) NOT NULL, \n\torder_index INTEGER NOT NULL, \n\tplacement VARCHAR(20) NOT NULL, \n\tcaption TEXT NOT NULL, \n\talt_text TEXT NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (module_version_id, visual_asset_id), \n\tFOREIGN KEY(module_version_id) REFERENCES concept_module_versions (id), \n\tFOREIGN KEY(visual_asset_id) REFERENCES visual_assets (id)\n)",
+      "columns": [
+        "id",
+        "module_version_id",
+        "visual_asset_id",
+        "content_block_key",
+        "order_index",
+        "placement",
+        "caption",
+        "alt_text"
+      ]
+    },
+    {
+      "name": "concept_module_judge_records",
+      "sql": "CREATE TABLE concept_module_judge_records (\n\tid VARCHAR(36) NOT NULL, \n\tconcept_update_job_id VARCHAR(36) NOT NULL, \n\tcandidate_concept_version_id VARCHAR(36), \n\tmodule_version_id VARCHAR(36), \n\tattempt_no INTEGER NOT NULL, \n\tjudge_model VARCHAR(200) NOT NULL, \n\tprompt_version VARCHAR(100) NOT NULL, \n\tinput_sha256 VARCHAR(64) NOT NULL, \n\toutput_sha256 VARCHAR(64) NOT NULL, \n\tdecision VARCHAR(30) NOT NULL, \n\tsummary TEXT NOT NULL, \n\tissues_json TEXT NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(concept_update_job_id) REFERENCES concept_update_jobs (id), \n\tFOREIGN KEY(candidate_concept_version_id) REFERENCES concept_versions (id), \n\tFOREIGN KEY(module_version_id) REFERENCES concept_module_versions (id)\n)",
+      "columns": [
+        "id",
+        "concept_update_job_id",
+        "candidate_concept_version_id",
+        "module_version_id",
+        "attempt_no",
+        "judge_model",
+        "prompt_version",
+        "input_sha256",
+        "output_sha256",
+        "decision",
+        "summary",
+        "issues_json",
+        "created_at"
+      ]
+    },
+    {
+      "name": "note_assets",
+      "sql": "CREATE TABLE note_assets (\n\tid VARCHAR(36) NOT NULL, \n\tnote_version_id VARCHAR(36) NOT NULL, \n\tvisual_asset_id VARCHAR(36) NOT NULL, \n\tnote_block_id VARCHAR(36), \n\torder_index INTEGER NOT NULL, \n\tplacement VARCHAR(20) NOT NULL, \n\tpurpose TEXT NOT NULL, \n\talt_text TEXT NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (note_version_id, visual_asset_id), \n\tFOREIGN KEY(note_version_id) REFERENCES note_versions (id), \n\tFOREIGN KEY(visual_asset_id) REFERENCES visual_assets (id), \n\tFOREIGN KEY(note_block_id) REFERENCES note_blocks (id)\n)",
+      "columns": [
+        "id",
+        "note_version_id",
+        "visual_asset_id",
+        "note_block_id",
+        "order_index",
+        "placement",
+        "purpose",
+        "alt_text"
+      ]
+    },
+    {
+      "name": "vision_call_events",
+      "sql": "CREATE TABLE vision_call_events (\n\tid VARCHAR(36) NOT NULL, \n\ttrace_id VARCHAR(36) NOT NULL, \n\tjob_id VARCHAR(36), \n\tstage VARCHAR(60), \n\tnote_key VARCHAR(200), \n\tvisual_asset_id VARCHAR(36), \n\toperation VARCHAR(100) NOT NULL, \n\tprovider VARCHAR(50) NOT NULL, \n\tmodel VARCHAR(200) NOT NULL, \n\tprompt_version VARCHAR(100), \n\tstatus VARCHAR(30) NOT NULL, \n\timage_sha256 VARCHAR(64) NOT NULL, \n\tinput_sha256 VARCHAR(64) NOT NULL, \n\toutput_sha256 VARCHAR(64), \n\tprompt_tokens INTEGER, \n\tcompletion_tokens INTEGER, \n\ttotal_tokens INTEGER, \n\tresponse_id VARCHAR(200), \n\terror_code VARCHAR(100), \n\terror_detail TEXT, \n\tstarted_at DATETIME NOT NULL, \n\tcompleted_at DATETIME, \n\tduration_ms INTEGER, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(job_id) REFERENCES jobs (id), \n\tFOREIGN KEY(visual_asset_id) REFERENCES visual_assets (id)\n)",
+      "columns": [
+        "id",
+        "trace_id",
+        "job_id",
+        "stage",
+        "note_key",
+        "visual_asset_id",
+        "operation",
+        "provider",
+        "model",
+        "prompt_version",
+        "status",
+        "image_sha256",
+        "input_sha256",
+        "output_sha256",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "response_id",
+        "error_code",
+        "error_detail",
+        "started_at",
+        "completed_at",
+        "duration_ms"
+      ]
+    },
+    {
+      "name": "visual_understandings",
+      "sql": "CREATE TABLE visual_understandings (\n\tid VARCHAR(36) NOT NULL, \n\tvisual_asset_id VARCHAR(36) NOT NULL, \n\timage_sha256 VARCHAR(64) NOT NULL, \n\tmodel VARCHAR(200) NOT NULL, \n\tprompt_version VARCHAR(100) NOT NULL, \n\tresult_json TEXT NOT NULL, \n\tresult_sha256 VARCHAR(64) NOT NULL, \n\tstatus VARCHAR(30) NOT NULL, \n\tcreated_at DATETIME NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (visual_asset_id, model, prompt_version), \n\tFOREIGN KEY(visual_asset_id) REFERENCES visual_assets (id)\n)",
+      "columns": [
+        "id",
+        "visual_asset_id",
+        "image_sha256",
+        "model",
+        "prompt_version",
+        "result_json",
+        "result_sha256",
+        "status",
+        "created_at"
+      ]
+    }
+  ],
+  "indices": [
+    {
+      "name": "ix_backbone_corpora_content_sha256",
+      "table": "backbone_corpora",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_backbone_corpora_content_sha256 ON backbone_corpora (content_sha256)"
+    },
+    {
+      "name": "ix_backbone_corpora_domain_key",
+      "table": "backbone_corpora",
+      "columns": [
+        "domain_key"
+      ],
+      "sql": "CREATE INDEX ix_backbone_corpora_domain_key ON backbone_corpora (domain_key)"
+    },
+    {
+      "name": "ix_backbone_corpora_stable_key",
+      "table": "backbone_corpora",
+      "columns": [
+        "stable_key"
+      ],
+      "sql": "CREATE UNIQUE INDEX ix_backbone_corpora_stable_key ON backbone_corpora (stable_key)"
+    },
+    {
+      "name": "ix_backbone_corpora_status",
+      "table": "backbone_corpora",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_backbone_corpora_status ON backbone_corpora (status)"
+    },
+    {
+      "name": "ix_blob_objects_content_sha256",
+      "table": "blob_objects",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_blob_objects_content_sha256 ON blob_objects (content_sha256)"
+    },
+    {
+      "name": "ix_concepts_domain_key",
+      "table": "concepts",
+      "columns": [
+        "domain_key"
+      ],
+      "sql": "CREATE INDEX ix_concepts_domain_key ON concepts (domain_key)"
+    },
+    {
+      "name": "ix_concepts_stable_key",
+      "table": "concepts",
+      "columns": [
+        "stable_key"
+      ],
+      "sql": "CREATE UNIQUE INDEX ix_concepts_stable_key ON concepts (stable_key)"
+    },
+    {
+      "name": "ix_concepts_status",
+      "table": "concepts",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_concepts_status ON concepts (status)"
+    },
+    {
+      "name": "ix_concepts_visibility",
+      "table": "concepts",
+      "columns": [
+        "visibility"
+      ],
+      "sql": "CREATE INDEX ix_concepts_visibility ON concepts (visibility)"
+    },
+    {
+      "name": "ix_knowledge_sync_events_event_key",
+      "table": "knowledge_sync_events",
+      "columns": [
+        "event_key"
+      ],
+      "sql": "CREATE UNIQUE INDEX ix_knowledge_sync_events_event_key ON knowledge_sync_events (event_key)"
+    },
+    {
+      "name": "ix_knowledge_sync_events_source_id",
+      "table": "knowledge_sync_events",
+      "columns": [
+        "source_id"
+      ],
+      "sql": "CREATE INDEX ix_knowledge_sync_events_source_id ON knowledge_sync_events (source_id)"
+    },
+    {
+      "name": "ix_knowledge_sync_events_status",
+      "table": "knowledge_sync_events",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_knowledge_sync_events_status ON knowledge_sync_events (status)"
+    },
+    {
+      "name": "ix_library_folders_parent_id",
+      "table": "library_folders",
+      "columns": [
+        "parent_id"
+      ],
+      "sql": "CREATE INDEX ix_library_folders_parent_id ON library_folders (parent_id)"
+    },
+    {
+      "name": "ix_syntheses_domain_key",
+      "table": "syntheses",
+      "columns": [
+        "domain_key"
+      ],
+      "sql": "CREATE INDEX ix_syntheses_domain_key ON syntheses (domain_key)"
+    },
+    {
+      "name": "ix_syntheses_stable_key",
+      "table": "syntheses",
+      "columns": [
+        "stable_key"
+      ],
+      "sql": "CREATE UNIQUE INDEX ix_syntheses_stable_key ON syntheses (stable_key)"
+    },
+    {
+      "name": "ix_syntheses_visibility",
+      "table": "syntheses",
+      "columns": [
+        "visibility"
+      ],
+      "sql": "CREATE INDEX ix_syntheses_visibility ON syntheses (visibility)"
+    },
+    {
+      "name": "ix_agent_attachments_blob_id",
+      "table": "agent_attachments",
+      "columns": [
+        "blob_id"
+      ],
+      "sql": "CREATE INDEX ix_agent_attachments_blob_id ON agent_attachments (blob_id)"
+    },
+    {
+      "name": "ix_agent_attachments_conversation_id",
+      "table": "agent_attachments",
+      "columns": [
+        "conversation_id"
+      ],
+      "sql": "CREATE INDEX ix_agent_attachments_conversation_id ON agent_attachments (conversation_id)"
+    },
+    {
+      "name": "ix_agent_attachments_message_id",
+      "table": "agent_attachments",
+      "columns": [
+        "message_id"
+      ],
+      "sql": "CREATE INDEX ix_agent_attachments_message_id ON agent_attachments (message_id)"
+    },
+    {
+      "name": "ix_agent_attachments_status",
+      "table": "agent_attachments",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_agent_attachments_status ON agent_attachments (status)"
+    },
+    {
+      "name": "ix_backbone_sections_concept_id",
+      "table": "backbone_sections",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_backbone_sections_concept_id ON backbone_sections (concept_id)"
+    },
+    {
+      "name": "ix_backbone_sections_corpus_id",
+      "table": "backbone_sections",
+      "columns": [
+        "corpus_id"
+      ],
+      "sql": "CREATE INDEX ix_backbone_sections_corpus_id ON backbone_sections (corpus_id)"
+    },
+    {
+      "name": "ix_backbone_sections_node_kind",
+      "table": "backbone_sections",
+      "columns": [
+        "node_kind"
+      ],
+      "sql": "CREATE INDEX ix_backbone_sections_node_kind ON backbone_sections (node_kind)"
+    },
+    {
+      "name": "ix_backbone_sections_parent_id",
+      "table": "backbone_sections",
+      "columns": [
+        "parent_id"
+      ],
+      "sql": "CREATE INDEX ix_backbone_sections_parent_id ON backbone_sections (parent_id)"
+    },
+    {
+      "name": "ix_backbone_sections_stable_key",
+      "table": "backbone_sections",
+      "columns": [
+        "stable_key"
+      ],
+      "sql": "CREATE INDEX ix_backbone_sections_stable_key ON backbone_sections (stable_key)"
+    },
+    {
+      "name": "ix_backbone_sections_status",
+      "table": "backbone_sections",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_backbone_sections_status ON backbone_sections (status)"
+    },
+    {
+      "name": "ix_concept_aliases_alias_type",
+      "table": "concept_aliases",
+      "columns": [
+        "alias_type"
+      ],
+      "sql": "CREATE INDEX ix_concept_aliases_alias_type ON concept_aliases (alias_type)"
+    },
+    {
+      "name": "ix_concept_aliases_concept_id",
+      "table": "concept_aliases",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_aliases_concept_id ON concept_aliases (concept_id)"
+    },
+    {
+      "name": "ix_concept_aliases_normalized_alias",
+      "table": "concept_aliases",
+      "columns": [
+        "normalized_alias"
+      ],
+      "sql": "CREATE UNIQUE INDEX ix_concept_aliases_normalized_alias ON concept_aliases (normalized_alias)"
+    },
+    {
+      "name": "ix_concept_modules_concept_id",
+      "table": "concept_modules",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_modules_concept_id ON concept_modules (concept_id)"
+    },
+    {
+      "name": "ix_concept_modules_semantic_role",
+      "table": "concept_modules",
+      "columns": [
+        "semantic_role"
+      ],
+      "sql": "CREATE INDEX ix_concept_modules_semantic_role ON concept_modules (semantic_role)"
+    },
+    {
+      "name": "ix_concept_modules_visibility",
+      "table": "concept_modules",
+      "columns": [
+        "visibility"
+      ],
+      "sql": "CREATE INDEX ix_concept_modules_visibility ON concept_modules (visibility)"
+    },
+    {
+      "name": "ix_concept_relations_relation_type",
+      "table": "concept_relations",
+      "columns": [
+        "relation_type"
+      ],
+      "sql": "CREATE INDEX ix_concept_relations_relation_type ON concept_relations (relation_type)"
+    },
+    {
+      "name": "ix_concept_relations_source_concept_id",
+      "table": "concept_relations",
+      "columns": [
+        "source_concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_relations_source_concept_id ON concept_relations (source_concept_id)"
+    },
+    {
+      "name": "ix_concept_relations_status",
+      "table": "concept_relations",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_concept_relations_status ON concept_relations (status)"
+    },
+    {
+      "name": "ix_concept_relations_target_concept_id",
+      "table": "concept_relations",
+      "columns": [
+        "target_concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_relations_target_concept_id ON concept_relations (target_concept_id)"
+    },
+    {
+      "name": "ix_concept_versions_concept_id",
+      "table": "concept_versions",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_versions_concept_id ON concept_versions (concept_id)"
+    },
+    {
+      "name": "ix_concept_versions_content_sha256",
+      "table": "concept_versions",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_versions_content_sha256 ON concept_versions (content_sha256)"
+    },
+    {
+      "name": "ix_concept_versions_status",
+      "table": "concept_versions",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_concept_versions_status ON concept_versions (status)"
+    },
+    {
+      "name": "ix_knowledge_sync_proposals_event_id",
+      "table": "knowledge_sync_proposals",
+      "columns": [
+        "event_id"
+      ],
+      "sql": "CREATE INDEX ix_knowledge_sync_proposals_event_id ON knowledge_sync_proposals (event_id)"
+    },
+    {
+      "name": "ix_knowledge_sync_proposals_note_version_id",
+      "table": "knowledge_sync_proposals",
+      "columns": [
+        "note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_knowledge_sync_proposals_note_version_id ON knowledge_sync_proposals (note_version_id)"
+    },
+    {
+      "name": "ix_library_entries_folder_id",
+      "table": "library_entries",
+      "columns": [
+        "folder_id"
+      ],
+      "sql": "CREATE INDEX ix_library_entries_folder_id ON library_entries (folder_id)"
+    },
+    {
+      "name": "ix_library_entries_source_id",
+      "table": "library_entries",
+      "columns": [
+        "source_id"
+      ],
+      "sql": "CREATE INDEX ix_library_entries_source_id ON library_entries (source_id)"
+    },
+    {
+      "name": "ix_source_notes_active_version_id",
+      "table": "source_notes",
+      "columns": [
+        "active_version_id"
+      ],
+      "sql": "CREATE INDEX ix_source_notes_active_version_id ON source_notes (active_version_id)"
+    },
+    {
+      "name": "ix_source_notes_source_id",
+      "table": "source_notes",
+      "columns": [
+        "source_id"
+      ],
+      "sql": "CREATE UNIQUE INDEX ix_source_notes_source_id ON source_notes (source_id)"
+    },
+    {
+      "name": "ix_source_notes_visibility",
+      "table": "source_notes",
+      "columns": [
+        "visibility"
+      ],
+      "sql": "CREATE INDEX ix_source_notes_visibility ON source_notes (visibility)"
+    },
+    {
+      "name": "ix_source_versions_content_sha256",
+      "table": "source_versions",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_source_versions_content_sha256 ON source_versions (content_sha256)"
+    },
+    {
+      "name": "ix_source_versions_source_id",
+      "table": "source_versions",
+      "columns": [
+        "source_id"
+      ],
+      "sql": "CREATE INDEX ix_source_versions_source_id ON source_versions (source_id)"
+    },
+    {
+      "name": "ix_synthesis_versions_backbone_corpus_id",
+      "table": "synthesis_versions",
+      "columns": [
+        "backbone_corpus_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_versions_backbone_corpus_id ON synthesis_versions (backbone_corpus_id)"
+    },
+    {
+      "name": "ix_synthesis_versions_content_sha256",
+      "table": "synthesis_versions",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_versions_content_sha256 ON synthesis_versions (content_sha256)"
+    },
+    {
+      "name": "ix_synthesis_versions_status",
+      "table": "synthesis_versions",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_versions_status ON synthesis_versions (status)"
+    },
+    {
+      "name": "ix_synthesis_versions_synthesis_id",
+      "table": "synthesis_versions",
+      "columns": [
+        "synthesis_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_versions_synthesis_id ON synthesis_versions (synthesis_id)"
+    },
+    {
+      "name": "ix_atomic_notes_active_version_id",
+      "table": "atomic_notes",
+      "columns": [
+        "active_version_id"
+      ],
+      "sql": "CREATE INDEX ix_atomic_notes_active_version_id ON atomic_notes (active_version_id)"
+    },
+    {
+      "name": "ix_atomic_notes_source_id",
+      "table": "atomic_notes",
+      "columns": [
+        "source_id"
+      ],
+      "sql": "CREATE INDEX ix_atomic_notes_source_id ON atomic_notes (source_id)"
+    },
+    {
+      "name": "ix_atomic_notes_source_version_id",
+      "table": "atomic_notes",
+      "columns": [
+        "source_version_id"
+      ],
+      "sql": "CREATE INDEX ix_atomic_notes_source_version_id ON atomic_notes (source_version_id)"
+    },
+    {
+      "name": "ix_atomic_notes_visibility",
+      "table": "atomic_notes",
+      "columns": [
+        "visibility"
+      ],
+      "sql": "CREATE INDEX ix_atomic_notes_visibility ON atomic_notes (visibility)"
+    },
+    {
+      "name": "ix_backbone_figures_concept_id",
+      "table": "backbone_figures",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_backbone_figures_concept_id ON backbone_figures (concept_id)"
+    },
+    {
+      "name": "ix_backbone_figures_corpus_id",
+      "table": "backbone_figures",
+      "columns": [
+        "corpus_id"
+      ],
+      "sql": "CREATE INDEX ix_backbone_figures_corpus_id ON backbone_figures (corpus_id)"
+    },
+    {
+      "name": "ix_backbone_figures_figure_label",
+      "table": "backbone_figures",
+      "columns": [
+        "figure_label"
+      ],
+      "sql": "CREATE INDEX ix_backbone_figures_figure_label ON backbone_figures (figure_label)"
+    },
+    {
+      "name": "ix_backbone_figures_image_sha256",
+      "table": "backbone_figures",
+      "columns": [
+        "image_sha256"
+      ],
+      "sql": "CREATE INDEX ix_backbone_figures_image_sha256 ON backbone_figures (image_sha256)"
+    },
+    {
+      "name": "ix_backbone_figures_page_number",
+      "table": "backbone_figures",
+      "columns": [
+        "page_number"
+      ],
+      "sql": "CREATE INDEX ix_backbone_figures_page_number ON backbone_figures (page_number)"
+    },
+    {
+      "name": "ix_backbone_figures_section_id",
+      "table": "backbone_figures",
+      "columns": [
+        "section_id"
+      ],
+      "sql": "CREATE INDEX ix_backbone_figures_section_id ON backbone_figures (section_id)"
+    },
+    {
+      "name": "ix_concept_blocks_concept_version_id",
+      "table": "concept_blocks",
+      "columns": [
+        "concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_blocks_concept_version_id ON concept_blocks (concept_version_id)"
+    },
+    {
+      "name": "ix_concept_blocks_content_sha256",
+      "table": "concept_blocks",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_blocks_content_sha256 ON concept_blocks (content_sha256)"
+    },
+    {
+      "name": "ix_concept_build_records_concept_id",
+      "table": "concept_build_records",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_build_records_concept_id ON concept_build_records (concept_id)"
+    },
+    {
+      "name": "ix_concept_build_records_concept_version_id",
+      "table": "concept_build_records",
+      "columns": [
+        "concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_build_records_concept_version_id ON concept_build_records (concept_version_id)"
+    },
+    {
+      "name": "ix_concept_build_records_input_sha256",
+      "table": "concept_build_records",
+      "columns": [
+        "input_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_build_records_input_sha256 ON concept_build_records (input_sha256)"
+    },
+    {
+      "name": "ix_concept_build_records_output_sha256",
+      "table": "concept_build_records",
+      "columns": [
+        "output_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_build_records_output_sha256 ON concept_build_records (output_sha256)"
+    },
+    {
+      "name": "ix_concept_build_records_result_status",
+      "table": "concept_build_records",
+      "columns": [
+        "result_status"
+      ],
+      "sql": "CREATE INDEX ix_concept_build_records_result_status ON concept_build_records (result_status)"
+    },
+    {
+      "name": "ix_concept_embeddings_concept_version_id",
+      "table": "concept_embeddings",
+      "columns": [
+        "concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_embeddings_concept_version_id ON concept_embeddings (concept_version_id)"
+    },
+    {
+      "name": "ix_concept_embeddings_content_sha256",
+      "table": "concept_embeddings",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_embeddings_content_sha256 ON concept_embeddings (content_sha256)"
+    },
+    {
+      "name": "ix_concept_embeddings_model_name",
+      "table": "concept_embeddings",
+      "columns": [
+        "model_name"
+      ],
+      "sql": "CREATE INDEX ix_concept_embeddings_model_name ON concept_embeddings (model_name)"
+    },
+    {
+      "name": "ix_concept_merge_records_source_concept_id",
+      "table": "concept_merge_records",
+      "columns": [
+        "source_concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_merge_records_source_concept_id ON concept_merge_records (source_concept_id)"
+    },
+    {
+      "name": "ix_concept_merge_records_status",
+      "table": "concept_merge_records",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_concept_merge_records_status ON concept_merge_records (status)"
+    },
+    {
+      "name": "ix_concept_merge_records_target_concept_id",
+      "table": "concept_merge_records",
+      "columns": [
+        "target_concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_merge_records_target_concept_id ON concept_merge_records (target_concept_id)"
+    },
+    {
+      "name": "ix_concept_module_versions_content_sha256",
+      "table": "concept_module_versions",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_versions_content_sha256 ON concept_module_versions (content_sha256)"
+    },
+    {
+      "name": "ix_concept_module_versions_module_id",
+      "table": "concept_module_versions",
+      "columns": [
+        "module_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_versions_module_id ON concept_module_versions (module_id)"
+    },
+    {
+      "name": "ix_knowledge_module_states_dirty",
+      "table": "knowledge_module_states",
+      "columns": [
+        "dirty"
+      ],
+      "sql": "CREATE INDEX ix_knowledge_module_states_dirty ON knowledge_module_states (dirty)"
+    },
+    {
+      "name": "ix_parse_runs_provider_task_id",
+      "table": "parse_runs",
+      "columns": [
+        "provider_task_id"
+      ],
+      "sql": "CREATE INDEX ix_parse_runs_provider_task_id ON parse_runs (provider_task_id)"
+    },
+    {
+      "name": "ix_parse_runs_source_version_id",
+      "table": "parse_runs",
+      "columns": [
+        "source_version_id"
+      ],
+      "sql": "CREATE INDEX ix_parse_runs_source_version_id ON parse_runs (source_version_id)"
+    },
+    {
+      "name": "ix_synthesis_nodes_concept_id",
+      "table": "synthesis_nodes",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_nodes_concept_id ON synthesis_nodes (concept_id)"
+    },
+    {
+      "name": "ix_synthesis_nodes_concept_version_id",
+      "table": "synthesis_nodes",
+      "columns": [
+        "concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_nodes_concept_version_id ON synthesis_nodes (concept_version_id)"
+    },
+    {
+      "name": "ix_synthesis_nodes_parent_id",
+      "table": "synthesis_nodes",
+      "columns": [
+        "parent_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_nodes_parent_id ON synthesis_nodes (parent_id)"
+    },
+    {
+      "name": "ix_synthesis_nodes_stable_key",
+      "table": "synthesis_nodes",
+      "columns": [
+        "stable_key"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_nodes_stable_key ON synthesis_nodes (stable_key)"
+    },
+    {
+      "name": "ix_synthesis_nodes_synthesis_version_id",
+      "table": "synthesis_nodes",
+      "columns": [
+        "synthesis_version_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_nodes_synthesis_version_id ON synthesis_nodes (synthesis_version_id)"
+    },
+    {
+      "name": "ix_synthesis_reference_sources_source_version_id",
+      "table": "synthesis_reference_sources",
+      "columns": [
+        "source_version_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_reference_sources_source_version_id ON synthesis_reference_sources (source_version_id)"
+    },
+    {
+      "name": "ix_synthesis_reference_sources_synthesis_version_id",
+      "table": "synthesis_reference_sources",
+      "columns": [
+        "synthesis_version_id"
+      ],
+      "sql": "CREATE INDEX ix_synthesis_reference_sources_synthesis_version_id ON synthesis_reference_sources (synthesis_version_id)"
+    },
+    {
+      "name": "ix_concept_release_modules_concept_version_id",
+      "table": "concept_release_modules",
+      "columns": [
+        "concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_release_modules_concept_version_id ON concept_release_modules (concept_version_id)"
+    },
+    {
+      "name": "ix_concept_release_modules_module_id",
+      "table": "concept_release_modules",
+      "columns": [
+        "module_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_release_modules_module_id ON concept_release_modules (module_id)"
+    },
+    {
+      "name": "ix_concept_release_modules_module_version_id",
+      "table": "concept_release_modules",
+      "columns": [
+        "module_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_release_modules_module_version_id ON concept_release_modules (module_version_id)"
+    },
+    {
+      "name": "ix_jobs_lease_expires_at",
+      "table": "jobs",
+      "columns": [
+        "lease_expires_at"
+      ],
+      "sql": "CREATE INDEX ix_jobs_lease_expires_at ON jobs (lease_expires_at)"
+    },
+    {
+      "name": "ix_jobs_lease_owner",
+      "table": "jobs",
+      "columns": [
+        "lease_owner"
+      ],
+      "sql": "CREATE INDEX ix_jobs_lease_owner ON jobs (lease_owner)"
+    },
+    {
+      "name": "ix_jobs_next_attempt_at",
+      "table": "jobs",
+      "columns": [
+        "next_attempt_at"
+      ],
+      "sql": "CREATE INDEX ix_jobs_next_attempt_at ON jobs (next_attempt_at)"
+    },
+    {
+      "name": "ix_jobs_source_version_id",
+      "table": "jobs",
+      "columns": [
+        "source_version_id"
+      ],
+      "sql": "CREATE INDEX ix_jobs_source_version_id ON jobs (source_version_id)"
+    },
+    {
+      "name": "ix_jobs_status",
+      "table": "jobs",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_jobs_status ON jobs (status)"
+    },
+    {
+      "name": "ix_knowledge_maps_parse_run_id",
+      "table": "knowledge_maps",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_knowledge_maps_parse_run_id ON knowledge_maps (parse_run_id)"
+    },
+    {
+      "name": "ix_knowledge_maps_source_version_id",
+      "table": "knowledge_maps",
+      "columns": [
+        "source_version_id"
+      ],
+      "sql": "CREATE INDEX ix_knowledge_maps_source_version_id ON knowledge_maps (source_version_id)"
+    },
+    {
+      "name": "ix_note_versions_note_id",
+      "table": "note_versions",
+      "columns": [
+        "note_id"
+      ],
+      "sql": "CREATE INDEX ix_note_versions_note_id ON note_versions (note_id)"
+    },
+    {
+      "name": "ix_note_versions_parse_run_id",
+      "table": "note_versions",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_note_versions_parse_run_id ON note_versions (parse_run_id)"
+    },
+    {
+      "name": "ix_note_versions_source_version_id",
+      "table": "note_versions",
+      "columns": [
+        "source_version_id"
+      ],
+      "sql": "CREATE INDEX ix_note_versions_source_version_id ON note_versions (source_version_id)"
+    },
+    {
+      "name": "ix_outline_nodes_parse_run_id",
+      "table": "outline_nodes",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_outline_nodes_parse_run_id ON outline_nodes (parse_run_id)"
+    },
+    {
+      "name": "ix_source_note_versions_content_sha256",
+      "table": "source_note_versions",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_source_note_versions_content_sha256 ON source_note_versions (content_sha256)"
+    },
+    {
+      "name": "ix_source_note_versions_parse_run_id",
+      "table": "source_note_versions",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_versions_parse_run_id ON source_note_versions (parse_run_id)"
+    },
+    {
+      "name": "ix_source_note_versions_source_note_id",
+      "table": "source_note_versions",
+      "columns": [
+        "source_note_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_versions_source_note_id ON source_note_versions (source_note_id)"
+    },
+    {
+      "name": "ix_source_note_versions_source_version_id",
+      "table": "source_note_versions",
+      "columns": [
+        "source_version_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_versions_source_version_id ON source_note_versions (source_version_id)"
+    },
+    {
+      "name": "ix_source_pages_parse_run_id",
+      "table": "source_pages",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_source_pages_parse_run_id ON source_pages (parse_run_id)"
+    },
+    {
+      "name": "ix_concept_contributions_atomic_note_version_id",
+      "table": "concept_contributions",
+      "columns": [
+        "atomic_note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_contributions_atomic_note_version_id ON concept_contributions (atomic_note_version_id)"
+    },
+    {
+      "name": "ix_concept_contributions_decision_status",
+      "table": "concept_contributions",
+      "columns": [
+        "decision_status"
+      ],
+      "sql": "CREATE INDEX ix_concept_contributions_decision_status ON concept_contributions (decision_status)"
+    },
+    {
+      "name": "ix_concept_contributions_module_id",
+      "table": "concept_contributions",
+      "columns": [
+        "module_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_contributions_module_id ON concept_contributions (module_id)"
+    },
+    {
+      "name": "ix_concept_contributions_superseded_by_id",
+      "table": "concept_contributions",
+      "columns": [
+        "superseded_by_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_contributions_superseded_by_id ON concept_contributions (superseded_by_id)"
+    },
+    {
+      "name": "ix_document_blocks_page_id",
+      "table": "document_blocks",
+      "columns": [
+        "page_id"
+      ],
+      "sql": "CREATE INDEX ix_document_blocks_page_id ON document_blocks (page_id)"
+    },
+    {
+      "name": "ix_document_blocks_parse_run_id",
+      "table": "document_blocks",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_document_blocks_parse_run_id ON document_blocks (parse_run_id)"
+    },
+    {
+      "name": "ix_llm_call_events_job_id",
+      "table": "llm_call_events",
+      "columns": [
+        "job_id"
+      ],
+      "sql": "CREATE INDEX ix_llm_call_events_job_id ON llm_call_events (job_id)"
+    },
+    {
+      "name": "ix_llm_call_events_model",
+      "table": "llm_call_events",
+      "columns": [
+        "model"
+      ],
+      "sql": "CREATE INDEX ix_llm_call_events_model ON llm_call_events (model)"
+    },
+    {
+      "name": "ix_llm_call_events_note_key",
+      "table": "llm_call_events",
+      "columns": [
+        "note_key"
+      ],
+      "sql": "CREATE INDEX ix_llm_call_events_note_key ON llm_call_events (note_key)"
+    },
+    {
+      "name": "ix_llm_call_events_operation",
+      "table": "llm_call_events",
+      "columns": [
+        "operation"
+      ],
+      "sql": "CREATE INDEX ix_llm_call_events_operation ON llm_call_events (operation)"
+    },
+    {
+      "name": "ix_llm_call_events_stage",
+      "table": "llm_call_events",
+      "columns": [
+        "stage"
+      ],
+      "sql": "CREATE INDEX ix_llm_call_events_stage ON llm_call_events (stage)"
+    },
+    {
+      "name": "ix_llm_call_events_status",
+      "table": "llm_call_events",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_llm_call_events_status ON llm_call_events (status)"
+    },
+    {
+      "name": "ix_llm_call_events_trace_id",
+      "table": "llm_call_events",
+      "columns": [
+        "trace_id"
+      ],
+      "sql": "CREATE INDEX ix_llm_call_events_trace_id ON llm_call_events (trace_id)"
+    },
+    {
+      "name": "ix_note_blocks_note_version_id",
+      "table": "note_blocks",
+      "columns": [
+        "note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_note_blocks_note_version_id ON note_blocks (note_version_id)"
+    },
+    {
+      "name": "ix_note_candidates_knowledge_map_id",
+      "table": "note_candidates",
+      "columns": [
+        "knowledge_map_id"
+      ],
+      "sql": "CREATE INDEX ix_note_candidates_knowledge_map_id ON note_candidates (knowledge_map_id)"
+    },
+    {
+      "name": "ix_note_embeddings_note_version_id",
+      "table": "note_embeddings",
+      "columns": [
+        "note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_note_embeddings_note_version_id ON note_embeddings (note_version_id)"
+    },
+    {
+      "name": "ix_quality_evaluations_content_sha256",
+      "table": "quality_evaluations",
+      "columns": [
+        "content_sha256"
+      ],
+      "sql": "CREATE INDEX ix_quality_evaluations_content_sha256 ON quality_evaluations (content_sha256)"
+    },
+    {
+      "name": "ix_quality_evaluations_knowledge_map_id",
+      "table": "quality_evaluations",
+      "columns": [
+        "knowledge_map_id"
+      ],
+      "sql": "CREATE INDEX ix_quality_evaluations_knowledge_map_id ON quality_evaluations (knowledge_map_id)"
+    },
+    {
+      "name": "ix_quality_evaluations_passed",
+      "table": "quality_evaluations",
+      "columns": [
+        "passed"
+      ],
+      "sql": "CREATE INDEX ix_quality_evaluations_passed ON quality_evaluations (passed)"
+    },
+    {
+      "name": "ix_quality_evaluations_stable_key",
+      "table": "quality_evaluations",
+      "columns": [
+        "stable_key"
+      ],
+      "sql": "CREATE INDEX ix_quality_evaluations_stable_key ON quality_evaluations (stable_key)"
+    },
+    {
+      "name": "ix_source_note_outline_nodes_source_note_version_id",
+      "table": "source_note_outline_nodes",
+      "columns": [
+        "source_note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_outline_nodes_source_note_version_id ON source_note_outline_nodes (source_note_version_id)"
+    },
+    {
+      "name": "ix_stage_events_job_id",
+      "table": "stage_events",
+      "columns": [
+        "job_id"
+      ],
+      "sql": "CREATE INDEX ix_stage_events_job_id ON stage_events (job_id)"
+    },
+    {
+      "name": "ix_stage_events_stage",
+      "table": "stage_events",
+      "columns": [
+        "stage"
+      ],
+      "sql": "CREATE INDEX ix_stage_events_stage ON stage_events (stage)"
+    },
+    {
+      "name": "ix_stage_events_status",
+      "table": "stage_events",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_stage_events_status ON stage_events (status)"
+    },
+    {
+      "name": "ix_stage_events_trace_id",
+      "table": "stage_events",
+      "columns": [
+        "trace_id"
+      ],
+      "sql": "CREATE INDEX ix_stage_events_trace_id ON stage_events (trace_id)"
+    },
+    {
+      "name": "ix_claims_note_block_id",
+      "table": "claims",
+      "columns": [
+        "note_block_id"
+      ],
+      "sql": "CREATE INDEX ix_claims_note_block_id ON claims (note_block_id)"
+    },
+    {
+      "name": "ix_claims_note_version_id",
+      "table": "claims",
+      "columns": [
+        "note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_claims_note_version_id ON claims (note_version_id)"
+    },
+    {
+      "name": "ix_concept_evidence_links_concept_block_id",
+      "table": "concept_evidence_links",
+      "columns": [
+        "concept_block_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_evidence_links_concept_block_id ON concept_evidence_links (concept_block_id)"
+    },
+    {
+      "name": "ix_concept_evidence_links_document_block_id",
+      "table": "concept_evidence_links",
+      "columns": [
+        "document_block_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_evidence_links_document_block_id ON concept_evidence_links (document_block_id)"
+    },
+    {
+      "name": "ix_concept_evidence_links_note_block_id",
+      "table": "concept_evidence_links",
+      "columns": [
+        "note_block_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_evidence_links_note_block_id ON concept_evidence_links (note_block_id)"
+    },
+    {
+      "name": "ix_concept_update_jobs_atomic_note_version_id",
+      "table": "concept_update_jobs",
+      "columns": [
+        "atomic_note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_atomic_note_version_id ON concept_update_jobs (atomic_note_version_id)"
+    },
+    {
+      "name": "ix_concept_update_jobs_candidate_concept_version_id",
+      "table": "concept_update_jobs",
+      "columns": [
+        "candidate_concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_candidate_concept_version_id ON concept_update_jobs (candidate_concept_version_id)"
+    },
+    {
+      "name": "ix_concept_update_jobs_concept_id",
+      "table": "concept_update_jobs",
+      "columns": [
+        "concept_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_concept_id ON concept_update_jobs (concept_id)"
+    },
+    {
+      "name": "ix_concept_update_jobs_contribution_id",
+      "table": "concept_update_jobs",
+      "columns": [
+        "contribution_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_contribution_id ON concept_update_jobs (contribution_id)"
+    },
+    {
+      "name": "ix_concept_update_jobs_expected_concept_version_id",
+      "table": "concept_update_jobs",
+      "columns": [
+        "expected_concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_expected_concept_version_id ON concept_update_jobs (expected_concept_version_id)"
+    },
+    {
+      "name": "ix_concept_update_jobs_input_sha256",
+      "table": "concept_update_jobs",
+      "columns": [
+        "input_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_input_sha256 ON concept_update_jobs (input_sha256)"
+    },
+    {
+      "name": "ix_concept_update_jobs_lease_expires_at",
+      "table": "concept_update_jobs",
+      "columns": [
+        "lease_expires_at"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_lease_expires_at ON concept_update_jobs (lease_expires_at)"
+    },
+    {
+      "name": "ix_concept_update_jobs_lease_owner",
+      "table": "concept_update_jobs",
+      "columns": [
+        "lease_owner"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_lease_owner ON concept_update_jobs (lease_owner)"
+    },
+    {
+      "name": "ix_concept_update_jobs_module_id",
+      "table": "concept_update_jobs",
+      "columns": [
+        "module_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_module_id ON concept_update_jobs (module_id)"
+    },
+    {
+      "name": "ix_concept_update_jobs_next_attempt_at",
+      "table": "concept_update_jobs",
+      "columns": [
+        "next_attempt_at"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_next_attempt_at ON concept_update_jobs (next_attempt_at)"
+    },
+    {
+      "name": "ix_concept_update_jobs_operation",
+      "table": "concept_update_jobs",
+      "columns": [
+        "operation"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_operation ON concept_update_jobs (operation)"
+    },
+    {
+      "name": "ix_concept_update_jobs_status",
+      "table": "concept_update_jobs",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_status ON concept_update_jobs (status)"
+    },
+    {
+      "name": "ix_concept_update_jobs_supersedes_contribution_id",
+      "table": "concept_update_jobs",
+      "columns": [
+        "supersedes_contribution_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_update_jobs_supersedes_contribution_id ON concept_update_jobs (supersedes_contribution_id)"
+    },
+    {
+      "name": "ix_evidence_spans_page_id",
+      "table": "evidence_spans",
+      "columns": [
+        "page_id"
+      ],
+      "sql": "CREATE INDEX ix_evidence_spans_page_id ON evidence_spans (page_id)"
+    },
+    {
+      "name": "ix_evidence_spans_parse_run_id",
+      "table": "evidence_spans",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_evidence_spans_parse_run_id ON evidence_spans (parse_run_id)"
+    },
+    {
+      "name": "ix_source_note_unit_placements_note_id",
+      "table": "source_note_unit_placements",
+      "columns": [
+        "note_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_unit_placements_note_id ON source_note_unit_placements (note_id)"
+    },
+    {
+      "name": "ix_source_note_unit_placements_note_version_id",
+      "table": "source_note_unit_placements",
+      "columns": [
+        "note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_unit_placements_note_version_id ON source_note_unit_placements (note_version_id)"
+    },
+    {
+      "name": "ix_source_note_unit_placements_outline_node_id",
+      "table": "source_note_unit_placements",
+      "columns": [
+        "outline_node_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_unit_placements_outline_node_id ON source_note_unit_placements (outline_node_id)"
+    },
+    {
+      "name": "ix_source_note_unit_placements_source_note_version_id",
+      "table": "source_note_unit_placements",
+      "columns": [
+        "source_note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_source_note_unit_placements_source_note_version_id ON source_note_unit_placements (source_note_version_id)"
+    },
+    {
+      "name": "ix_visual_assets_page_id",
+      "table": "visual_assets",
+      "columns": [
+        "page_id"
+      ],
+      "sql": "CREATE INDEX ix_visual_assets_page_id ON visual_assets (page_id)"
+    },
+    {
+      "name": "ix_visual_assets_parse_run_id",
+      "table": "visual_assets",
+      "columns": [
+        "parse_run_id"
+      ],
+      "sql": "CREATE INDEX ix_visual_assets_parse_run_id ON visual_assets (parse_run_id)"
+    },
+    {
+      "name": "ix_claim_evidence_claim_id",
+      "table": "claim_evidence",
+      "columns": [
+        "claim_id"
+      ],
+      "sql": "CREATE INDEX ix_claim_evidence_claim_id ON claim_evidence (claim_id)"
+    },
+    {
+      "name": "ix_claim_evidence_span_id",
+      "table": "claim_evidence",
+      "columns": [
+        "span_id"
+      ],
+      "sql": "CREATE INDEX ix_claim_evidence_span_id ON claim_evidence (span_id)"
+    },
+    {
+      "name": "ix_concept_content_evidence_content_block_key",
+      "table": "concept_content_evidence",
+      "columns": [
+        "content_block_key"
+      ],
+      "sql": "CREATE INDEX ix_concept_content_evidence_content_block_key ON concept_content_evidence (content_block_key)"
+    },
+    {
+      "name": "ix_concept_content_evidence_contribution_id",
+      "table": "concept_content_evidence",
+      "columns": [
+        "contribution_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_content_evidence_contribution_id ON concept_content_evidence (contribution_id)"
+    },
+    {
+      "name": "ix_concept_content_evidence_evidence_span_id",
+      "table": "concept_content_evidence",
+      "columns": [
+        "evidence_span_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_content_evidence_evidence_span_id ON concept_content_evidence (evidence_span_id)"
+    },
+    {
+      "name": "ix_concept_content_evidence_module_version_id",
+      "table": "concept_content_evidence",
+      "columns": [
+        "module_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_content_evidence_module_version_id ON concept_content_evidence (module_version_id)"
+    },
+    {
+      "name": "ix_concept_content_evidence_note_block_id",
+      "table": "concept_content_evidence",
+      "columns": [
+        "note_block_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_content_evidence_note_block_id ON concept_content_evidence (note_block_id)"
+    },
+    {
+      "name": "ix_concept_module_assets_content_block_key",
+      "table": "concept_module_assets",
+      "columns": [
+        "content_block_key"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_assets_content_block_key ON concept_module_assets (content_block_key)"
+    },
+    {
+      "name": "ix_concept_module_assets_module_version_id",
+      "table": "concept_module_assets",
+      "columns": [
+        "module_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_assets_module_version_id ON concept_module_assets (module_version_id)"
+    },
+    {
+      "name": "ix_concept_module_assets_visual_asset_id",
+      "table": "concept_module_assets",
+      "columns": [
+        "visual_asset_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_assets_visual_asset_id ON concept_module_assets (visual_asset_id)"
+    },
+    {
+      "name": "ix_concept_module_judge_records_candidate_concept_version_id",
+      "table": "concept_module_judge_records",
+      "columns": [
+        "candidate_concept_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_judge_records_candidate_concept_version_id ON concept_module_judge_records (candidate_concept_version_id)"
+    },
+    {
+      "name": "ix_concept_module_judge_records_concept_update_job_id",
+      "table": "concept_module_judge_records",
+      "columns": [
+        "concept_update_job_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_judge_records_concept_update_job_id ON concept_module_judge_records (concept_update_job_id)"
+    },
+    {
+      "name": "ix_concept_module_judge_records_decision",
+      "table": "concept_module_judge_records",
+      "columns": [
+        "decision"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_judge_records_decision ON concept_module_judge_records (decision)"
+    },
+    {
+      "name": "ix_concept_module_judge_records_input_sha256",
+      "table": "concept_module_judge_records",
+      "columns": [
+        "input_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_judge_records_input_sha256 ON concept_module_judge_records (input_sha256)"
+    },
+    {
+      "name": "ix_concept_module_judge_records_module_version_id",
+      "table": "concept_module_judge_records",
+      "columns": [
+        "module_version_id"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_judge_records_module_version_id ON concept_module_judge_records (module_version_id)"
+    },
+    {
+      "name": "ix_concept_module_judge_records_output_sha256",
+      "table": "concept_module_judge_records",
+      "columns": [
+        "output_sha256"
+      ],
+      "sql": "CREATE INDEX ix_concept_module_judge_records_output_sha256 ON concept_module_judge_records (output_sha256)"
+    },
+    {
+      "name": "ix_note_assets_note_block_id",
+      "table": "note_assets",
+      "columns": [
+        "note_block_id"
+      ],
+      "sql": "CREATE INDEX ix_note_assets_note_block_id ON note_assets (note_block_id)"
+    },
+    {
+      "name": "ix_note_assets_note_version_id",
+      "table": "note_assets",
+      "columns": [
+        "note_version_id"
+      ],
+      "sql": "CREATE INDEX ix_note_assets_note_version_id ON note_assets (note_version_id)"
+    },
+    {
+      "name": "ix_note_assets_visual_asset_id",
+      "table": "note_assets",
+      "columns": [
+        "visual_asset_id"
+      ],
+      "sql": "CREATE INDEX ix_note_assets_visual_asset_id ON note_assets (visual_asset_id)"
+    },
+    {
+      "name": "ix_vision_call_events_image_sha256",
+      "table": "vision_call_events",
+      "columns": [
+        "image_sha256"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_image_sha256 ON vision_call_events (image_sha256)"
+    },
+    {
+      "name": "ix_vision_call_events_job_id",
+      "table": "vision_call_events",
+      "columns": [
+        "job_id"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_job_id ON vision_call_events (job_id)"
+    },
+    {
+      "name": "ix_vision_call_events_model",
+      "table": "vision_call_events",
+      "columns": [
+        "model"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_model ON vision_call_events (model)"
+    },
+    {
+      "name": "ix_vision_call_events_note_key",
+      "table": "vision_call_events",
+      "columns": [
+        "note_key"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_note_key ON vision_call_events (note_key)"
+    },
+    {
+      "name": "ix_vision_call_events_operation",
+      "table": "vision_call_events",
+      "columns": [
+        "operation"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_operation ON vision_call_events (operation)"
+    },
+    {
+      "name": "ix_vision_call_events_stage",
+      "table": "vision_call_events",
+      "columns": [
+        "stage"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_stage ON vision_call_events (stage)"
+    },
+    {
+      "name": "ix_vision_call_events_status",
+      "table": "vision_call_events",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_status ON vision_call_events (status)"
+    },
+    {
+      "name": "ix_vision_call_events_trace_id",
+      "table": "vision_call_events",
+      "columns": [
+        "trace_id"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_trace_id ON vision_call_events (trace_id)"
+    },
+    {
+      "name": "ix_vision_call_events_visual_asset_id",
+      "table": "vision_call_events",
+      "columns": [
+        "visual_asset_id"
+      ],
+      "sql": "CREATE INDEX ix_vision_call_events_visual_asset_id ON vision_call_events (visual_asset_id)"
+    },
+    {
+      "name": "ix_visual_understandings_image_sha256",
+      "table": "visual_understandings",
+      "columns": [
+        "image_sha256"
+      ],
+      "sql": "CREATE INDEX ix_visual_understandings_image_sha256 ON visual_understandings (image_sha256)"
+    },
+    {
+      "name": "ix_visual_understandings_model",
+      "table": "visual_understandings",
+      "columns": [
+        "model"
+      ],
+      "sql": "CREATE INDEX ix_visual_understandings_model ON visual_understandings (model)"
+    },
+    {
+      "name": "ix_visual_understandings_status",
+      "table": "visual_understandings",
+      "columns": [
+        "status"
+      ],
+      "sql": "CREATE INDEX ix_visual_understandings_status ON visual_understandings (status)"
+    },
+    {
+      "name": "ix_visual_understandings_visual_asset_id",
+      "table": "visual_understandings",
+      "columns": [
+        "visual_asset_id"
+      ],
+      "sql": "CREATE INDEX ix_visual_understandings_visual_asset_id ON visual_understandings (visual_asset_id)"
+    }
+  ]
+}

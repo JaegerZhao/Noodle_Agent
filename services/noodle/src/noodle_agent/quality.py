@@ -66,11 +66,7 @@ def required_asset_ids(
 
 
 def used_asset_ids(note: NoteDraft) -> set[str]:
-    return {
-        block_id
-        for block in note.blocks
-        for block_id in block.asset_block_ids
-    }
+    return {block_id for block in note.blocks for block_id in block.asset_block_ids}
 
 
 def deduplicate_asset_placements(note: NoteDraft) -> NoteDraft:
@@ -155,14 +151,10 @@ def ensure_required_visual_blocks(
             "",
         )
         placement_hint = " ".join(
-            str(item.get("suggested_placement") or "").strip()
-            for item in understandings
+            str(item.get("suggested_placement") or "").strip() for item in understandings
         ).strip()
         searchable = f"{caption} {role} {placement_hint}"
-        terms = {
-            token.casefold()
-            for token in re.findall(r"[A-Za-z0-9_+-]{2,}", searchable)
-        }
+        terms = {token.casefold() for token in re.findall(r"[A-Za-z0-9_+-]{2,}", searchable)}
         for phrase in re.findall(r"[\u4e00-\u9fff]{2,}", searchable):
             terms.update(
                 phrase[index : index + width]
@@ -182,9 +174,7 @@ def ensure_required_visual_blocks(
                 best_index = index
                 best_score = score
         purpose = role or (
-            spec.visual_requirements[0]
-            if spec.visual_requirements
-            else "补充正文中的来源图示"
+            spec.visual_requirements[0] if spec.visual_requirements else "补充正文中的来源图示"
         )
         placements.append(
             (
@@ -212,11 +202,9 @@ def normalize_note_blocks(note: NoteDraft) -> NoteDraft:
         kind = block.block_type.upper()
         text = block.text.strip()
         if kind == "FORMULA":
-            if (
-                text.startswith("$$")
-                and text.endswith("$$")
-                and len(text) >= 4
-            ) or (text.startswith(r"\[") and text.endswith(r"\]")):
+            if (text.startswith("$$") and text.endswith("$$") and len(text) >= 4) or (
+                text.startswith(r"\[") and text.endswith(r"\]")
+            ):
                 text = text[2:-2].strip()
         elif kind == "CODE" and text.startswith("```") and text.endswith("```"):
             lines = text.splitlines()
@@ -239,10 +227,21 @@ def deduplicate_prose_blocks(note: NoteDraft) -> NoteDraft:
         block = original.model_copy(deep=True)
         key = (block.block_type.upper(), block.text.strip())
         eligible = key[0] in {"PARAGRAPH", "EXAMPLE", "CALLOUT"} and bool(key[1])
-        eligible = eligible and not any([block.asset_block_ids, block.items, block.table_headers, block.table_rows, block.caption, block.purpose])
+        eligible = eligible and not any(
+            [
+                block.asset_block_ids,
+                block.items,
+                block.table_headers,
+                block.table_rows,
+                block.caption,
+                block.purpose,
+            ]
+        )
         if eligible and key in seen:
             owner = seen[key]
-            owner.evidence_block_ids = list(dict.fromkeys([*owner.evidence_block_ids, *block.evidence_block_ids]))
+            owner.evidence_block_ids = list(
+                dict.fromkeys([*owner.evidence_block_ids, *block.evidence_block_ids])
+            )
             continue
         blocks.append(block)
         if eligible:

@@ -131,10 +131,17 @@ def _slug(value: str) -> str:
 def _node_kind(level: int, number: str, title: str) -> str:
     if title in {"Index", "Bibliography"}:
         return "REFERENCE"
-    if level == 1 and (number in {"I", "II", "III", "IV", "V"} or title in {
-        "Foundations", "Linear Models", "Deep Neural Networks",
-        "Nonparametric Models", "Beyond Supervised Learning",
-    }):
+    if level == 1 and (
+        number in {"I", "II", "III", "IV", "V"}
+        or title
+        in {
+            "Foundations",
+            "Linear Models",
+            "Deep Neural Networks",
+            "Nonparametric Models",
+            "Beyond Supervised Learning",
+        }
+    ):
         return "GROUP"
     return "CONCEPT"
 
@@ -228,7 +235,9 @@ class SynthesisService:
         try:
             toc = _correct_reference_toc(document, document.get_toc(simple=True))
             if not toc:
-                raise ValueError("Backbone PDF has no bookmarks; a deterministic outline is required")
+                raise ValueError(
+                    "Backbone PDF has no bookmarks; a deterministic outline is required"
+                )
             with self.db.session() as session:
                 corpus = session.scalar(
                     select(BackboneCorpus).where(BackboneCorpus.stable_key == manifest.stable_key)
@@ -256,9 +265,9 @@ class SynthesisService:
                         "The same backbone stable_key points to a different PDF hash; register a new edition key"
                     )
                 existing = session.scalar(
-                    select(func.count()).select_from(BackboneSection).where(
-                        BackboneSection.corpus_id == corpus.id
-                    )
+                    select(func.count())
+                    .select_from(BackboneSection)
+                    .where(BackboneSection.corpus_id == corpus.id)
                 )
                 if not existing:
                     self._seed_sections(session, document, corpus, toc)
@@ -324,9 +333,9 @@ class SynthesisService:
                         )
                         image = render_figure(page, candidate)
                         digest = hashlib.sha256(image).hexdigest()
-                        safe_label = re.sub(
-                            r"[^a-zA-Z0-9]+", "-", candidate.figure_label
-                        ).strip("-")
+                        safe_label = re.sub(r"[^a-zA-Z0-9]+", "-", candidate.figure_label).strip(
+                            "-"
+                        )
                         filename = f"p{candidate.page_number:04d}-figure-{safe_label}.png"
                         storage_key = f"figures/{filename}"
                         path = output_dir / filename
@@ -376,9 +385,7 @@ class SynthesisService:
                 bytes_written=bytes_written,
             )
 
-    def _translate_figure_caption_batch(
-        self, figures: list[dict[str, str]]
-    ) -> dict[str, str]:
+    def _translate_figure_caption_batch(self, figures: list[dict[str, str]]) -> dict[str, str]:
         payload = self.agent.structured_json(
             system=(
                 "你是机器学习教材的专业中文编辑。将输入的英文 Figure caption 翻译成准确、简洁、"
@@ -433,10 +440,7 @@ class SynthesisService:
                 for item in pending
             ]
         size = max(1, batch_size)
-        batches = [
-            payloads[index : index + size]
-            for index in range(0, len(payloads), size)
-        ]
+        batches = [payloads[index : index + size] for index in range(0, len(payloads), size)]
         translated: dict[str, str] = {}
         failed: list[dict[str, str]] = []
         with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
@@ -520,9 +524,7 @@ class SynthesisService:
                     break
             section.start_page = max(1, int(page))
             section.end_page = min(document.page_count, next_page)
-            section.source_locator_json = _json(
-                {"pages": [section.start_page, section.end_page]}
-            )
+            section.source_locator_json = _json({"pages": [section.start_page, section.end_page]})
 
     def get_figure_path(self, figure_id: str) -> Path:
         with self.db.session() as session:
@@ -589,9 +591,15 @@ class SynthesisService:
                 version_ids = session.scalars(
                     select(ConceptVersion.id).where(ConceptVersion.concept_id == concept.id)
                 ).all()
-                block_ids = session.scalars(
-                    select(ConceptBlock.id).where(ConceptBlock.concept_version_id.in_(version_ids))
-                ).all() if version_ids else []
+                block_ids = (
+                    session.scalars(
+                        select(ConceptBlock.id).where(
+                            ConceptBlock.concept_version_id.in_(version_ids)
+                        )
+                    ).all()
+                    if version_ids
+                    else []
+                )
                 if block_ids:
                     session.execute(
                         delete(ConceptEvidenceLink).where(
@@ -620,25 +628,27 @@ class SynthesisService:
         for section in sections:
             evidence_end = self._evidence_end(session, section)
             version_ids = session.scalars(
-                select(ConceptVersion.id).where(
-                    ConceptVersion.concept_id == section.concept_id
-                )
+                select(ConceptVersion.id).where(ConceptVersion.concept_id == section.concept_id)
             ).all()
-            block_ids = session.scalars(
-                select(ConceptBlock.id).where(
-                    ConceptBlock.concept_version_id.in_(version_ids)
-                )
-            ).all() if version_ids else []
-            links = session.scalars(
-                select(ConceptEvidenceLink).where(
-                    ConceptEvidenceLink.concept_block_id.in_(block_ids),
-                    ConceptEvidenceLink.source_role == "BACKBONE",
-                )
-            ).all() if block_ids else []
+            block_ids = (
+                session.scalars(
+                    select(ConceptBlock.id).where(ConceptBlock.concept_version_id.in_(version_ids))
+                ).all()
+                if version_ids
+                else []
+            )
+            links = (
+                session.scalars(
+                    select(ConceptEvidenceLink).where(
+                        ConceptEvidenceLink.concept_block_id.in_(block_ids),
+                        ConceptEvidenceLink.source_role == "BACKBONE",
+                    )
+                ).all()
+                if block_ids
+                else []
+            )
             for link in links:
-                link.source_ref = (
-                    f"{section.stable_key}:p{section.start_page}-p{evidence_end}"
-                )
+                link.source_ref = f"{section.stable_key}:p{section.start_page}-p{evidence_end}"
                 link.source_locator_json = _json(
                     {
                         "backbone_section_id": section.id,
@@ -648,11 +658,14 @@ class SynthesisService:
 
     @staticmethod
     def _evidence_end(session, section: BackboneSection) -> int:
-        child_count = session.scalar(
-            select(func.count())
-            .select_from(BackboneSection)
-            .where(BackboneSection.parent_id == section.id)
-        ) or 0
+        child_count = (
+            session.scalar(
+                select(func.count())
+                .select_from(BackboneSection)
+                .where(BackboneSection.parent_id == section.id)
+            )
+            or 0
+        )
         if child_count == 0:
             return section.end_page
         return min(section.end_page, section.start_page + 2)
@@ -684,7 +697,9 @@ class SynthesisService:
                 start_page=max(1, int(page)),
                 end_page=min(document.page_count, next_page),
                 status="PLANNED" if kind == "CONCEPT" else "STRUCTURAL",
-                source_locator_json=_json({"pages": [int(page), min(document.page_count, next_page)]}),
+                source_locator_json=_json(
+                    {"pages": [int(page), min(document.page_count, next_page)]}
+                ),
             )
             session.add(row)
             session.flush()
@@ -717,9 +732,14 @@ class SynthesisService:
     def _persist_concept_version(
         self, session, concept, draft: ConceptDraft, section, *, source_role: str, status: str
     ) -> ConceptVersion:
-        next_version = (session.scalar(
-            select(func.max(ConceptVersion.version_no)).where(ConceptVersion.concept_id == concept.id)
-        ) or 0) + 1
+        next_version = (
+            session.scalar(
+                select(func.max(ConceptVersion.version_no)).where(
+                    ConceptVersion.concept_id == concept.id
+                )
+            )
+            or 0
+        ) + 1
         content_hash = _sha256_text(_json(draft.model_dump()))
         version = ConceptVersion(
             concept_id=concept.id,
@@ -749,21 +769,22 @@ class SynthesisService:
             )
             session.add(block)
             session.flush()
-            session.add(ConceptEvidenceLink(
-                concept_block_id=block.id,
-                source_role=source_role,
-                source_ref=(
-                    f"{section.stable_key}:p{section.start_page}-"
-                    f"p{evidence_end}"
-                ),
-                source_locator_json=_json({
-                    "backbone_section_id": section.id,
-                    "pages": [
-                        section.start_page,
-                        evidence_end,
-                    ],
-                }),
-            ))
+            session.add(
+                ConceptEvidenceLink(
+                    concept_block_id=block.id,
+                    source_role=source_role,
+                    source_ref=(f"{section.stable_key}:p{section.start_page}-p{evidence_end}"),
+                    source_locator_json=_json(
+                        {
+                            "backbone_section_id": section.id,
+                            "pages": [
+                                section.start_page,
+                                evidence_end,
+                            ],
+                        }
+                    ),
+                )
+            )
         return version
 
     def _ensure_synthesis(self, session, corpus) -> BuildReport:
@@ -785,16 +806,18 @@ class SynthesisService:
             )
         )
         sections = session.scalars(
-            select(BackboneSection).where(BackboneSection.corpus_id == corpus.id).order_by(
-                BackboneSection.sort_order
-            )
+            select(BackboneSection)
+            .where(BackboneSection.corpus_id == corpus.id)
+            .order_by(BackboneSection.sort_order)
         ).all()
         concept_total = sum(item.node_kind == "CONCEPT" for item in sections)
         published = sum(item.status == "PUBLISHED" for item in sections)
         seeded = sum(item.status in {"SEEDED", "PUBLISHED"} for item in sections)
         coverage = {
-            "toc_nodes": len(sections), "concept_nodes": concept_total,
-            "seeded_concepts": seeded, "published_concepts": published,
+            "toc_nodes": len(sections),
+            "concept_nodes": concept_total,
+            "seeded_concepts": seeded,
+            "published_concepts": published,
             "coverage": round(seeded / concept_total, 4) if concept_total else 0,
         }
         release_status = (
@@ -837,7 +860,9 @@ class SynthesisService:
                     synthesis_version_id=version.id,
                     stable_key=item.stable_key,
                     parent_id=node_ids.get(item.parent_id or ""),
-                    title=concept.canonical_name if concept else _canonical_title(item.number, item.title),
+                    title=concept.canonical_name
+                    if concept
+                    else _canonical_title(item.number, item.title),
                     original_title=f"{item.number} {item.title}".strip(),
                     level=item.level,
                     sort_order=item.sort_order,
@@ -897,8 +922,10 @@ class SynthesisService:
                 ),
                 user={
                     "section": {
-                        "stable_key": section.stable_key, "number": section.number,
-                        "title": section.title, "pages": [section.start_page, section.end_page],
+                        "stable_key": section.stable_key,
+                        "number": section.number,
+                        "title": section.title,
+                        "pages": [section.start_page, section.end_page],
                     },
                     "evidence": {"text": evidence_text},
                 },
@@ -917,7 +944,9 @@ class SynthesisService:
             concept.active_version_id = version.id
             concept.status = "PUBLISHED"
             section.status = "PUBLISHED"
-            nodes = session.scalars(select(SynthesisNode).where(SynthesisNode.concept_id == concept.id)).all()
+            nodes = session.scalars(
+                select(SynthesisNode).where(SynthesisNode.concept_id == concept.id)
+            ).all()
             for node in nodes:
                 node.title = draft.title_zh
                 node.concept_version_id = version.id
@@ -947,10 +976,7 @@ class SynthesisService:
                 and (include_published or item.status != "PUBLISHED")
                 and (
                     not long_leaves_only
-                    or (
-                        item.id not in parent_ids
-                        and item.end_page - item.start_page + 1 > 3
-                    )
+                    or (item.id not in parent_ids and item.end_page - item.start_page + 1 > 3)
                 )
             ]
             concept_ids = [item.concept_id for item in targets]
@@ -959,7 +985,10 @@ class SynthesisService:
         completed: list[dict[str, Any]] = []
         failed: list[dict[str, str]] = []
         with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
-            futures = {executor.submit(self.enrich_concept, concept_id): concept_id for concept_id in concept_ids}
+            futures = {
+                executor.submit(self.enrich_concept, concept_id): concept_id
+                for concept_id in concept_ids
+            }
             for future in as_completed(futures):
                 concept_id = futures[future]
                 try:
@@ -970,7 +999,9 @@ class SynthesisService:
             corpus = session.get(BackboneCorpus, corpus_id)
             report = self._ensure_synthesis(session, corpus) if corpus else None
         return {
-            "requested": len(concept_ids), "completed": len(completed), "failed": failed,
+            "requested": len(concept_ids),
+            "completed": len(completed),
+            "failed": failed,
             "coverage": report.model_dump() if report else None,
         }
 
@@ -981,16 +1012,24 @@ class SynthesisService:
             ).all()
             result = []
             for item in rows:
-                version = session.get(SynthesisVersion, item.active_version_id) if item.active_version_id else None
-                result.append({
-                    "synthesis_id": item.id, "stable_key": item.stable_key,
-                    "domain_key": item.domain_key,
-                    "title": item.title, "description": item.description,
-                    "version_id": version.id if version else None,
-                    "version_no": version.version_no if version else None,
-                    "status": version.status if version else "EMPTY",
-                    "coverage": _loads(version.coverage_json, {}) if version else {},
-                })
+                version = (
+                    session.get(SynthesisVersion, item.active_version_id)
+                    if item.active_version_id
+                    else None
+                )
+                result.append(
+                    {
+                        "synthesis_id": item.id,
+                        "stable_key": item.stable_key,
+                        "domain_key": item.domain_key,
+                        "title": item.title,
+                        "description": item.description,
+                        "version_id": version.id if version else None,
+                        "version_no": version.version_no if version else None,
+                        "status": version.status if version else "EMPTY",
+                        "coverage": _loads(version.coverage_json, {}) if version else {},
+                    }
+                )
             return result
 
     def get_synthesis(self, synthesis_id: str) -> dict[str, Any]:
@@ -1002,19 +1041,24 @@ class SynthesisService:
             if version is None:
                 raise ValueError("Synthesis has no active version")
             rows = session.scalars(
-                select(SynthesisNode).where(SynthesisNode.synthesis_version_id == version.id).order_by(
-                    SynthesisNode.sort_order
-                )
+                select(SynthesisNode)
+                .where(SynthesisNode.synthesis_version_id == version.id)
+                .order_by(SynthesisNode.sort_order)
             ).all()
             nodes: dict[str, dict[str, Any]] = {}
             roots: list[dict[str, Any]] = []
             for row in rows:
                 node = {
-                    "node_id": row.id, "stable_key": row.stable_key, "title": row.title,
-                    "original_title": row.original_title, "level": row.level,
-                    "node_kind": row.node_kind, "concept_id": row.concept_id,
+                    "node_id": row.id,
+                    "stable_key": row.stable_key,
+                    "title": row.title,
+                    "original_title": row.original_title,
+                    "level": row.level,
+                    "node_kind": row.node_kind,
+                    "concept_id": row.concept_id,
                     "concept_version_id": row.concept_version_id,
-                    "source_locator": _loads(row.source_locator_json, {}), "children": [],
+                    "source_locator": _loads(row.source_locator_json, {}),
+                    "children": [],
                 }
                 nodes[row.id] = node
                 if row.parent_id and row.parent_id in nodes:
@@ -1022,22 +1066,27 @@ class SynthesisService:
                 else:
                     roots.append(node)
             return {
-                "synthesis_id": synthesis.id, "version_id": version.id,
-                "stable_key": synthesis.stable_key, "domain_key": synthesis.domain_key,
-                "title": synthesis.title, "description": synthesis.description,
-                "version_title": version.title, "status": version.status,
-                "coverage": _loads(version.coverage_json, {}), "outline": roots,
+                "synthesis_id": synthesis.id,
+                "version_id": version.id,
+                "stable_key": synthesis.stable_key,
+                "domain_key": synthesis.domain_key,
+                "title": synthesis.title,
+                "description": synthesis.description,
+                "version_title": version.title,
+                "status": version.status,
+                "coverage": _loads(version.coverage_json, {}),
+                "outline": roots,
             }
 
-    def get_concept(
-        self, concept_id: str, *, version_id: str | None = None
-    ) -> dict[str, Any]:
+    def get_concept(self, concept_id: str, *, version_id: str | None = None) -> dict[str, Any]:
         with self.db.session() as session:
             concept = session.get(Concept, concept_id)
             if concept is None or concept.visibility != "ACTIVE":
                 raise ValueError(f"Unknown concept_id: {concept_id}")
             resolved_version_id = version_id or concept.active_version_id
-            version = session.get(ConceptVersion, resolved_version_id) if resolved_version_id else None
+            version = (
+                session.get(ConceptVersion, resolved_version_id) if resolved_version_id else None
+            )
             if version is None:
                 raise ValueError("Concept has no active version")
             if version.concept_id != concept.id:
@@ -1045,32 +1094,44 @@ class SynthesisService:
             if version.schema_version in {"concept-v2", "concept-v3"}:
                 return self._get_semantic_concept(session, concept, version)
             blocks = session.scalars(
-                select(ConceptBlock).where(ConceptBlock.concept_version_id == version.id).order_by(
-                    ConceptBlock.sort_order
-                )
+                select(ConceptBlock)
+                .where(ConceptBlock.concept_version_id == version.id)
+                .order_by(ConceptBlock.sort_order)
             ).all()
-            evidence = session.scalars(
-                select(ConceptEvidenceLink).where(
-                    ConceptEvidenceLink.concept_block_id.in_([item.id for item in blocks])
-                )
-            ).all() if blocks else []
+            evidence = (
+                session.scalars(
+                    select(ConceptEvidenceLink).where(
+                        ConceptEvidenceLink.concept_block_id.in_([item.id for item in blocks])
+                    )
+                ).all()
+                if blocks
+                else []
+            )
             evidence_by_block: dict[str, list[dict[str, Any]]] = {}
             for link in evidence:
-                evidence_by_block.setdefault(link.concept_block_id, []).append({
-                    "source_role": link.source_role, "source_ref": link.source_ref,
-                    "source_locator": _loads(link.source_locator_json, {}),
-                })
+                evidence_by_block.setdefault(link.concept_block_id, []).append(
+                    {
+                        "source_role": link.source_role,
+                        "source_ref": link.source_ref,
+                        "source_locator": _loads(link.source_locator_json, {}),
+                    }
+                )
             figures = session.scalars(
                 select(BackboneFigure)
                 .where(BackboneFigure.concept_id == concept.id)
                 .order_by(BackboneFigure.page_number, BackboneFigure.figure_label)
             ).all()
             return {
-                "concept_id": concept.id, "stable_key": concept.stable_key,
-                "domain_key": concept.domain_key, "title": version.title,
-                "original_title": version.original_title, "scope": version.scope,
-                "summary": version.summary, "status": version.status,
-                "version_id": version.id, "version_no": version.version_no,
+                "concept_id": concept.id,
+                "stable_key": concept.stable_key,
+                "domain_key": concept.domain_key,
+                "title": version.title,
+                "original_title": version.original_title,
+                "scope": version.scope,
+                "summary": version.summary,
+                "status": version.status,
+                "version_id": version.id,
+                "version_no": version.version_no,
                 "figures": [
                     {
                         "figure_id": item.id,
@@ -1081,18 +1142,22 @@ class SynthesisService:
                         "width": item.width_px,
                         "height": item.height_px,
                         "asset_url": (
-                            f"/internal/v1/concept-figures/{item.id}"
-                            f"?v={item.image_sha256[:16]}"
+                            f"/internal/v1/concept-figures/{item.id}?v={item.image_sha256[:16]}"
                         ),
                     }
                     for item in figures
                 ],
-                "blocks": [{
-                    "block_id": item.id, "block_key": item.block_key,
-                    "block_type": item.block_type, "content": item.content_text,
-                    "source_role": item.source_role,
-                    "evidence": evidence_by_block.get(item.id, []),
-                } for item in blocks],
+                "blocks": [
+                    {
+                        "block_id": item.id,
+                        "block_key": item.block_key,
+                        "block_type": item.block_type,
+                        "content": item.content_text,
+                        "source_role": item.source_role,
+                        "evidence": evidence_by_block.get(item.id, []),
+                    }
+                    for item in blocks
+                ],
             }
 
     @staticmethod
@@ -1108,16 +1173,12 @@ class SynthesisService:
                     [
                         "| " + " | ".join(str(item) for item in headers) + " |",
                         "| " + " | ".join("---" for _ in headers) + " |",
-                        *[
-                            "| " + " | ".join(str(cell) for cell in row) + " |"
-                            for row in rows
-                        ],
+                        *["| " + " | ".join(str(cell) for cell in row) + " |" for row in rows],
                     ]
                 )
         if block_type == "PROCEDURE":
             return "\n".join(
-                f"{index}. {item}"
-                for index, item in enumerate(block.get("steps", []), 1)
+                f"{index}. {item}" for index, item in enumerate(block.get("steps", []), 1)
             )
         if block_type == "CODE":
             return f"```{block.get('language', '')}\n{block.get('code', '')}\n```"
@@ -1172,8 +1233,7 @@ class SynthesisService:
                 )
         if render_type == "PROCEDURE":
             return "\n".join(
-                f"{index}. {item}"
-                for index, item in enumerate(payload.get("steps", []), 1)
+                f"{index}. {item}" for index, item in enumerate(payload.get("steps", []), 1)
             )
         if render_type == "CODE":
             language = payload.get("language", "")
@@ -1207,11 +1267,15 @@ class SynthesisService:
                     for item in contribution_snapshot
                     if isinstance(item, dict) and item.get("contribution_id")
                 ]
-                contributions = session.scalars(
-                    select(ConceptContribution)
-                    .where(ConceptContribution.id.in_(contribution_ids))
-                    .order_by(ConceptContribution.created_at)
-                ).all() if contribution_ids else []
+                contributions = (
+                    session.scalars(
+                        select(ConceptContribution)
+                        .where(ConceptContribution.id.in_(contribution_ids))
+                        .order_by(ConceptContribution.created_at)
+                    ).all()
+                    if contribution_ids
+                    else []
+                )
             else:
                 contributions = session.scalars(
                     select(ConceptContribution)
@@ -1224,8 +1288,12 @@ class SynthesisService:
             # Legacy versions lack snapshots. Do not leak contributions added by a later merge.
             if not isinstance(contribution_snapshot, list):
                 contributions = [
-                    item for item in contributions
-                    if not (item.rationale.startswith("Merged from ") and item.created_at > module_version.created_at)
+                    item
+                    for item in contributions
+                    if not (
+                        item.rationale.startswith("Merged from ")
+                        and item.created_at > module_version.created_at
+                    )
                 ]
             evidence: list[dict[str, Any]] = []
             contribution_payload: list[dict[str, Any]] = []
@@ -1313,7 +1381,8 @@ class SynthesisService:
                 if content_block.get("symbols"):
                     content_block["symbols"] = [
                         {**item, "meaning": item.get("meaning") or item.get("description") or ""}
-                        for item in content_block["symbols"] if isinstance(item, dict)
+                        for item in content_block["symbols"]
+                        if isinstance(item, dict)
                     ]
                 content_block["evidence_details"] = precise_by_block.get(
                     str(raw_block.get("block_key") or ""), []
@@ -1354,7 +1423,8 @@ class SynthesisService:
             "status": version.status,
             "schema_version": version.schema_version,
             "content_level": (
-                "OVERVIEW" if len(blocks) == 1 and blocks[0]["semantic_role"] == "OVERVIEW"
+                "OVERVIEW"
+                if len(blocks) == 1 and blocks[0]["semantic_role"] == "OVERVIEW"
                 else "DETAIL"
             ),
             "version_id": version.id,

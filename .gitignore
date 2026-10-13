@@ -35,14 +35,7 @@ exports/
 *.pdf
 *.zip
 
-# Legacy personal documentation is retained locally, not published.
-/docs/*
-!/docs/ARCHITECTURE.md
-!/docs/KNOWLEDGE-SYNC.md
-!/docs/OPERATIONS.md
-!/docs/TESTING.md
-!/docs/RELEASE.md
-!/docs/assets/
+# Public documentation belongs in docs/; personal archives belong in .local-only/.
 
 # Caches and editor files
 __pycache__/

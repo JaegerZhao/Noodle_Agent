@@ -4,6 +4,7 @@ import base64
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -32,9 +33,7 @@ class InternalApiTest(unittest.TestCase):
                     "/internal/v1/sources/pdf",
                     files={"file": (pdf_path.name, stream, "application/pdf")},
                 ).json()
-                response = client.get(
-                    f"/internal/v1/sources/{ingested['source_id']}/pdf"
-                )
+                response = client.get(f"/internal/v1/sources/{ingested['source_id']}/pdf")
                 opaque = client.get(
                     f"/internal/v1/sources/{ingested['source_id']}/original-content"
                 )
@@ -73,9 +72,7 @@ class InternalApiTest(unittest.TestCase):
                     blob = session.get(BlobObject, version.original_blob_id)
                     original_path = app.state.noodle.blobs.path_for(blob.storage_key)
 
-                retried = client.post(
-                    f"/internal/v1/jobs/{ingested['job_id']}/resume"
-                )
+                retried = client.post(f"/internal/v1/jobs/{ingested['job_id']}/resume")
                 self.assertEqual(retried.status_code, 200)
                 self.assertEqual(retried.json()["retry_mode"], "from_original")
                 with app.state.noodle.db.session() as session:
@@ -83,9 +80,7 @@ class InternalApiTest(unittest.TestCase):
                     replacement.status = "FAILED"
                     replacement.stage = "SUBMITTING_PARSE"
 
-                deleted = client.delete(
-                    f"/internal/v1/sources/{ingested['source_id']}"
-                )
+                deleted = client.delete(f"/internal/v1/sources/{ingested['source_id']}")
                 self.assertEqual(deleted.status_code, 200)
                 self.assertTrue(deleted.json()["source_deleted"])
                 self.assertTrue(original_path.exists())
@@ -113,9 +108,7 @@ class InternalApiTest(unittest.TestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 202)
-                job = client.get(
-                    f"/internal/v1/jobs/{response.json()['job_id']}"
-                ).json()
+                job = client.get(f"/internal/v1/jobs/{response.json()['job_id']}").json()
             self.assertEqual(job["harness"]["session_id"], "session-p0")
             self.assertEqual(job["harness"]["tool_call_id"], "call-p0")
 
@@ -134,12 +127,26 @@ class InternalApiTest(unittest.TestCase):
                 )
                 self.assertEqual(created.status_code, 201)
                 payload = created.json()
-                fetched = client.get(
-                    f"/internal/v1/attachments/{payload['attachment_id']}"
-                )
+                fetched = client.get(f"/internal/v1/attachments/{payload['attachment_id']}")
             self.assertEqual(fetched.status_code, 200)
             self.assertEqual(fetched.json()["status"], "READY")
             self.assertTrue(fetched.json()["blob_url"].startswith("/internal/v1/blobs/"))
+
+    def test_real_adapter_health_does_not_call_model(self) -> None:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as raw:
+            settings = replace(
+                Settings.from_env(Path(raw)),
+                llm="deepseek",
+                llm_api_key="test-key",
+                llm_fast_model="test-model",
+                llm_pro_model="test-model",
+            )
+            with patch("noodle_agent.adapters.llm.OpenAI") as provider:
+                with TestClient(create_app(settings)) as client:
+                    response = client.get("/health")
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.json()["knowledge_agent"], "openai-compatible")
+                provider.return_value.chat.completions.create.assert_not_called()
 
     def test_domain_api_excludes_legacy_agent_and_web(self) -> None:
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as raw:
@@ -160,14 +167,16 @@ class InternalApiTest(unittest.TestCase):
 
                 self.assertEqual(client.get("/internal/v1/source-notes").json(), [])
                 self.assertEqual(client.get("/internal/v1/notes").json(), [])
-                self.assertEqual(client.post("/agent/chat", json={"message": "hi"}).status_code, 404)
+                self.assertEqual(
+                    client.post("/agent/chat", json={"message": "hi"}).status_code, 404
+                )
                 self.assertEqual(client.get("/ui/").status_code, 404)
                 self.assertEqual(client.get("/source-notes").status_code, 404)
                 workbench = client.get("/app/")
                 self.assertEqual(workbench.status_code, 200)
                 self.assertIn("Noodle Agent", workbench.text)
                 self.assertIn(
-                    "/app/workbench.js?v=20261012-knowledge-sync-v2",
+                    "/app/workbench.js?v=20261013-modular-v1",
                     workbench.text,
                 )
                 self.assertEqual(
@@ -180,17 +189,21 @@ class InternalApiTest(unittest.TestCase):
                 self.assertNotIn('id="harness-frame"', workbench.text)
                 workbench_script = client.get("/app/workbench.js")
                 self.assertEqual(workbench_script.status_code, 200)
-                self.assertIn("仅允许本次", workbench_script.text)
-                self.assertNotIn("打开审批面板", workbench_script.text)
+                self.assertIn("NoodleWorkbench", workbench_script.text)
+                chat_module = client.get("/app/workbench/chat.js")
+                self.assertEqual(chat_module.status_code, 200)
+                self.assertIn("仅允许本次", chat_module.text)
+                self.assertNotIn("打开审批面板", chat_module.text)
+                self.assertEqual(
+                    chat_module.headers["cache-control"], "no-store, no-cache, must-revalidate"
+                )
                 self.assertEqual(
                     workbench_script.headers["cache-control"],
                     "no-store, no-cache, must-revalidate",
                 )
                 pdf_module = client.get("/app/vendor/pdfjs/pdf.min.mjs")
                 self.assertEqual(pdf_module.status_code, 200)
-                self.assertTrue(
-                    pdf_module.headers["content-type"].startswith("text/javascript")
-                )
+                self.assertTrue(pdf_module.headers["content-type"].startswith("text/javascript"))
                 with app.state.noodle.db.session() as session:
                     concept = Concept(
                         stable_key="test:pinned-api",
@@ -244,9 +257,7 @@ class InternalApiTest(unittest.TestCase):
                         ensure_ascii=False,
                     )
 
-                info_only = client.get(
-                    f"/internal/v1/jobs/{ingested['job_id']}"
-                ).json()
+                info_only = client.get(f"/internal/v1/jobs/{ingested['job_id']}").json()
                 self.assertEqual(info_only["status"], "COMPLETED")
                 self.assertEqual(info_only["warnings"][0]["severity"], "INFO")
 
@@ -255,9 +266,7 @@ class InternalApiTest(unittest.TestCase):
                     job.warning_json = json.dumps(
                         [{"code": "CANDIDATE_QUALITY_FAILED", "detail": "judge failed"}]
                     )
-                material = client.get(
-                    f"/internal/v1/jobs/{ingested['job_id']}"
-                ).json()
+                material = client.get(f"/internal/v1/jobs/{ingested['job_id']}").json()
                 self.assertEqual(material["status"], "COMPLETED_WITH_WARNINGS")
                 self.assertEqual(material["warnings"][0]["severity"], "WARNING")
 

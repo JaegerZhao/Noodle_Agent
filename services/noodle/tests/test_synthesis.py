@@ -518,17 +518,12 @@ def test_atomic_note_requires_explicit_acceptance_and_publishes_new_releases(
         ).all()
         assert [item.decision for item in judges] == ["REPAIR", "PASS"]
         assert all(
-            item.candidate_concept_version_id == updated["concept_version_id"]
-            for item in judges
+            item.candidate_concept_version_id == updated["concept_version_id"] for item in judges
         )
-        assert all(
-            item.module_version_id == after_modules[overview_module_id]
-            for item in judges
-        )
+        assert all(item.module_version_id == after_modules[overview_module_id] for item in judges)
         precise = session.scalars(
             select(ConceptContentEvidence).where(
-                ConceptContentEvidence.module_version_id
-                == after_modules[overview_module_id]
+                ConceptContentEvidence.module_version_id == after_modules[overview_module_id]
             )
         ).all()
         assert precise

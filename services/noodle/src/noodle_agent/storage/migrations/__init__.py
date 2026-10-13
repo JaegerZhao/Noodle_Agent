@@ -1,0 +1,1 @@
+"""Versioned storage resources."""

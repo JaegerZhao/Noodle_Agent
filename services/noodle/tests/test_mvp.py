@@ -15,8 +15,7 @@ import pymupdf as fitz
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from noodle_agent.agent import AgentHarness
-from noodle_agent.api import create_app
+from noodle_agent.application.common import _merged_event_duration_ms
 from noodle_agent.config import Settings
 from noodle_agent.db import (
     AtomicNote,
@@ -45,7 +44,8 @@ from noodle_agent.domain import (
     ParsedBlock,
     ParsedDocument,
 )
-from noodle_agent.services import NoodleService, _merged_event_duration_ms
+from noodle_agent.internal_api import create_app
+from noodle_agent.services import NoodleService
 from noodle_agent.worker import JobWorker
 
 
@@ -182,9 +182,7 @@ class MvpTest(unittest.TestCase):
                 service = NoodleService(settings)
                 service.init()
                 ingest = service.ingest_pdf(pdf_path)
-                completed = service.run_job_until_terminal(
-                    ingest["job_id"], timeout_seconds=10
-                )
+                completed = service.run_job_until_terminal(ingest["job_id"], timeout_seconds=10)
                 self.assertEqual(completed["status"], "COMPLETED")
                 with service.db.session() as session:
                     version = session.get(SourceVersion, ingest["source_version_id"])
@@ -233,7 +231,9 @@ class MvpTest(unittest.TestCase):
                 with service.db.session() as session:
                     first_version = session.get(SourceVersion, first["source_version_id"])
                     second_version = session.get(SourceVersion, second["source_version_id"])
-                    self.assertEqual(first_version.original_blob_id, second_version.original_blob_id)
+                    self.assertEqual(
+                        first_version.original_blob_id, second_version.original_blob_id
+                    )
                     blob = session.get(BlobObject, first_version.original_blob_id)
                     blob_path = service.blobs.path_for(blob.storage_key)
                     session.get(Job, first["job_id"]).status = "FAILED"
@@ -241,9 +241,7 @@ class MvpTest(unittest.TestCase):
 
                 service.delete_source_local_data(first["source_id"])
                 self.assertTrue(blob_path.is_file())
-                self.assertIsNotNone(
-                    service.get_library_overview()["sources"][0]["source_id"]
-                )
+                self.assertIsNotNone(service.get_library_overview()["sources"][0]["source_id"])
 
                 service.delete_source_local_data(second["source_id"])
                 self.assertTrue(blob_path.exists())
@@ -260,9 +258,7 @@ class MvpTest(unittest.TestCase):
                 service.init()
                 ingest = service.ingest_pdf(pdf_path)
                 service.run_job_until_terminal(ingest["job_id"], timeout_seconds=10)
-                source_note_id = service.get_job_result(ingest["job_id"])[
-                    "source_note_id"
-                ]
+                source_note_id = service.get_job_result(ingest["job_id"])["source_note_id"]
                 before_release = service.get_source_note(source_note_id)
 
                 notes: list[dict] = []
@@ -323,6 +319,7 @@ class MvpTest(unittest.TestCase):
 
     def test_replacing_captioned_images_retires_old_caption_blocks(self):
         from noodle_agent.db import NoteBlock
+
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as raw:
             root = Path(raw)
             pdf_path = create_fixture(root)
@@ -331,20 +328,66 @@ class MvpTest(unittest.TestCase):
                 service.init()
                 ingest = service.ingest_pdf(pdf_path)
                 service.run_job_until_terminal(ingest["job_id"], timeout_seconds=10)
-                source = next(item for item in service.list_source_notes() if item["source_version_id"] == ingest["source_version_id"])
+                source = next(
+                    item
+                    for item in service.list_source_notes()
+                    if item["source_version_id"] == ingest["source_version_id"]
+                )
                 with service.db.session() as session:
-                    image_blocks = session.scalars(select(NoteBlock).where(NoteBlock.block_type == "IMAGE")).all()
+                    image_blocks = session.scalars(
+                        select(NoteBlock).where(NoteBlock.block_type == "IMAGE")
+                    ).all()
                     for block in image_blocks:
                         block.content_text = "Obsolete crop description"
-                attachment = service.create_agent_attachment(root / "figure.png", original_name="reviewed.png", media_type="image/png", analyze=False)
-                result = service.replace_source_note_images(source_note_id=source["source_note_id"], attachment_id=attachment["attachment_id"], page_start=2, page_end=2, expected_source_note_version_id=source["version_id"], caption="Reviewed full-page labels", purpose="Preserve context")
+                attachment = service.create_agent_attachment(
+                    root / "figure.png",
+                    original_name="reviewed.png",
+                    media_type="image/png",
+                    analyze=False,
+                )
+                result = service.replace_source_note_images(
+                    source_note_id=source["source_note_id"],
+                    attachment_id=attachment["attachment_id"],
+                    page_start=2,
+                    page_end=2,
+                    expected_source_note_version_id=source["version_id"],
+                    caption="Reviewed full-page labels",
+                    purpose="Preserve context",
+                )
                 updated = service.get_note(result["target_note_id"])
-                assert "Obsolete crop description" not in "\n".join(block["text"] for block in updated["blocks"])
-                assert all(block["assets"] for block in updated["blocks"] if block["type"] == "IMAGE")
-                second_attachment = service.create_agent_attachment(root / "figure.png", original_name="reviewed-again.png", media_type="image/png", analyze=False)
-                second = service.replace_source_note_images(source_note_id=source["source_note_id"], attachment_id=second_attachment["attachment_id"], page_start=2, page_end=2, target_note_title=updated["title"], expected_source_note_version_id=result["source_note_version_id"], caption="Revised labels", purpose="Second revision")
+                assert "Obsolete crop description" not in "\n".join(
+                    block["text"] for block in updated["blocks"]
+                )
+                assert all(
+                    block["assets"] for block in updated["blocks"] if block["type"] == "IMAGE"
+                )
+                second_attachment = service.create_agent_attachment(
+                    root / "figure.png",
+                    original_name="reviewed-again.png",
+                    media_type="image/png",
+                    analyze=False,
+                )
+                second = service.replace_source_note_images(
+                    source_note_id=source["source_note_id"],
+                    attachment_id=second_attachment["attachment_id"],
+                    page_start=2,
+                    page_end=2,
+                    target_note_title=updated["title"],
+                    expected_source_note_version_id=result["source_note_version_id"],
+                    caption="Revised labels",
+                    purpose="Second revision",
+                )
                 assert second["status"] == "UPDATED"
-                assert len([b for b in service.get_note(second["target_note_id"])["blocks"] if b["type"] == "IMAGE"]) == 1
+                assert (
+                    len(
+                        [
+                            b
+                            for b in service.get_note(second["target_note_id"])["blocks"]
+                            if b["type"] == "IMAGE"
+                        ]
+                    )
+                    == 1
+                )
                 service.close()
 
     def test_search_keeps_fts_results_when_embedding_model_changes(self) -> None:
@@ -366,7 +409,7 @@ class MvpTest(unittest.TestCase):
                 self.assertIn("梯度下降", hits[0].title)
                 service.close()
 
-    def test_agent_replaces_source_image_with_versioned_attachment(self) -> None:
+    def test_attachment_replaces_source_image_with_versioned_attachment(self) -> None:
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as raw:
             root = Path(raw)
             pdf_path = create_fixture(root)
@@ -375,9 +418,7 @@ class MvpTest(unittest.TestCase):
                 service.init()
                 ingest = service.ingest_pdf(pdf_path)
                 service.run_job_until_terminal(ingest["job_id"], timeout_seconds=10)
-                source_note_id = service.get_job_result(ingest["job_id"])[
-                    "source_note_id"
-                ]
+                source_note_id = service.get_job_result(ingest["job_id"])["source_note_id"]
                 original = service.get_source_note(source_note_id)
                 replacement = service.create_agent_attachment(
                     root / "figure.png",
@@ -385,17 +426,14 @@ class MvpTest(unittest.TestCase):
                     media_type="image/png",
                     analyze=False,
                 )
-                harness = AgentHarness(service, settings)
-                result = harness.chat(
-                    "将 course.pdf 的 P2-P2 图片碎片替换为这张完整图片",
-                    attachment_ids=[replacement["attachment_id"]],
-                    active_source_note_id=source_note_id,
+                service.replace_source_note_images(
+                    source_note_id=source_note_id,
+                    attachment_id=replacement["attachment_id"],
+                    page_start=2,
+                    page_end=2,
+                    expected_source_note_version_id=original["version_id"],
+                    actor="test-user",
                 )
-                self.assertEqual(result.skill, "note-editing")
-                self.assertEqual(
-                    result.tool_calls[0]["tool_name"], "note.replace_source_images"
-                )
-                self.assertEqual(result.tool_calls[0]["status"], "SUCCEEDED")
                 edited = service.get_source_note(source_note_id)
                 self.assertEqual(edited["version_no"], original["version_no"] + 1)
                 with self.assertRaisesRegex(ValueError, "version conflict"):
@@ -431,7 +469,6 @@ class MvpTest(unittest.TestCase):
                         )
                     ).all()
                     self.assertEqual(len(source_versions), 2)
-                harness.close()
                 service.close()
 
     def test_worker_claims_job_once_and_exposes_source_note_result(self) -> None:
@@ -484,12 +521,8 @@ class MvpTest(unittest.TestCase):
                 service = NoodleService(settings)
                 service.init()
                 ingest = service.ingest_pdf(pdf_path)
-                service._update_generation_stage(
-                    ingest["job_id"], JobStage.ANALYZING_VISUALS, 0.77
-                )
-                service._update_generation_stage(
-                    ingest["job_id"], JobStage.DRAFTING_NOTES, 0.66
-                )
+                service._update_generation_stage(ingest["job_id"], JobStage.ANALYZING_VISUALS, 0.77)
+                service._update_generation_stage(ingest["job_id"], JobStage.DRAFTING_NOTES, 0.66)
                 job = service.get_job(ingest["job_id"])
                 self.assertEqual(job["progress"], 0.77)
                 self.assertEqual(job["stage"], JobStage.ANALYZING_VISUALS.value)
@@ -533,12 +566,7 @@ class MvpTest(unittest.TestCase):
                 self.assertTrue(anchors)
                 self.assertTrue(all(item["page_index"] >= 0 for item in anchors))
                 self.assertTrue(any(item["block_key"] for item in anchors))
-                self.assertTrue(
-                    all(
-                        item["confidence"] in {"EXACT", "NOTE"}
-                        for item in anchors
-                    )
-                )
+                self.assertTrue(all(item["confidence"] in {"EXACT", "NOTE"} for item in anchors))
                 pending_nodes = list(source_note["outline"])
                 projected_notes = []
                 while pending_nodes:
@@ -565,9 +593,7 @@ class MvpTest(unittest.TestCase):
                 index_path = Path(exports[0]["index"])
                 self.assertTrue(index_path.exists())
                 self.assertTrue(Path(exports[0]["source_note"]).exists())
-                source_note_markdown = Path(exports[0]["source_note"]).read_text(
-                    encoding="utf-8"
-                )
+                source_note_markdown = Path(exports[0]["source_note"]).read_text(encoding="utf-8")
                 self.assertNotIn(f"\n## {source_note['title']}\n", source_note_markdown)
                 self.assertNotIn("学习目标", source_note_markdown)
                 self.assertNotIn("本节目标", source_note_markdown)
@@ -589,28 +615,6 @@ class MvpTest(unittest.TestCase):
                 self.assertIn("发散", answer.answer)
                 no_answer = service.ask("量子纠缠是否能实现超光速通信？")
                 self.assertEqual(no_answer.hits, [])
-                harness = AgentHarness(service, settings)
-                agent_answer = harness.chat("学习率过大会怎样？")
-                self.assertIn("发散", agent_answer.answer)
-                self.assertEqual(agent_answer.skill, "evidence-grounded-qa")
-                self.assertEqual(agent_answer.tool_calls[0]["tool_name"], "knowledge.answer")
-                refused = harness.chat("量子纠缠是否能实现超光速通信？")
-                self.assertEqual(refused.citations, [])
-                persisted = harness.get_run(agent_answer.run_id)
-                self.assertEqual(persisted["status"], "COMPLETED")
-                self.assertEqual(persisted["context"]["skill"], "evidence-grounded-qa")
-                follow_up = harness.chat(
-                    "有哪些笔记？",
-                    conversation_id=agent_answer.conversation_id,
-                )
-                self.assertEqual(follow_up.conversation_id, agent_answer.conversation_id)
-                self.assertEqual(follow_up.tool_calls[0]["tool_name"], "note.list")
-                conversation = harness.get_conversation(agent_answer.conversation_id)
-                self.assertEqual(
-                    [item["role"] for item in conversation["messages"]],
-                    ["user", "assistant", "user", "assistant"],
-                )
-                harness.close()
                 service.close()
 
     def test_structured_blocks_and_inline_image_are_persisted_and_exported(self) -> None:
@@ -793,9 +797,7 @@ class MvpTest(unittest.TestCase):
                 service = NoodleService(settings)
                 service.init()
                 ingest = service.ingest_pdf(pdf_path)
-                completed = service.run_job_until_terminal(
-                    ingest["job_id"], timeout_seconds=10
-                )
+                completed = service.run_job_until_terminal(ingest["job_id"], timeout_seconds=10)
                 self.assertEqual(completed["status"], "COMPLETED")
                 original_parse_run_id = completed["parse_run_id"]
                 with service.db.session() as session:
@@ -837,7 +839,9 @@ class MvpTest(unittest.TestCase):
                     ],
                 )
                 service._persist_notes(
-                    completed["id"], ingest["source_id"], ingest["source_version_id"],
+                    completed["id"],
+                    ingest["source_id"],
+                    ingest["source_version_id"],
                     [replacement],
                 )
                 with service.db.session() as session:
@@ -869,7 +873,9 @@ class MvpTest(unittest.TestCase):
                     }
                 )
                 service._persist_notes(
-                    completed["id"], ingest["source_id"], ingest["source_version_id"],
+                    completed["id"],
+                    ingest["source_id"],
+                    ingest["source_version_id"],
                     [replacement_v2],
                 )
                 with service.db.session() as session:
@@ -879,14 +885,10 @@ class MvpTest(unittest.TestCase):
                             AtomicNote.stable_key == "replacement-note",
                         )
                     )
-                    active_version = session.get(
-                        NoteVersion, replacement_row.active_version_id
-                    )
+                    active_version = session.get(NoteVersion, replacement_row.active_version_id)
                     version_count = len(
                         session.scalars(
-                            select(NoteVersion).where(
-                                NoteVersion.note_id == replacement_row.id
-                            )
+                            select(NoteVersion).where(NoteVersion.note_id == replacement_row.id)
                         ).all()
                     )
                 self.assertEqual(active_version.thesis, replacement_v2.thesis)
@@ -900,18 +902,15 @@ class MvpTest(unittest.TestCase):
                 health = client.get("/health")
                 self.assertEqual(health.status_code, 200)
                 self.assertTrue(health.json()["database"])
-                self.assertEqual(client.get("/notes").json(), [])
+                self.assertEqual(client.get("/internal/v1/notes").json(), [])
                 home = client.get("/")
                 self.assertEqual(home.status_code, 200)
-                self.assertIn("学习批注工作台", home.text)
-                agent = client.post("/agent/chat", json={"message": "有哪些笔记"})
-                self.assertEqual(agent.status_code, 200)
-                payload = agent.json()
-                self.assertEqual(payload["skill"], "evidence-grounded-qa")
-                self.assertEqual(payload["tool_calls"][0]["tool_name"], "note.list")
-                run = client.get(f"/agent/runs/{payload['run_id']}")
-                self.assertEqual(run.status_code, 200)
-                self.assertEqual(run.json()["status"], "COMPLETED")
+                self.assertIn("Noodle Agent", home.text)
+                self.assertFalse(health.json()["legacy_agent_loaded"])
+                self.assertEqual(client.get("/ui/").status_code, 404)
+                self.assertEqual(
+                    client.post("/agent/chat", json={"message": "test"}).status_code, 404
+                )
 
     def test_http_upload_returns_background_job_links(self) -> None:
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as raw:
@@ -920,27 +919,27 @@ class MvpTest(unittest.TestCase):
             with isolated_settings(root) as settings, TestClient(create_app(settings)) as client:
                 with pdf_path.open("rb") as pdf_file:
                     response = client.post(
-                        "/sources/pdf?title=Web%20Upload",
+                        "/internal/v1/sources/pdf?title=Web%20Upload",
                         files={"file": ("course.pdf", pdf_file, "application/pdf")},
                     )
                 self.assertEqual(response.status_code, 202)
                 payload = response.json()
-                self.assertEqual(payload["job_url"], f"/jobs/{payload['job_id']}")
+                self.assertEqual(payload["job_url"], f"/internal/v1/jobs/{payload['job_id']}")
                 self.assertEqual(
-                    payload["timeline_url"], f"/jobs/{payload['job_id']}/timeline"
+                    payload["timeline_url"], f"/internal/v1/jobs/{payload['job_id']}/timeline"
                 )
                 job_result = client.get(payload["result_url"])
                 self.assertEqual(job_result.status_code, 200)
                 self.assertFalse(job_result.json()["ready"])
                 with pdf_path.open("rb") as pdf_file:
                     duplicate = client.post(
-                        "/sources/pdf",
+                        "/internal/v1/sources/pdf",
                         files={"file": ("duplicate.pdf", pdf_file, "application/pdf")},
                     )
                 self.assertEqual(duplicate.status_code, 202)
                 self.assertEqual(duplicate.json()["job_id"], payload["job_id"])
                 self.assertEqual(duplicate.json()["deduplicated"], "true")
-                self.assertEqual(len(client.get("/jobs").json()), 1)
+                self.assertEqual(len(client.get("/internal/v1/jobs").json()), 1)
 
     def test_generation_validators_reject_missing_core_and_invalid_text(self) -> None:
         document = ParsedDocument(
@@ -995,9 +994,7 @@ class MvpTest(unittest.TestCase):
                 ),
             ],
         )
-        errors = NoodleService._validate_note_set(
-            document, knowledge_map, note_set, review
-        )
+        errors = NoodleService._validate_note_set(document, knowledge_map, note_set, review)
         self.assertIn("UNCOVERED_CORE_CONCEPT:core", errors)
 
         plan = KnowledgePlan(

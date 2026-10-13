@@ -29,9 +29,7 @@ class JobWorker:
         self.worker_id = worker_id or (
             f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
         )
-        self.lease_seconds = max(
-            30, lease_seconds or service.settings.worker_lease_seconds
-        )
+        self.lease_seconds = max(30, lease_seconds or service.settings.worker_lease_seconds)
         self.heartbeat_seconds = max(
             5, heartbeat_seconds or service.settings.worker_heartbeat_seconds
         )
@@ -260,9 +258,7 @@ class JobWorker:
     ) -> None:
         interval = max(
             0.2,
-            poll_seconds
-            if poll_seconds is not None
-            else self.service.settings.worker_poll_seconds,
+            poll_seconds if poll_seconds is not None else self.service.settings.worker_poll_seconds,
         )
         stop_event = stop_event or threading.Event()
         while not stop_event.is_set():

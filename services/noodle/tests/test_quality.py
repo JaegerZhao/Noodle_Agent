@@ -87,18 +87,13 @@ def test_single_level_outline_is_wrapped_without_rebinding_notes() -> None:
         ],
     )
 
-    normalized, rebound, repairs = NoodleService._normalize_minimum_outline_depth(
-        outline, note_set
-    )
+    normalized, rebound, repairs = NoodleService._normalize_minimum_outline_depth(outline, note_set)
 
     assert repairs[0]["type"] == "WRAP_SINGLE_LEVEL_OUTLINE"
     assert normalized.nodes[0].level == 1
     assert normalized.nodes[0].title == normalized.title
     assert all(node.level == 2 for node in normalized.nodes[1:])
-    assert all(
-        node.parent_key == normalized.nodes[0].stable_key
-        for node in normalized.nodes[1:]
-    )
+    assert all(node.parent_key == normalized.nodes[0].stable_key for node in normalized.nodes[1:])
     assert rebound.notes[0].outline_node_key == "basics"
     assert NoodleService._validate_source_note_outline(normalized) == []
 
@@ -110,9 +105,7 @@ def test_empty_outline_is_recovered_from_note_specs() -> None:
         notes=[_spec().model_copy(update={"outline_node_key": ""})],
     )
 
-    normalized, rebound, repairs = NoodleService._normalize_minimum_outline_depth(
-        outline, note_set
-    )
+    normalized, rebound, repairs = NoodleService._normalize_minimum_outline_depth(outline, note_set)
 
     assert repairs[0]["type"] == "BUILD_OUTLINE_FROM_NOTE_SET"
     assert normalized.title == "CNN"
@@ -289,9 +282,7 @@ def test_inline_latex_parentheses_are_normalized_for_markdown() -> None:
             )
         ],
     )
-    assert normalize_note_blocks(note).blocks[0].text == (
-        "输入 $x=[1,2]$ 产生输出 $z=[3,4]$。"
-    )
+    assert normalize_note_blocks(note).blocks[0].text == ("输入 $x=[1,2]$ 产生输出 $z=[3,4]$。")
 
 
 def test_deterministic_review_allows_one_note_to_cover_related_concepts() -> None:
@@ -386,10 +377,8 @@ def test_combined_plan_contracts_are_repaired_without_llm() -> None:
         ],
     )
 
-    repaired_outline, repaired_set, repairs = (
-        NoodleService._normalize_combined_plan_contracts(
-            _document(), knowledge_map, outline, note_set
-        )
+    repaired_outline, repaired_set, repairs = NoodleService._normalize_combined_plan_contracts(
+        _document(), knowledge_map, outline, note_set
     )
 
     repaired_note = repaired_set.notes[0]
@@ -397,9 +386,7 @@ def test_combined_plan_contracts_are_repaired_without_llm() -> None:
     assert repaired_note.evidence_block_ids == ["p1-text"]
     assert repaired_note.outline_node_key != "core"
     leaf = next(
-        node
-        for node in repaired_outline.nodes
-        if node.stable_key == repaired_note.outline_node_key
+        node for node in repaired_outline.nodes if node.stable_key == repaired_note.outline_node_key
     )
     assert leaf.parent_key == "core"
     assert leaf.level == 3
@@ -590,13 +577,18 @@ def test_non_visual_asset_reference_fails_deterministic_validation() -> None:
 
 
 def test_exact_prose_dedup_preserves_evidence_and_distinct_content():
-    note = NoteDraft(stable_key="swin", title="Swin", thesis="Architecture", blocks=[
-        NoteBlockDraft(text="Same caption.", evidence_block_ids=["p1"]),
-        NoteBlockDraft(text="Other explanation.", evidence_block_ids=["p2"]),
-        NoteBlockDraft(text="Same caption.", evidence_block_ids=["p3"]),
-        NoteBlockDraft(block_type="FORMULA", text="x + y"),
-        NoteBlockDraft(block_type="FORMULA", text="x + y"),
-    ])
+    note = NoteDraft(
+        stable_key="swin",
+        title="Swin",
+        thesis="Architecture",
+        blocks=[
+            NoteBlockDraft(text="Same caption.", evidence_block_ids=["p1"]),
+            NoteBlockDraft(text="Other explanation.", evidence_block_ids=["p2"]),
+            NoteBlockDraft(text="Same caption.", evidence_block_ids=["p3"]),
+            NoteBlockDraft(block_type="FORMULA", text="x + y"),
+            NoteBlockDraft(block_type="FORMULA", text="x + y"),
+        ],
+    )
     result = normalize_note_blocks(note)
     assert len(result.blocks) == 4
     assert result.blocks[0].evidence_block_ids == ["p1", "p3"]

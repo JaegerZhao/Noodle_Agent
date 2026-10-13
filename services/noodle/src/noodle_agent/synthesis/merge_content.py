@@ -1,4 +1,5 @@
 """Conservative, evidence-preserving composition for approved Concept merges."""
+
 from __future__ import annotations
 
 import copy
@@ -50,7 +51,10 @@ def content_blocks(payload: dict, plain_text: str, render_type: str) -> list[dic
     block.update(block_key="legacy-content", type=kind)
     if kind in {"PROSE", "EXAMPLE", "CALLOUT"}:
         block["markdown"] = payload.get("markdown") or plain_text
-    if not any(block.get(key) for key in ("markdown", "latex", "items", "table_rows", "steps", "code", "asset_ids")):
+    if not any(
+        block.get(key)
+        for key in ("markdown", "latex", "items", "table_rows", "steps", "code", "asset_ids")
+    ):
         block = {"block_key": "legacy-content", "type": "PROSE", "markdown": plain_text}
     return [block]
 
@@ -72,8 +76,19 @@ def remap_references(value: Any, contribution_map: dict[str, str]) -> Any:
 
 
 def fingerprint(block: dict) -> str:
-    ignored = {"block_key", "evidence_refs", "note_block_ids", "evidence_span_ids", "asset_ids", "evidence_details"}
-    value = {key: copy.deepcopy(item) for key, item in block.items() if key not in ignored and item not in (None, "", [], {})}
+    ignored = {
+        "block_key",
+        "evidence_refs",
+        "note_block_ids",
+        "evidence_span_ids",
+        "asset_ids",
+        "evidence_details",
+    }
+    value = {
+        key: copy.deepcopy(item)
+        for key, item in block.items()
+        if key not in ignored and item not in (None, "", [], {})
+    }
     for symbol in value.get("symbols", []):
         symbol["meaning"] = symbol.get("meaning") or symbol.pop("description", "")
         symbol.pop("description", None)
@@ -81,7 +96,9 @@ def fingerprint(block: dict) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
-def combine_blocks(target: list[dict], source: list[dict]) -> tuple[list[dict], dict[str, str], int]:
+def combine_blocks(
+    target: list[dict], source: list[dict]
+) -> tuple[list[dict], dict[str, str], int]:
     result = copy.deepcopy(target)
     signatures = {fingerprint(block): block for block in result}
     keys = {str(block.get("block_key")) for block in result}
@@ -95,7 +112,9 @@ def combine_blocks(target: list[dict], source: list[dict]) -> tuple[list[dict], 
         if existing is not None:
             key_map[old_key] = existing["block_key"]
             for field in ("evidence_refs", "note_block_ids", "evidence_span_ids", "asset_ids"):
-                existing[field] = list(dict.fromkeys([*(existing.get(field) or []), *(block.get(field) or [])]))
+                existing[field] = list(
+                    dict.fromkeys([*(existing.get(field) or []), *(block.get(field) or [])])
+                )
             deduplicated += 1
             continue
         key = old_key

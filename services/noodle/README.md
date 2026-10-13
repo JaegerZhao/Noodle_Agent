@@ -1,21 +1,25 @@
 # Noodle knowledge service
 
-这是 Noodle_Agent 内部的 Python 知识领域服务，保留 PDF 解析、规划、笔记生成、
-质量校验、版本、证据、图片、索引和可恢复 Job。
+Noodle Agent 的 Python 知识领域服务，负责 PDF 解析、笔记生成、证据与版本、检索、可恢复任务及跨文档知识维护。会话与工具编排由项目根目录的 DeepSeek Harness 桥接提供。
 
-统一项目使用精简入口：
+从项目根目录安装并启动：
 
-```powershell
+```sh
+python -m pip install -e "./services/noodle[dev]"
+npm run dev
+```
+
+独立进程与数据库命令：
+
+```sh
 noodle serve-internal --host 127.0.0.1 --port 8000
-```
-
-该入口提供 `/internal/v1` 领域接口、`/app/` 工作台和 `/health`，API 文档位于
-`/internal/docs`；不会初始化旧 LangGraph Agent 或旧 Web UI。
-后台流水线由独立进程运行：
-
-```powershell
 noodle worker
+noodle db-status
+noodle db-upgrade
 ```
 
-`noodle serve-legacy` 是保留的兼容入口，使用历史 Python Agent/API，不属于默认
-DeepSeek Harness 运行链路。完整配置和数据维护见 [运行指南](../../docs/OPERATIONS.md)。
+API 提供 `/internal/v1`、`/app/` 与 `/health`；交互文档为 `/internal/docs`。源码按 `application/`、`http/`、`storage/`、`adapters/knowledge/` 和 `synthesis/semantic/` 组织。历史 Agent/API/UI 已移除。
+
+API、Worker 和 CLI 使用同一版本迁移入口。迁移及冻结结构随 wheel 打包，工作台模块与渲染资源也在包内。完整项目仍需要 Node/Harness；单独安装 Python 包不会安装会话侧依赖。
+
+详见 [架构](../../docs/ARCHITECTURE.md)、[运行与备份](../../docs/OPERATIONS.md) 和 [验证](../../docs/TESTING.md)。

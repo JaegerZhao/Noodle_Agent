@@ -8,15 +8,32 @@
 | TypeScript | `npm run typecheck`、`npm test`、`npm run build` | 工具契约、HTTP Provider、错误处理和构建 |
 | Python 静态检查 | `python -m ruff check services/noodle/src services/noodle/tests` | 代码规范和常见错误 |
 | Python 回归 | `python -m pytest services/noodle/tests` | 版本、证据、质量、归并、删除恢复与接口 |
+| 统一启停 | `npm run test:launcher` | 合成环境下 API、Worker、Harness 启动、健康检查和停止 |
 | 隔离集成 | `python scripts/delivery-check.py` | 合成数据下的 API、Worker、Harness 工具与会话代理 |
 | 浏览器 | 上述集成命令加 `--browser` | 阅读器、PDF.js、Markdown 和 KaTeX |
 | 真实内容 | 自有资料与本地密钥 | 解析、生成和实际问答质量；独立验收 |
 
 默认测试使用 mock/fixture。隔离集成会清理继承的模型配置，并在新的临时工作目录运行；不读取本地 `.env` 或知识数据库。它按程序调用真实 ToolRuntime，未验证真实 LLM 是否能正确选择工具，也不评估真实生成语义质量。
 
-GitHub Actions 在 Windows、Linux 上执行依赖安装、静态检查、测试、打包和隔离进程验证；Linux 还检查 Compose 并构建镜像。CI 不执行可选浏览器检查、真实模型调用或完整容器交互演示。初始快照的结果见 [验证记录](./RELEASE.md)。
+GitHub Actions 在 Windows、Linux 上执行依赖安装、静态检查、测试、打包和隔离进程验证；Linux 还检查 Compose 并构建镜像。CI 不执行可选浏览器检查、真实模型调用或完整容器交互演示。数据库回归覆盖并发冷启动、版本化与无版本旧库、备份、迁移失败回滚及冻结结构一致性。
 
 Windows 的 `npm run test:python` 会创建独立项目内临时目录。直接调用 pytest 若需指定 `--basetemp`，先创建父目录，并使用新的运行名，避免复用有数据的目录。
+
+## 0.2.0 重构验证（2026-10-13）
+
+| 检查 | 结果 |
+| --- | --- |
+| Python 回归与 Ruff | 110 项通过，静态检查通过 |
+| TypeScript 契约、类型与构建 | 9 项通过，类型检查和构建通过 |
+| 统一启停 | Windows 实机、Linux 隔离容器通过；macOS 尚未实机验证 |
+| 独立进程集成 | 合成 PDF 上传、Worker 生成、证据检索与 fixture 回答、24 个 Harness 工具桥接通过 |
+| 浏览器 | 合成集成及本地阅读器、页码双向定位、公式符号、表格、会话代理通过，无控制台错误 |
+| 数据迁移 | 已知旧库副本与本地旧库升级通过；非空业务表逐表内容哈希一致，完整性和外键检查通过 |
+| Python wheel | 隔离安装、迁移到 `0010`、工作台模块和 PDF.js 资源访问通过，无旧 Agent 代码 |
+| 部署 | Compose 配置与三个镜像构建通过 |
+| 发布源码 | 敏感模式、运行数据排除、锁文件一致性及公开文档链接检查通过 |
+
+验证使用合成数据或本地只读检查，没有重新调用真实生成模型。历史代码以本地可恢复档案保存，未进入发布源码。数据库升级前另存备份，个人 PDF、密钥、会话和知识库不进入 Git。
 
 ## 内容质量评测
 
@@ -37,13 +54,13 @@ Windows 的 `npm run test:python` 会创建独立项目内临时目录。直接�
 | 质量与历史复用 | 新正文使用 Judge；历史匹配不重新 Judge、不单独检查策略版本。待复核也可能由模型调用/解析异常产生 |
 | 检索 | 应用层混合评分与分层交错，没有独立 cross-encoder 重排或专用向量数据库；查询向量候选的规模扩展需验证 |
 | 调度 | 单事件主要顺序处理；同步租约目前固定 180 秒。多实例与高并发吞吐尚未充分验证 |
-| 数据库升级 | 启动补丁和 Alembic 并存，迁移历史引用当前模型；现有迁移测试主要覆盖新库与冷启动，旧库升级覆盖不足 |
+| 数据库升级 | 已统一版本迁移并覆盖已知旧库；不支持任意未知结构、非 SQLite 或自动降级 |
 | 数据清除 | 默认逻辑删除，未统一永久清除原文、历史、导出和备份 |
 | 安全 | 内部 API 缺少完整认证、多用户权限和隔离 |
-| 维护 | 部分业务文件较大；旧 Python Agent/API/UI 保留；提示词多版本用途尚需更清晰的索引 |
-| 可复现性 | npm 有锁文件，Python 使用依赖版本范围；统一启动命令依赖 PowerShell |
-| 分发 | 当前完整入口是源码仓库/Compose；Python wheel 的资源配置未包含包外 skills 与 migrations，Dockerfile 未显式复制完整项目许可文件 |
+| 维护 | 已按能力拆分核心门面、API 与工作台；部分编辑、编排组件仍较复杂，共享服务上下文仍有耦合 |
+| 可复现性 | npm 有锁文件，Python 使用依赖版本范围；Node 启停跨平台，macOS 尚需独立实机验证 |
+| 分发 | 完整入口是源码仓库/Compose；wheel 包含迁移与工作台资源，但 Python 包不独立提供 Harness |
 
 未配置真实向量服务时，HashEmbedding 适合离线链路验证，其效果不能当作真实语义检索效果。外部解析与模型服务的可用性、额度和效果需单独检查。
 
-源码检查是启发式扫描，不能保证发现全部凭据。当前公开文档也采用名称白名单；新增文档需要同步调整 `.gitignore` 与发布检查规则。贡献要求见 [贡献指南](../CONTRIBUTING.md)。
+源码检查是启发式扫描，不能保证发现全部凭据。公开文档放在 `docs/`，个人资料与档案放在被忽略的 `.local-only/`；提交前检查 Git 差异，避免混入业务数据。贡献要求见 [贡献指南](../CONTRIBUTING.md)。

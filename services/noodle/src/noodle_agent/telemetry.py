@@ -51,9 +51,11 @@ def _shared_log_lock(log_dir: Path):
         lock.seek(0)
         if os.name == "nt":
             import msvcrt
+
             msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
         else:
             import fcntl
+
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         try:
             yield

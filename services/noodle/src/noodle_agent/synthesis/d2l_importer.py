@@ -83,9 +83,7 @@ def _sha256_path(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _blob_row(
-    session, blobs: LocalBlobStore, path: Path, media_type: str
-) -> BlobObject:
+def _blob_row(session, blobs: LocalBlobStore, path: Path, media_type: str) -> BlobObject:
     storage_key, digest, size = blobs.put(path, media_type)
     row = session.scalar(select(BlobObject).where(BlobObject.storage_key == storage_key))
     if row is None:
@@ -215,9 +213,7 @@ def _markdown_parts(root: Path, node_path: Path, markdown: str) -> list[Markdown
         else:
             image_path = (node_path.parent / raw_target).resolve()
             if root.resolve() in image_path.parents and image_path.is_file():
-                parts.append(
-                    MarkdownPart(kind="IMAGE", text=alt, image_path=image_path)
-                )
+                parts.append(MarkdownPart(kind="IMAGE", text=alt, image_path=image_path))
             else:
                 parts.append(MarkdownPart(kind="MARKDOWN", text=match.group(0)))
         cursor = match.end()
@@ -278,9 +274,7 @@ class D2LSourceImporter:
         )
 
         with self.db.session() as session:
-            manifest_blob = _blob_row(
-                session, self.blobs, manifest_path, "application/json"
-            )
+            manifest_blob = _blob_row(session, self.blobs, manifest_path, "application/json")
             corpus = session.scalar(
                 select(BackboneCorpus).where(BackboneCorpus.stable_key == D2L_STABLE_KEY)
             )
@@ -411,11 +405,14 @@ class D2LSourceImporter:
                     session.flush()
                     pages[node.order_index] = page
 
-            outline_existing = session.scalar(
-                select(func.count()).select_from(OutlineNode).where(
-                    OutlineNode.parse_run_id == parse_run.id
+            outline_existing = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(OutlineNode)
+                    .where(OutlineNode.parse_run_id == parse_run.id)
                 )
-            ) or 0
+                or 0
+            )
             if not outline_existing:
                 outline_by_key: dict[str, OutlineNode] = {}
                 for node in nodes:
@@ -443,9 +440,9 @@ class D2LSourceImporter:
                     select(DocumentBlock).where(DocumentBlock.parse_run_id == parse_run.id)
                 ).all()
             }
-            reading_order = max(
-                (item.reading_order for item in document_blocks.values()), default=-1
-            ) + 1
+            reading_order = (
+                max((item.reading_order for item in document_blocks.values()), default=-1) + 1
+            )
             note_by_key: dict[str, tuple[AtomicNote, NoteVersion]] = {}
             note_blocks_count = 0
             figures_count = 0
@@ -469,9 +466,7 @@ class D2LSourceImporter:
                     )
                     for part in parts
                 ]
-                note_hash = _sha256_text(
-                    _json({"path": node.relative_path, "parts": part_hashes})
-                )
+                note_hash = _sha256_text(_json({"path": node.relative_path, "parts": part_hashes}))
                 stable_key = f"d2l:{node.stable_key}"
                 note = session.scalar(
                     select(AtomicNote).where(
@@ -542,9 +537,7 @@ class D2LSourceImporter:
                             document_blocks[external_id] = document_block
                             reading_order += 1
                         block_text = (
-                            f"*教材图示：{part.text}*"
-                            if part.kind == "IMAGE"
-                            else part.text
+                            f"*教材图示：{part.text}*" if part.kind == "IMAGE" else part.text
                         )
                         note_block = NoteBlock(
                             note_version_id=note_version.id,
@@ -574,9 +567,7 @@ class D2LSourceImporter:
                             page_id=pages[node.order_index].id,
                             document_block_id=document_block.id,
                             quoted_text=part.text,
-                            normalized_text_hash=_sha256_text(
-                                " ".join(part.text.split()).lower()
-                            ),
+                            normalized_text_hash=_sha256_text(" ".join(part.text.split()).lower()),
                             evidence_level="SOURCE_MARKDOWN_EXACT",
                             confidence=None,
                         )
@@ -588,9 +579,7 @@ class D2LSourceImporter:
                                 mimetypes.guess_type(part.image_path.name)[0]
                                 or "application/octet-stream"
                             )
-                            blob = _blob_row(
-                                session, self.blobs, part.image_path, media_type
-                            )
+                            blob = _blob_row(session, self.blobs, part.image_path, media_type)
                             visual = session.scalar(
                                 select(VisualAsset).where(
                                     VisualAsset.document_block_id == document_block.id
@@ -649,9 +638,7 @@ class D2LSourceImporter:
                 source_note = SourceNote(source_id=source.id)
                 session.add(source_note)
                 session.flush()
-            composition = [
-                (node.stable_key, note_by_key[node.stable_key][1].id) for node in nodes
-            ]
+            composition = [(node.stable_key, note_by_key[node.stable_key][1].id) for node in nodes]
             release_hash = _sha256_text(_json(composition))
             release = session.scalar(
                 select(SourceNoteVersion).where(
@@ -746,28 +733,30 @@ class D2LSourceImporter:
                 folder = LibraryFolder(name="基准教材", sort_order=0)
                 session.add(folder)
                 session.flush()
-            entry = session.scalar(
-                select(LibraryEntry).where(LibraryEntry.source_id == source.id)
-            )
+            entry = session.scalar(select(LibraryEntry).where(LibraryEntry.source_id == source.id))
             if entry is None:
-                session.add(
-                    LibraryEntry(folder_id=folder.id, source_id=source.id, sort_order=1)
-                )
+                session.add(LibraryEntry(folder_id=folder.id, source_id=source.id, sort_order=1))
 
-            note_blocks_total = session.scalar(
-                select(func.count())
-                .select_from(NoteBlock)
-                .join(NoteVersion, NoteVersion.id == NoteBlock.note_version_id)
-                .join(AtomicNote, AtomicNote.id == NoteVersion.note_id)
-                .where(AtomicNote.source_version_id == source_version.id)
-            ) or 0
-            figure_total = session.scalar(
-                select(func.count())
-                .select_from(NoteAsset)
-                .join(NoteVersion, NoteVersion.id == NoteAsset.note_version_id)
-                .join(AtomicNote, AtomicNote.id == NoteVersion.note_id)
-                .where(AtomicNote.source_version_id == source_version.id)
-            ) or 0
+            note_blocks_total = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(NoteBlock)
+                    .join(NoteVersion, NoteVersion.id == NoteBlock.note_version_id)
+                    .join(AtomicNote, AtomicNote.id == NoteVersion.note_id)
+                    .where(AtomicNote.source_version_id == source_version.id)
+                )
+                or 0
+            )
+            figure_total = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(NoteAsset)
+                    .join(NoteVersion, NoteVersion.id == NoteAsset.note_version_id)
+                    .join(AtomicNote, AtomicNote.id == NoteVersion.note_id)
+                    .where(AtomicNote.source_version_id == source_version.id)
+                )
+                or 0
+            )
             return BackboneMigrationReport(
                 source_id=source.id,
                 source_version_id=source_version.id,

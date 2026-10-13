@@ -104,9 +104,7 @@ def test_d2l_source_import_is_complete_and_idempotent(tmp_path: Path) -> None:
 def test_deep_learning_blueprint_reuses_shared_concepts(tmp_path: Path) -> None:
     database = Database(f"sqlite:///{tmp_path / 'noodle.db'}")
     database.init()
-    builder = SemanticSynthesisBuilder(
-        database, FixtureKnowledgeAgent(), blueprint=DEEP_LEARNING
-    )
+    builder = SemanticSynthesisBuilder(database, FixtureKnowledgeAgent(), blueprint=DEEP_LEARNING)
     spec, prefix = builder._owner("10.7")
     assert prefix == "10.7"
     assert spec["key"] == "transformers"

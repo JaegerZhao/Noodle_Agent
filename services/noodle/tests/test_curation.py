@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select
 
 from noodle_agent.adapters.llm import HashEmbedding
+from noodle_agent.application.retrieval import RetrievalModule
 from noodle_agent.db import (
     Concept,
     ConceptAlias,
@@ -115,8 +116,18 @@ def test_curated_synthesis_registry_search_and_merge(tmp_path: Path) -> None:
                 "title": "基础",
                 "node_kind": "GROUP",
                 "children": [
-                    {"stable_key": "cnn", "title": "卷积神经网络", "node_kind": "CONCEPT", "concept_id": target_id},
-                    {"stable_key": "cnn-alias", "title": "CNN 补充", "node_kind": "CONCEPT", "concept_id": source_id},
+                    {
+                        "stable_key": "cnn",
+                        "title": "卷积神经网络",
+                        "node_kind": "CONCEPT",
+                        "concept_id": target_id,
+                    },
+                    {
+                        "stable_key": "cnn-alias",
+                        "title": "CNN 补充",
+                        "node_kind": "CONCEPT",
+                        "concept_id": source_id,
+                    },
                 ],
             }
         ],
@@ -146,12 +157,22 @@ def test_curated_synthesis_registry_search_and_merge(tmp_path: Path) -> None:
     with database.session() as session:
         source = session.get(Concept, source_id)
         target = session.get(Concept, target_id)
-        synthesis = session.scalar(select(Synthesis).where(Synthesis.stable_key == "large-language-models"))
+        synthesis = session.scalar(
+            select(Synthesis).where(Synthesis.stable_key == "large-language-models")
+        )
         nodes = session.scalars(
-            select(SynthesisNode).where(SynthesisNode.synthesis_version_id == synthesis.active_version_id)
+            select(SynthesisNode).where(
+                SynthesisNode.synthesis_version_id == synthesis.active_version_id
+            )
         ).all()
-        aliases = session.scalars(select(ConceptAlias).where(ConceptAlias.concept_id == target_id)).all()
-        modules = session.scalars(select(ConceptReleaseModule).where(ConceptReleaseModule.concept_version_id == target.active_version_id)).all()
+        aliases = session.scalars(
+            select(ConceptAlias).where(ConceptAlias.concept_id == target_id)
+        ).all()
+        modules = session.scalars(
+            select(ConceptReleaseModule).where(
+                ConceptReleaseModule.concept_version_id == target.active_version_id
+            )
+        ).all()
         assert source.visibility == "MERGED"
         assert {node.concept_id for node in nodes if node.concept_id} == {target_id}
         assert sum(node.concept_id == target_id for node in nodes) == 1
@@ -179,15 +200,50 @@ def test_curated_synthesis_registry_search_and_merge(tmp_path: Path) -> None:
 def test_unified_rag_preserves_concept_and_atomic_note_layers() -> None:
     service = object.__new__(NoodleService)
     service.search = lambda *_args, **_kwargs: [
-        SearchHit(note_id="note-1", note_version_id="note-v1", title="来源笔记", thesis="页码证据", body="source", score=0.45),
-        SearchHit(note_id="note-2", note_version_id="note-v2", title="另一来源", thesis="补充", body="source", score=0.40),
+        SearchHit(
+            note_id="note-1",
+            note_version_id="note-v1",
+            title="来源笔记",
+            thesis="页码证据",
+            body="source",
+            score=0.45,
+        ),
+        SearchHit(
+            note_id="note-2",
+            note_version_id="note-v2",
+            title="另一来源",
+            thesis="补充",
+            body="source",
+            score=0.40,
+        ),
     ]
-    service.knowledge_curation = SimpleNamespace(search_concepts=lambda *_args, **_kwargs: [
-        SearchHit(note_id="concept:c-1", note_version_id="cv-1", title="共享概念", thesis="规范解释", body="concept", score=0.90, entity_type="CONCEPT", concept_id="c-1", synthesis_paths=["体系 / 共享概念"]),
-        SearchHit(note_id="concept:c-2", note_version_id="cv-2", title="相关概念", thesis="关系", body="concept", score=0.80, entity_type="CONCEPT", concept_id="c-2"),
-    ])
+    service.knowledge_curation = SimpleNamespace(
+        search_concepts=lambda *_args, **_kwargs: [
+            SearchHit(
+                note_id="concept:c-1",
+                note_version_id="cv-1",
+                title="共享概念",
+                thesis="规范解释",
+                body="concept",
+                score=0.90,
+                entity_type="CONCEPT",
+                concept_id="c-1",
+                synthesis_paths=["体系 / 共享概念"],
+            ),
+            SearchHit(
+                note_id="concept:c-2",
+                note_version_id="cv-2",
+                title="相关概念",
+                thesis="关系",
+                body="concept",
+                score=0.80,
+                entity_type="CONCEPT",
+                concept_id="c-2",
+            ),
+        ]
+    )
 
-    hits = NoodleService.search_knowledge(service, "查询", limit=4)
+    hits = RetrievalModule(service).search_knowledge("查询", limit=4)
     assert [hit.entity_type for hit in hits] == ["CONCEPT", "ATOMIC_NOTE", "CONCEPT", "ATOMIC_NOTE"]
     assert hits[0].synthesis_paths == ["体系 / 共享概念"]
 
@@ -195,15 +251,27 @@ def test_unified_rag_preserves_concept_and_atomic_note_layers() -> None:
 def test_merge_preview_is_read_only_and_exact_merge_preserves_old_release(tmp_path):
     from noodle_agent.db import ConceptContribution
     from noodle_agent.synthesis.service import SynthesisService
+
     db = Database(f"sqlite:///{tmp_path / 'merge.db'}")
     db.init()
     target, tv = _seed_concept(db, "test:target", "CNN", "Same fact")
     source, sv = _seed_concept(db, "test:source", "CNN", "Same fact")
     with db.session() as session:
         for cid, vid, ref in [(target, tv, "target-source"), (source, sv, "source-source")]:
-            placement = session.scalar(select(ConceptReleaseModule).where(ConceptReleaseModule.concept_version_id == vid))
-            contribution = ConceptContribution(module_id=placement.module_id, source_ref=ref, source_role="TEST", contribution_role="SUPPORT", decision_status="ACCEPTED", rationale="test", assigned_by="test")
-            session.add(contribution); session.flush()
+            placement = session.scalar(
+                select(ConceptReleaseModule).where(ConceptReleaseModule.concept_version_id == vid)
+            )
+            contribution = ConceptContribution(
+                module_id=placement.module_id,
+                source_ref=ref,
+                source_role="TEST",
+                contribution_role="SUPPORT",
+                decision_status="ACCEPTED",
+                rationale="test",
+                assigned_by="test",
+            )
+            session.add(contribution)
+            session.flush()
             mv = session.get(ConceptModuleVersion, placement.module_version_id)
             payload = json.loads(mv.payload_json)
             payload["blocks"][0]["evidence_refs"] = [contribution.id]
@@ -212,12 +280,24 @@ def test_merge_preview_is_read_only_and_exact_merge_preserves_old_release(tmp_pa
     service = KnowledgeCurationService(db, HashEmbedding())
     reader = SynthesisService(db, None)
     old = reader.get_concept(target, version_id=tv)
-    preview = service.preview_merge(source_concept_id=source, target_concept_id=target, expected_source_version_id=sv, expected_target_version_id=tv)
+    preview = service.preview_merge(
+        source_concept_id=source,
+        target_concept_id=target,
+        expected_source_version_id=sv,
+        expected_target_version_id=tv,
+    )
     assert preview["modules"][0]["action"] == "COMBINE"
     assert preview["modules"][0]["identical_blocks"] == 1
     with db.session() as session:
         assert session.get(Concept, target).active_version_id == tv
-    merged = service.merge_concepts(source_concept_id=source, target_concept_id=target, expected_source_version_id=sv, expected_target_version_id=tv, rationale="Same meaning verified", actor="test")
+    merged = service.merge_concepts(
+        source_concept_id=source,
+        target_concept_id=target,
+        expected_source_version_id=sv,
+        expected_target_version_id=tv,
+        rationale="Same meaning verified",
+        actor="test",
+    )
     assert merged["deduplicated_blocks"] == 1
     current = reader.get_concept(target)
     assert len(current["blocks"]) == 1
@@ -225,24 +305,33 @@ def test_merge_preview_is_read_only_and_exact_merge_preserves_old_release(tmp_pa
     assert len(block["evidence_refs"]) == 2
     assert reader.get_concept(target, version_id=tv) == old
     with pytest.raises(ValueError):
-        service.preview_merge(source_concept_id=source, target_concept_id=target, expected_source_version_id=sv, expected_target_version_id=tv)
+        service.preview_merge(
+            source_concept_id=source,
+            target_concept_id=target,
+            expected_source_version_id=sv,
+            expected_target_version_id=tv,
+        )
     db.close()
 
 
 def test_index_network_call_never_holds_writer_transaction(tmp_path):
     from sqlalchemy import text
+
     db = Database(f"sqlite:///{tmp_path / 'index.db'}")
     db.init()
     _seed_concept(db, "test:cnn", "CNN", "Convolution")
+
     class Embedding:
         model_name = "test-index"
         calls = 0
+
         def embed(self, texts):
             self.calls += 1
             # A second connection must be able to write during provider work.
             with db.session() as other:
                 other.execute(text("UPDATE concepts SET status = status"))
             return [[1.0, 0.0] for _ in texts]
+
     embedding = Embedding()
     service = KnowledgeCurationService(db, embedding)
     assert service.ensure_concept_index() == 1
@@ -254,12 +343,22 @@ def test_index_network_call_never_holds_writer_transaction(tmp_path):
 
 def test_source_scoped_rag_does_not_search_unrelated_concepts():
     service = object.__new__(NoodleService)
+
     def search(_query, **kwargs):
         assert kwargs["source_version_id"] == "selected-source"
-        return [SearchHit(note_id="a", note_version_id="v", title="Selected", thesis="", body="", score=0.6)]
+        return [
+            SearchHit(
+                note_id="a", note_version_id="v", title="Selected", thesis="", body="", score=0.6
+            )
+        ]
+
     service.search = search
+
     def concept_search(*args, **kwargs):
         raise AssertionError("Source-scoped questions must not include global Concepts")
+
     service.knowledge_curation = SimpleNamespace(search_concepts=concept_search)
-    hits = service.search_knowledge("Question", source_version_id="selected-source")
+    hits = RetrievalModule(service).search_knowledge(
+        "Question", source_version_id="selected-source"
+    )
     assert [hit.note_id for hit in hits] == ["a"]

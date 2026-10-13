@@ -165,7 +165,11 @@ class ConceptContentBlock(BaseModel):
         }[self.type]
         if not valid:
             raise ValueError(f"{self.type} content block is empty")
-        if self.conflict and self.conflict.status == "RESOLVED" and not self.conflict.resolution.strip():
+        if (
+            self.conflict
+            and self.conflict.status == "RESOLVED"
+            and not self.conflict.resolution.strip()
+        ):
             raise ValueError("A resolved conflict requires a resolution")
         return self
 
@@ -229,9 +233,7 @@ class SemanticConceptModuleDraft(BaseModel):
             formula = f"$$\n{payload.latex.strip()}\n$$" if payload.latex.strip() else ""
             return "\n\n".join(item for item in [formula, explanation] if item)
         if self.render_type == "PROCEDURE":
-            return "\n".join(
-                f"{index}. {item}" for index, item in enumerate(payload.steps, 1)
-            )
+            return "\n".join(f"{index}. {item}" for index, item in enumerate(payload.steps, 1))
         if self.render_type == "CODE":
             return payload.code
         return payload.markdown

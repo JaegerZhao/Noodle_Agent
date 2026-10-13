@@ -26,10 +26,7 @@ def apply_outline_title_patches(
         for patch in review.outline_title_patches
         if patch.title.strip()
     }
-    if (
-        not patches
-        and not review.summary_patch.strip()
-    ):
+    if not patches and not review.summary_patch.strip():
         outline.learning_goal = ""
         for node in outline.nodes:
             node.learning_goal = ""
@@ -63,13 +60,10 @@ def build_release_manifest(
         "outline": outline.model_dump(),
         "note_set_plan": {
             **note_set.model_dump(),
-            "notes": [
-                spec.model_dump() for spec in note_set.notes if spec.stable_key in note_keys
-            ],
+            "notes": [spec.model_dump() for spec in note_set.notes if spec.stable_key in note_keys],
         },
         "notes": [
-            {**note.model_dump(), "content_sha256": note_content_sha256(note)}
-            for note in notes
+            {**note.model_dump(), "content_sha256": note_content_sha256(note)} for note in notes
         ],
         "evaluations": [
             evaluation.model_dump()

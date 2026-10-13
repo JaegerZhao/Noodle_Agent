@@ -6,9 +6,25 @@ from noodle_agent.synthesis.merge_content import combine_blocks, merge_scope, re
 
 
 def test_identical_blocks_retain_provenance_and_remap_keys():
-    target = [{"block_key": "a", "type": "PROSE", "markdown": "Same fact", "evidence_refs": ["target"], "note_block_ids": ["n1"]}]
-    source = [{"block_key": "b", "type": "PROSE", "markdown": "Same fact", "evidence_refs": ["old"], "note_block_ids": ["n2"]},
-              {"block_key": "a", "type": "PROSE", "markdown": "Distinct", "evidence_refs": ["old"]}]
+    target = [
+        {
+            "block_key": "a",
+            "type": "PROSE",
+            "markdown": "Same fact",
+            "evidence_refs": ["target"],
+            "note_block_ids": ["n1"],
+        }
+    ]
+    source = [
+        {
+            "block_key": "b",
+            "type": "PROSE",
+            "markdown": "Same fact",
+            "evidence_refs": ["old"],
+            "note_block_ids": ["n2"],
+        },
+        {"block_key": "a", "type": "PROSE", "markdown": "Distinct", "evidence_refs": ["old"]},
+    ]
     result, mapping, removed = combine_blocks(target, remap_references(source, {"old": "new"}))
     assert removed == 1 and len(result) == 2
     assert result[0]["evidence_refs"] == ["target", "new"]
@@ -19,7 +35,11 @@ def test_identical_blocks_retain_provenance_and_remap_keys():
 
 
 def test_scope_union_and_conflict_rejection():
-    result = merge_scope({"includes": ["A"], "prerequisites": ["P"]}, {"includes": ["A", "B"], "prerequisites": ["Q"], "excludes": ["C"]}, ["Alias"])
+    result = merge_scope(
+        {"includes": ["A"], "prerequisites": ["P"]},
+        {"includes": ["A", "B"], "prerequisites": ["Q"], "excludes": ["C"]},
+        ["Alias"],
+    )
     assert result["includes"] == ["A", "B"]
     assert result["prerequisites"] == ["P", "Q"]
     with pytest.raises(ValueError, match="Scope boundary conflict"):

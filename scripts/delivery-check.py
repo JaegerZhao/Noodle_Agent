@@ -45,7 +45,7 @@ def main() -> None:
     base = f"http://127.0.0.1:{api_port}"
     env.update({
         "NOODLE_DATA_DIR": str(run / "data"), "NOODLE_PARSER": "fixture",
-        "NOODLE_LLM": "fixture", "NOODLE_SKILLS_DIR": str(ROOT / "services/noodle/skills"),
+        "NOODLE_LLM": "fixture",
         "NOODLE_HARNESS_WEB_URL": f"http://127.0.0.1:{harness_port}",
         "NOODLE_API_BASE_URL": base, "NOODLE_API_PREFIX": "/internal/v1",
         "NOODLE_RUNTIME_DIR": str(ROOT / ".runtime" / run.name),

@@ -70,15 +70,9 @@ def normalize_note_set_boundaries(
     changes: dict[str, list[str]] = {}
     existing_keys = {spec.stable_key for spec in normalized.notes}
     for spec in normalized.notes:
-        concepts = [
-            concepts_by_key[key] for key in spec.concept_keys if key in concepts_by_key
-        ]
-        history = [
-            concept for concept in concepts if concept.concept_type.upper() == "HISTORY"
-        ]
-        primary = [
-            concept for concept in concepts if concept.concept_type.upper() != "HISTORY"
-        ]
+        concepts = [concepts_by_key[key] for key in spec.concept_keys if key in concepts_by_key]
+        history = [concept for concept in concepts if concept.concept_type.upper() == "HISTORY"]
+        primary = [concept for concept in concepts if concept.concept_type.upper() != "HISTORY"]
         if not history or not primary:
             output.append(spec)
             continue
@@ -130,8 +124,7 @@ def normalize_note_set_assets(
             block = blocks.get(block_id)
             if (
                 block is not None
-                and block.block_type.upper()
-                in {"TABLE", "FORMULA", "EQUATION", "CODE"}
+                and block.block_type.upper() in {"TABLE", "FORMULA", "EQUATION", "CODE"}
                 and block.text.strip()
             ):
                 reclassified.append(block_id)

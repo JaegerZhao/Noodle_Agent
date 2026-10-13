@@ -55,9 +55,9 @@ def test_only_high_confidence_tiny_fragment_is_locally_decorative(tmp_path: Path
         page_label="1",
         bbox=[0, 0, 1000, 1000],
     )
-    route = route_planned_visuals(
-        _document([tiny_block, page_extent]), [tiny_block]
-    )[tiny_block.block_id]
+    route = route_planned_visuals(_document([tiny_block, page_extent]), [tiny_block])[
+        tiny_block.block_id
+    ]
     assert route.route == "LOCAL_DECORATIVE"
 
 
@@ -77,9 +77,7 @@ def test_attribution_only_footnote_is_not_treated_as_teaching_caption(
         metadata={
             "mineru": {
                 "image_caption": [],
-                "image_footnote": [
-                    "Figure copyright Example Authors. Reproduced with permission."
-                ],
+                "image_footnote": ["Figure copyright Example Authors. Reproduced with permission."],
             }
         },
     )
@@ -93,9 +91,7 @@ def test_page_affinity_keeps_fragments_in_same_batch() -> None:
         ParsedBlock(block_id="p0-a", page_index=0, page_label="1", bbox=[0, 0, 1, 1]),
         ParsedBlock(block_id="p0-b", page_index=0, page_label="1", bbox=[2, 0, 3, 1]),
     ]
-    batches = batch_by_page_affinity(
-        [{"block": block} for block in blocks], batch_size=2
-    )
+    batches = batch_by_page_affinity([{"block": block} for block in blocks], batch_size=2)
     assert [item["block"].block_id for item in batches[0]] == ["p0-a", "p0-b"]
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@noodle/agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Local PDF notes, provenance-aware RAG and event-driven cross-document knowledge maintenance",
   "type": "module",
@@ -33,16 +33,19 @@
     "smoke:web": "node scripts/workbench-smoke.mjs",
     "smoke:synthesis": "node scripts/synthesis-editor-smoke.mjs",
     "harness": "npm run build && node --env-file-if-exists=.env scripts/start-harness.mjs",
-    "setup:python": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task setup",
-    "api": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task api",
-    "worker": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task worker",
-    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-local.ps1",
-    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-local.ps1",
-    "test:python": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task test",
-    "lint:python": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task lint",
+    "setup:python": "node --env-file-if-exists=.env scripts/run-python.mjs setup",
+    "api": "node --env-file-if-exists=.env scripts/run-python.mjs api",
+    "worker": "node --env-file-if-exists=.env scripts/run-python.mjs worker",
+    "dev": "node --env-file-if-exists=.env scripts/start-local.mjs",
+    "stop": "node --env-file-if-exists=.env scripts/stop-local.mjs",
+    "test:python": "node --env-file-if-exists=.env scripts/run-python.mjs test",
+    "lint:python": "node --env-file-if-exists=.env scripts/run-python.mjs lint",
     "check:release": "node scripts/check-release.mjs",
-    "test:delivery": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task delivery",
-    "test:all": "npm run check:release && npm run typecheck && npm test && npm run lint:python && npm run test:python && npm run test:delivery"
+    "test:delivery": "npm run build && node scripts/run-python.mjs delivery",
+    "test:all": "npm run check:release && npm run typecheck && npm test && npm run lint:python && npm run test:python && npm run test:delivery",
+    "db:upgrade": "node --env-file-if-exists=.env scripts/run-python.mjs upgrade",
+    "db:status": "node --env-file-if-exists=.env scripts/run-python.mjs status",
+    "test:launcher": "node scripts/launcher-check.mjs"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
@@ -52,7 +55,8 @@
     "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
     "@deepseek-ai/dsh-workspace": "0.1.1-rc.2",
     "@deepseek-ai/schemastery": "3.18.1",
-    "pdfjs-dist": "4.10.38"
+    "pdfjs-dist": "4.10.38",
+    "@deepseek-ai/dsh-app-boot": "0.1.1-rc.2"
   },
   "devDependencies": {
     "@deepseek-ai/dsh": "0.1.1-rc.2",

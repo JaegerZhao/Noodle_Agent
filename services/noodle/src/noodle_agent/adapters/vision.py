@@ -48,9 +48,11 @@ class DoubaoVisionProvider:
             ),
             max_retries=settings.vision_max_retries,
         )
-        self.system_prompt = files("noodle_agent").joinpath(
-            "prompts", "visual_understanding.v5.md"
-        ).read_text(encoding="utf-8")
+        self.system_prompt = (
+            files("noodle_agent")
+            .joinpath("prompts", "visual_understanding.v5.md")
+            .read_text(encoding="utf-8")
+        )
 
     @staticmethod
     def _image_data_url(path: Path) -> tuple[str, str]:
@@ -109,16 +111,21 @@ class DoubaoVisionProvider:
             "逐张分析下面图片。必须为每个 asset_id 返回一个 images 数组元素。\n"
             f"图片上下文：{json.dumps(compact_context, ensure_ascii=False)}"
         )
-        content_parts: list[dict[str, Any]] = [
-            {"type": "text", "text": user_text}
-        ]
-        page_contexts = {str(item["page_context_path"]) for item in encoded if item.get("page_context_path")}
+        content_parts: list[dict[str, Any]] = [{"type": "text", "text": user_text}]
+        page_contexts = {
+            str(item["page_context_path"]) for item in encoded if item.get("page_context_path")
+        }
         for path in sorted(page_contexts):
             page_url, _ = self._image_data_url(Path(path))
-            content_parts.extend([
-                {"type": "text", "text": "以下为原始整页上下文，不是额外 asset。请核对裁切图的面板标签、方向和相互关系，仍只返回输入 asset_id。"},
-                {"type": "image_url", "image_url": {"url": page_url}},
-            ])
+            content_parts.extend(
+                [
+                    {
+                        "type": "text",
+                        "text": "以下为原始整页上下文，不是额外 asset。请核对裁切图的面板标签、方向和相互关系，仍只返回输入 asset_id。",
+                    },
+                    {"type": "image_url", "image_url": {"url": page_url}},
+                ]
+            )
         for item in encoded:
             content_parts.extend(
                 [
@@ -184,9 +191,7 @@ class DoubaoVisionProvider:
                     model=self.model_name,
                     prompt_version=self.prompt_version,
                     asset_type=str(raw.get("type") or raw.get("asset_type") or "OTHER"),
-                    is_decorative=bool(
-                        raw.get("decorative", raw.get("is_decorative", False))
-                    ),
+                    is_decorative=bool(raw.get("decorative", raw.get("is_decorative", False))),
                     essential=bool(raw.get("essential", False)),
                     caption=str(raw.get("caption") or ""),
                     teaching_role=str(raw.get("role") or raw.get("teaching_role") or ""),
@@ -201,8 +206,7 @@ class DoubaoVisionProvider:
                     fragment_group=fragment_group,
                     group_id=str(raw.get("group_id") or fragment_group),
                     group_type=str(
-                        raw.get("group_type")
-                        or ("FRAGMENT" if is_fragment else "SINGLE")
+                        raw.get("group_type") or ("FRAGMENT" if is_fragment else "SINGLE")
                     ),
                     related_asset_ids=[str(value) for value in raw.get("related_asset_ids") or []],
                 )
@@ -276,7 +280,9 @@ def build_vision_provider(settings: Settings, telemetry: TelemetryRecorder):
 def resilient_vision_batch(
     items: list[dict[str, Any]],
     call: Callable[[list[dict[str, Any]]], dict[str, VisualUnderstanding]],
-    *, max_retries: int, sleep: Callable[[float], None] = time.sleep,
+    *,
+    max_retries: int,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> tuple[dict[str, VisualUnderstanding], list[dict[str, str]]]:
     """Split malformed multi-image responses; retain successful child results."""
     if not items:
@@ -290,10 +296,14 @@ def resilient_vision_batch(
             if len(items) > 1 and isinstance(exc, (ValueError, TypeError)):
                 break
             if attempt < max_retries:
-                sleep(min(2.0 ** attempt, 8.0))
+                sleep(min(2.0**attempt, 8.0))
     if len(items) > 1:
         middle = len(items) // 2
-        left, lf = resilient_vision_batch(items[:middle], call, max_retries=max_retries, sleep=sleep)
-        right, rf = resilient_vision_batch(items[middle:], call, max_retries=max_retries, sleep=sleep)
+        left, lf = resilient_vision_batch(
+            items[:middle], call, max_retries=max_retries, sleep=sleep
+        )
+        right, rf = resilient_vision_batch(
+            items[middle:], call, max_retries=max_retries, sleep=sleep
+        )
         return {**left, **right}, [*lf, *rf]
     return {}, [{"block_id": str(items[0]["external_block_id"]), "error": str(error)[:500]}]

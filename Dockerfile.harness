@@ -7,7 +7,7 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json LICENSE THIRD_PARTY_NOTICES.md ./
 RUN npm ci --include=dev
 
 COPY tsconfig.json cordis.patch.yml ./

@@ -74,9 +74,7 @@ class VisionProviderTest(unittest.TestCase):
                 self.assertEqual(call["reasoning_effort"], "low")
                 self.assertEqual(call["max_tokens"], 900)
                 image_part = next(
-                    item
-                    for item in call["messages"][1]["content"]
-                    if item["type"] == "image_url"
+                    item for item in call["messages"][1]["content"] if item["type"] == "image_url"
                 )
                 image_url = image_part["image_url"]["url"]
                 self.assertTrue(image_url.startswith("data:image/png;base64,"))
@@ -176,7 +174,9 @@ if __name__ == "__main__":
 def test_malformed_batch_splits_without_losing_successful_siblings():
     from noodle_agent.adapters.vision import resilient_vision_batch
     from noodle_agent.domain import VisualUnderstanding
+
     calls = []
+
     def call(items):
         ids = [item["external_block_id"] for item in items]
         calls.append(ids)
@@ -184,10 +184,17 @@ def test_malformed_batch_splits_without_losing_successful_siblings():
             raise ValueError("Malformed JSON batch")
         if ids[0] == "bad":
             raise RuntimeError("Unrecoverable image")
-        return {ids[0]: VisualUnderstanding(external_block_id=ids[0], image_sha256="hash", model="fixture")}
+        return {
+            ids[0]: VisualUnderstanding(
+                external_block_id=ids[0], image_sha256="hash", model="fixture"
+            )
+        }
+
     results, failures = resilient_vision_batch(
         [{"external_block_id": value} for value in ["a", "bad", "c", "d"]],
-        call, max_retries=1, sleep=lambda _: None,
+        call,
+        max_retries=1,
+        sleep=lambda _: None,
     )
     assert set(results) == {"a", "c", "d"}
     assert [failure["block_id"] for failure in failures] == ["bad"]
@@ -197,6 +204,7 @@ def test_malformed_batch_splits_without_losing_successful_siblings():
 
 def test_page_context_is_shared_and_wrong_asset_ids_are_rejected(tmp_path):
     from noodle_agent.adapters.vision import DoubaoVisionProvider
+
     provider = object.__new__(DoubaoVisionProvider)
     provider.client = MagicMock()
     provider.model_name = "fixture"
@@ -209,13 +217,25 @@ def test_page_context_is_shared_and_wrong_asset_ids_are_rejected(tmp_path):
     page = tmp_path / "page.png"
     page.write_bytes(b"full-page")
     response = MagicMock()
-    response.choices[0].message.content = json.dumps({"images": [{"asset_id": "a", "caption": "Offline"}, {"asset_id": "b", "caption": "Online"}]})
+    response.choices[0].message.content = json.dumps(
+        {
+            "images": [
+                {"asset_id": "a", "caption": "Offline"},
+                {"asset_id": "b", "caption": "Online"},
+            ]
+        }
+    )
     provider.client.chat.completions.create.return_value = response
-    items = [{"image_path": image, "external_block_id": key, "page_context_path": page} for key in ["a", "b"]]
+    items = [
+        {"image_path": image, "external_block_id": key, "page_context_path": page}
+        for key in ["a", "b"]
+    ]
     results = provider.analyze_batch(items)
     assert set(results) == {"a", "b"}
     parts = provider.client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
     assert len([part for part in parts if part["type"] == "image_url"]) == 3
-    response.choices[0].message.content = json.dumps({"images": [{"asset_id": "wrong", "caption": "Misassigned"}]})
+    response.choices[0].message.content = json.dumps(
+        {"images": [{"asset_id": "wrong", "caption": "Misassigned"}]}
+    )
     with __import__("pytest").raises(ValueError, match="asset IDs"):
         provider.analyze_batch(items[:1])

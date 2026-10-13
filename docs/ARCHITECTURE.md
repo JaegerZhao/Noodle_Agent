@@ -11,8 +11,8 @@ Noodle Agent 将 PDF 整理成有页码证据的笔记，再把相关笔记归�
 | TypeScript 桥接 | 工具 Schema、能力契约和 HTTP 请求 | `src/contracts.ts`、`http-provider.ts`、`read-tools.ts`、`write-tools.ts` |
 | 精简 API | 接收文件、查询与编辑知识、代理 Harness 会话 | `services/noodle/src/noodle_agent/internal_api.py` |
 | Worker | 领取持久化任务，执行生成、模块更新和知识同步 | `services/noodle/src/noodle_agent/worker.py` |
-| 领域服务 | 笔记、版本、证据、检索与知识维护 | `services.py`、`synthesis/` |
-| 存储 | 关系数据、全文索引、向量和文件产物 | `db.py`、`adapters/blob.py` |
+| 领域服务 | 笔记、版本、证据、检索与知识维护 | `services.py` 门面、`application/`、`synthesis/` |
+| 存储 | 关系数据、全文索引、向量和文件产物 | `storage/`、`db.py` 导出、`adapters/blob.py` |
 
 ```mermaid
 flowchart LR
@@ -27,7 +27,17 @@ flowchart LR
     W --> Files[原文与阶段产物]
 ```
 
-当前前端使用原生 JavaScript、HTML 和 CSS。Marked、DOMPurify、KaTeX、PDF.js 分别用于 Markdown、安全清理、公式和 PDF 渲染。`agent/`、`api.py` 与 `web/app.*`、`web/index.html` 保留历史兼容实现；默认启动使用 `serve-internal` 和 `/app/`，不会初始化旧 LangGraph Agent。
+当前前端使用原生 JavaScript、HTML 和 CSS。Marked、DOMPurify、KaTeX、PDF.js 分别用于 Markdown、安全清理、公式和 PDF 渲染。默认启动使用 `serve-internal` 和 `/app/`。历史 Python Agent、旧 API、旧 Web UI 及其专用依赖已移除。工作台按 ES Module 拆分，入口负责初始化，阅读器、聊天、知识体系、导航和 PDF 等能力分别放在 `web/workbench/`。
+
+## 模块组织
+
+`NoodleService` 保留领域服务的公共接口和共享资源，具体能力委托给 `application/` 中的组件。上传与来源、任务恢复、规划、生成、发布、编辑、导出和检索分别实现，组件通过显式 `owner` 访问同一个服务上下文。现有调用者不需要随文件拆分修改接口。
+
+LLM 门面位于 `adapters/llm.py`，传输与重试、提取、规划、写作分别放在 `adapters/knowledge/`。语义知识构建门面位于 `synthesis/semantic_builder.py`，输入选择、贡献、写作、审核、编译和发布分别放在 `synthesis/semantic/`。同步事件和知识体系编排仍由 `synthesis/` 的相应领域组件负责。
+
+`internal_api.py` 创建应用、装配共享上下文、健康检查和静态资源服务。`http/` 按领域拆分路由，并将请求模型、Harness 网关与领域业务分开。路由调用服务，不直接维护第二套笔记或知识状态。
+
+`storage/models/` 按来源、笔记、知识与任务等职责组织模型。`db.py` 只作为稳定导出入口；数据库升级由 `storage/runner.py` 和包内版本迁移执行。
 
 ## PDF 生成
 
@@ -90,4 +100,4 @@ SQLite 保存正文、身份、关系、向量、任务和版本，本地文件�
 
 Worker 使用持久化租约和心跳，模块发布检查租约、来源快照、revision 与 Concept 活动版本。模型生成在发布事务外执行。失效活动模块会使相应 Concept 暂停正常读取与检索；历史版本仍用于追踪。
 
-数据库目前同时保留启动补表补列和 Alembic 迁移，尚未统一为唯一版本升级入口。API 也未实现完整多用户认证与隔离。文件规模、迁移和扩展性限制见 [测试与限制](./TESTING.md)。
+数据库结构变更统一通过 Alembic。API、Worker、CLI 共用同一入口，迁移使用冻结结构与显式变更，不再以当前 ORM 模型重写历史迁移。SQLite 写锁协调进程，旧库升级前自动备份；异常时回滚事务。API 也未实现完整多用户认证与隔离。文件规模、迁移和扩展性限制见 [测试与限制](./TESTING.md)。

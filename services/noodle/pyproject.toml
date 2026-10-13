@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "noodle-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first, provenance-aware PDF knowledge agent"
 readme = "README.md"
 license = {text = "AGPL-3.0-only"}
@@ -28,13 +28,7 @@ Homepage = "https://github.com/JaegerZhao/Noodle_Agent"
 Issues = "https://github.com/JaegerZhao/Noodle_Agent/issues"
 
 [project.optional-dependencies]
-legacy-agent = [
-  "langgraph>=0.6,<2",
-  "langgraph-checkpoint-sqlite>=3.1,<4",
-]
 dev = [
-  "langgraph>=0.6,<2",
-  "langgraph-checkpoint-sqlite>=3.1,<4",
   "pytest>=8.3,<9",
   "pytest-cov>=6,<7",
   "respx>=0.22,<1",
@@ -48,7 +42,7 @@ noodle = "noodle_agent.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-noodle_agent = ["web/*", "web/vendor/*", "web/vendor/fonts/*", "web/vendor/pdfjs/*.mjs", "prompts/*.md"]
+noodle_agent = ["web/*", "web/workbench/*.js", "web/vendor/*", "web/vendor/fonts/*", "web/vendor/pdfjs/*.mjs", "prompts/*.md", "storage/migrations/*.json", "storage/migrations/script.py.mako"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

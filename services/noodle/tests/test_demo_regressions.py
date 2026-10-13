@@ -9,7 +9,9 @@ from noodle_agent.telemetry import TelemetryRecorder
 
 
 def _log_worker(directory, ready, proceed):
-    recorder = TelemetryRecorder(Database(f"sqlite:///{Path(directory) / 'test.db'}"), Path(directory))
+    recorder = TelemetryRecorder(
+        Database(f"sqlite:///{Path(directory) / 'test.db'}"), Path(directory)
+    )
     recorder.logger.info("deleted", extra={"detail": {"job_id": "deleted"}})
     ready.set()
     if proceed.wait(20):
@@ -28,7 +30,10 @@ def test_log_purge_while_other_process_logger_is_alive(tmp_path):
         proceed.set()
         worker.join(20)
         assert worker.exitcode == 0
-        records = [json.loads(line) for line in (tmp_path / "logs/noodle.jsonl").read_text(encoding="utf8").splitlines()]
+        records = [
+            json.loads(line)
+            for line in (tmp_path / "logs/noodle.jsonl").read_text(encoding="utf8").splitlines()
+        ]
         assert [record["job_id"] for record in records] == ["retained"]
     finally:
         if worker.is_alive():

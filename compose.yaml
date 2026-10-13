@@ -8,7 +8,7 @@ services:
         required: false
     environment:
       NOODLE_DATA_DIR: /data/noodle
-      NOODLE_SKILLS_DIR: /app/skills
+      NOODLE_EXPORT_DIR: /data/noodle/exports
       NOODLE_HARNESS_WEB_URL: http://dsh:3080
     volumes:
       - ./data/noodle:/data/noodle
@@ -30,7 +30,7 @@ services:
         required: false
     environment:
       NOODLE_DATA_DIR: /data/noodle
-      NOODLE_SKILLS_DIR: /app/skills
+      NOODLE_EXPORT_DIR: /data/noodle/exports
     volumes:
       - ./data/noodle:/data/noodle
     depends_on:

@@ -28,9 +28,7 @@ def _source_caption(block: ParsedBlock) -> str:
         return block.text.strip()
     raw_caption = mineru.get("image_caption") or mineru.get("caption")
     if isinstance(raw_caption, list):
-        caption = " ".join(
-            str(item).strip() for item in raw_caption if str(item).strip()
-        )
+        caption = " ".join(str(item).strip() for item in raw_caption if str(item).strip())
     else:
         caption = str(raw_caption or "").strip()
     if caption:
@@ -112,12 +110,10 @@ def _visual_affinity_groups(
                 vertical_alignment = _overlap_ratio(ly0, ly1, ry0, ry1)
                 horizontal_alignment = _overlap_ratio(lx0, lx1, rx0, rx1)
                 aligned_row = (
-                    vertical_alignment >= 0.40
-                    and horizontal_gap / max(1.0, page_width) <= 0.16
+                    vertical_alignment >= 0.40 and horizontal_gap / max(1.0, page_width) <= 0.16
                 )
                 aligned_column = (
-                    horizontal_alignment >= 0.50
-                    and vertical_gap / max(1.0, page_height) <= 0.10
+                    horizontal_alignment >= 0.50 and vertical_gap / max(1.0, page_height) <= 0.10
                 )
                 if aligned_row or aligned_column:
                     neighbors[left.block_id].add(right.block_id)
@@ -177,9 +173,7 @@ def route_planned_visuals(
         path = Path(str(block.asset_path))
         image_sha256 = _sha256(path)
         caption = _source_caption(block)
-        affinity_group, related_block_ids = affinity_groups.get(
-            block.block_id, ("", ())
-        )
+        affinity_group, related_block_ids = affinity_groups.get(block.block_id, ("", ()))
         if caption:
             result[block.block_id] = LocalVisualRoute(
                 block_id=block.block_id,
@@ -268,9 +262,7 @@ def enrich_planned_visual_sequences(
 
     additions: dict[str, list[str]] = {}
     for spec in enriched.notes:
-        selected = {
-            block_id for block_id in spec.asset_block_ids if block_id in by_id
-        }
+        selected = {block_id for block_id in spec.asset_block_ids if block_id in by_id}
         selected_by_page: dict[int, list[ParsedBlock]] = {}
         for block_id in selected:
             block = by_id[block_id]
@@ -295,7 +287,5 @@ def enrich_planned_visual_sequences(
                     added.append(candidate.block_id)
         if added:
             spec.asset_block_ids = sorted(selected, key=lambda key: block_order[key])
-            additions[spec.stable_key] = sorted(
-                set(added), key=lambda key: block_order[key]
-            )
+            additions[spec.stable_key] = sorted(set(added), key=lambda key: block_order[key])
     return enriched, additions

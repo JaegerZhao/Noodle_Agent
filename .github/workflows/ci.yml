@@ -81,6 +81,9 @@ jobs:
       - name: Isolated API Worker Harness delivery check (synthetic providers)
         run: python scripts/delivery-check.py
 
+      - name: Cross-platform start and stop (isolated fixtures)
+        run: npm run test:launcher
+
       - name: Build deployment images
         if: runner.os == 'Linux'
         run: docker compose build
