@@ -1,0 +1,60 @@
+# Dependencies and builds
+node_modules/
+dist/
+build/
+*.egg-info/
+.venv/
+venv/
+coverage/
+.coverage*
+htmlcov/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.netrc
+.npmrc
+
+# Knowledge stores, task output and private archives
+.runtime/
+.local-only/
+.noodle/
+data/
+output/
+uploads/
+exports/
+*.db
+*.db-*
+*.sqlite*
+*.log
+*.pdf
+*.zip
+
+# Legacy personal documentation is retained locally, not published.
+/docs/*
+!/docs/ARCHITECTURE.md
+!/docs/KNOWLEDGE-SYNC.md
+!/docs/OPERATIONS.md
+!/docs/TESTING.md
+!/docs/RELEASE.md
+!/docs/assets/
+
+# Caches and editor files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.cache/
+.idea/
+.vscode/
+*.swp
+*.tmp
+.DS_Store
+Thumbs.db
+desktop.ini

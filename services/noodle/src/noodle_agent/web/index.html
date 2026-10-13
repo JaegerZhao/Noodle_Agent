@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Noodle Agent 本地知识批注工作台" />
+    <title>Noodle · 学习批注工作台</title>
+    <link rel="stylesheet" href="/ui/vendor/katex.min.css" />
+    <link rel="stylesheet" href="/ui/app.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#note-content">跳到笔记正文</a>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar-primary">
+          <div class="brand" aria-label="Noodle Agent">
+            <span class="brand-mark">N</span>
+            <span>Noodle</span>
+            <span class="brand-subtitle">学习批注工作台</span>
+          </div>
+          <div class="panel-toggles" aria-label="工作区栏位控制">
+            <button id="toggle-library" class="panel-toggle" type="button" aria-controls="library-panel" aria-expanded="true" title="收起左侧笔记库">
+              <span class="panel-toggle-icon" aria-hidden="true">‹</span>
+              <span>笔记库</span>
+            </button>
+            <button id="toggle-chat" class="panel-toggle" type="button" aria-controls="chat-panel" aria-expanded="true" title="收起右侧问答">
+              <span>问答</span>
+              <span class="panel-toggle-icon" aria-hidden="true">›</span>
+            </button>
+          </div>
+        </div>
+        <div class="system-state">
+          <span class="pulse" aria-hidden="true"></span>
+          <span id="system-status">连接本地知识库</span>
+        </div>
+      </header>
+
+      <nav class="mobile-tabs" aria-label="移动端视图切换">
+        <button class="mobile-tab active" data-panel="library">笔记库</button>
+        <button class="mobile-tab" data-panel="reader">阅读</button>
+        <button class="mobile-tab" data-panel="chat">问答</button>
+      </nav>
+
+      <aside id="library-panel" class="library-panel panel-active" data-panel-name="library" aria-label="完整笔记与知识单元列表">
+        <div class="library-head">
+          <p class="eyebrow">SOURCE NOTES · ATOMIC UNITS</p>
+          <div class="library-title-row">
+            <h1>知识笔记</h1>
+            <span id="note-count" class="count-badge">0</span>
+          </div>
+          <form id="upload-form" class="upload-card">
+            <label class="upload-file">
+              <span>选择 PDF</span>
+              <input id="pdf-file" name="file" type="file" accept="application/pdf,.pdf" required />
+              <strong id="pdf-file-name">尚未选择文件</strong>
+            </label>
+            <label class="upload-title">
+              <span>笔记标题（可选）</span>
+              <input id="pdf-title" name="title" type="text" maxlength="160" placeholder="默认使用文件名" />
+            </label>
+            <button id="upload-button" type="submit">上传并开始归纳 <span aria-hidden="true">↗</span></button>
+            <p id="upload-status" class="upload-status" aria-live="polite"></p>
+          </form>
+          <label class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input id="note-search" type="search" placeholder="筛选标题或摘要" autocomplete="off" />
+          </label>
+          <details id="job-monitor" class="job-monitor">
+            <summary><span>生成任务</span><strong id="job-monitor-status">暂无任务</strong></summary>
+            <div class="job-progress" aria-hidden="true"><span id="job-progress-bar"></span></div>
+            <p id="job-message" class="job-message" aria-live="polite"></p>
+            <button id="resume-job" class="secondary-button" type="button" hidden>恢复任务</button>
+            <div id="job-timeline" class="job-timeline" aria-live="polite"></div>
+          </details>
+        </div>
+        <div id="note-list" class="note-list" aria-live="polite"></div>
+      </aside>
+
+      <main id="note-content" class="reader-panel" data-panel-name="reader" tabindex="-1">
+        <div id="empty-note" class="empty-state">
+          <span class="empty-index">01</span>
+          <h2>选择完整笔记或知识单元</h2>
+          <p>完整笔记按学习大纲组织一份来源，知识单元仍可独立检索和溯源。</p>
+        </div>
+        <article id="note-view" class="note-view" hidden>
+          <header class="note-header">
+            <div class="note-meta-line">
+              <span id="note-status" class="status-chip">AI 已验证</span>
+              <span id="note-origin" class="origin-label">源自 PDF · 块级溯源</span>
+            </div>
+            <h2 id="note-title"></h2>
+            <p id="note-thesis" class="thesis"></p>
+            <div id="note-tags" class="tag-list" aria-label="标签"></div>
+          </header>
+          <section id="note-blocks" class="note-blocks" aria-label="笔记正文"></section>
+          <section id="note-assets" class="asset-gallery" aria-label="来源图片" hidden>
+            <div class="section-heading">
+              <span>VISUAL EVIDENCE</span>
+              <h3>必要图示</h3>
+            </div>
+            <div id="asset-list" class="asset-list"></div>
+          </section>
+          <section class="evidence-section" aria-label="来源与证据">
+            <div class="section-heading">
+              <span>PROVENANCE</span>
+              <h3>来源与证据</h3>
+            </div>
+            <div id="evidence-list" class="evidence-list"></div>
+          </section>
+        </article>
+      </main>
+
+      <aside id="chat-panel" class="chat-panel" data-panel-name="chat" aria-label="Noodle 助手对话与编辑">
+        <div class="chat-head">
+          <div>
+            <p class="eyebrow">AGENT · QA & EDIT</p>
+            <h2>Noodle 助手</h2>
+          </div>
+          <button id="clear-chat" class="icon-button" type="button" title="清空对话" aria-label="清空对话">↺</button>
+        </div>
+        <div id="chat-messages" class="chat-messages" aria-live="polite">
+          <div class="message assistant-message">
+            <p>我可以引用知识库回答，也可以在保留旧版本的前提下修改当前完整笔记。替换图片时，请附图并写明页码范围。</p>
+          </div>
+        </div>
+        <form id="chat-form" class="chat-form">
+          <label for="chat-input">问题或修改指令</label>
+          <div id="chat-attachment-preview" class="chat-attachment-preview" hidden>
+            <img id="chat-attachment-image" alt="待发送图片预览" />
+            <div>
+              <strong id="chat-attachment-name"></strong>
+              <span id="chat-attachment-status">等待发送</span>
+            </div>
+            <button id="remove-chat-attachment" type="button" aria-label="移除附件">×</button>
+          </div>
+          <textarea id="chat-input" rows="3" placeholder="提问，或：将 P18–P20 的碎图片替换为这张" required></textarea>
+          <div class="chat-actions">
+            <label class="chat-attach-button" title="添加用于笔记编辑的图片">
+              <input id="chat-attachment" type="file" accept="image/png,image/jpeg,image/webp" />
+              <span aria-hidden="true">＋</span> 图片
+            </label>
+            <span>Enter 发送 · Shift+Enter 换行</span>
+            <button id="send-button" type="submit">发送 <span aria-hidden="true">↗</span></button>
+          </div>
+        </form>
+      </aside>
+    </div>
+    <template id="note-item-template">
+      <button class="note-item" type="button">
+        <span class="note-item-index"></span>
+        <span class="note-item-copy">
+          <strong></strong>
+          <small></small>
+        </span>
+        <span class="note-item-arrow" aria-hidden="true">↗</span>
+      </button>
+    </template>
+    <script src="/ui/vendor/katex.min.js" defer></script>
+    <script src="/ui/vendor/auto-render.min.js" defer></script>
+    <script src="/ui/vendor/marked.umd.js" defer></script>
+    <script src="/ui/vendor/purify.min.js" defer></script>
+    <script src="/ui/app.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+FROM node:24-bookworm-slim
+
+ENV NODE_ENV=production \
+    DSH_HOME=/data/dsh \
+    NOODLE_API_BASE_URL=http://noodle-api:8000 \
+    NOODLE_API_PREFIX=/internal/v1
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
+
+COPY tsconfig.json cordis.patch.yml ./
+COPY src ./src
+COPY scripts/start-harness.mjs ./scripts/start-harness.mjs
+RUN npm run build
+
+EXPOSE 3080
+
+CMD ["node", "scripts/start-harness.mjs"]

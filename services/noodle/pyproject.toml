@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "noodle-agent"
+version = "0.1.0"
+description = "Local-first, provenance-aware PDF knowledge agent"
+readme = "README.md"
+license = {text = "AGPL-3.0-only"}
+authors = [{name = "JaegerZhao"}]
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.14,<2",
+  "fastapi>=0.115,<1",
+  "httpx>=0.28,<1",
+  "openai>=2,<3",
+  "pydantic>=2.10,<3",
+  "pymupdf>=1.25,<2",
+  "python-multipart>=0.0.20,<1",
+  "sqlalchemy>=2.0,<3",
+  "uvicorn>=0.34,<1",
+  "websockets>=15,<16",
+]
+
+[project.urls]
+Homepage = "https://github.com/JaegerZhao/Noodle_Agent"
+Issues = "https://github.com/JaegerZhao/Noodle_Agent/issues"
+
+[project.optional-dependencies]
+legacy-agent = [
+  "langgraph>=0.6,<2",
+  "langgraph-checkpoint-sqlite>=3.1,<4",
+]
+dev = [
+  "langgraph>=0.6,<2",
+  "langgraph-checkpoint-sqlite>=3.1,<4",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "respx>=0.22,<1",
+  "ruff>=0.9,<1",
+]
+
+[project.scripts]
+noodle = "noodle_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+noodle_agent = ["web/*", "web/vendor/*", "web/vendor/fonts/*", "web/vendor/pdfjs/*.mjs", "prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+filterwarnings = [
+  "ignore::starlette.exceptions.StarletteDeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

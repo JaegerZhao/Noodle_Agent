@@ -1,0 +1,62 @@
+services:
+  noodle-api:
+    build:
+      context: ./services/noodle
+    command: ["noodle", "serve-internal", "--host", "0.0.0.0", "--port", "8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NOODLE_DATA_DIR: /data/noodle
+      NOODLE_SKILLS_DIR: /app/skills
+      NOODLE_HARNESS_WEB_URL: http://dsh:3080
+    volumes:
+      - ./data/noodle:/data/noodle
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  noodle-worker:
+    build:
+      context: ./services/noodle
+    command: ["noodle", "worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NOODLE_DATA_DIR: /data/noodle
+      NOODLE_SKILLS_DIR: /app/skills
+    volumes:
+      - ./data/noodle:/data/noodle
+    depends_on:
+      noodle-api:
+        condition: service_healthy
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+  dsh:
+    build:
+      context: .
+      dockerfile: Dockerfile.harness
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DSH_HOME: /data/dsh
+      DSH_WEB_HOST: 0.0.0.0
+      DSH_WEB_PORT: 3080
+      NOODLE_API_BASE_URL: http://noodle-api:8000
+      NOODLE_API_PREFIX: /internal/v1
+    volumes:
+      - ./data/dsh:/data/dsh
+    ports:
+      - "127.0.0.1:3080:3080"
+    depends_on:
+      noodle-api:
+        condition: service_healthy
+    restart: unless-stopped

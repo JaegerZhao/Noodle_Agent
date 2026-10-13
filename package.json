@@ -1,0 +1,89 @@
+{
+  "name": "@noodle/agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local PDF notes, provenance-aware RAG and event-driven cross-document knowledge maintenance",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke:real": "tsx scripts/real-api-smoke.ts",
+    "smoke:web": "node scripts/workbench-smoke.mjs",
+    "smoke:synthesis": "node scripts/synthesis-editor-smoke.mjs",
+    "harness": "npm run build && node --env-file-if-exists=.env scripts/start-harness.mjs",
+    "setup:python": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task setup",
+    "api": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task api",
+    "worker": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task worker",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-local.ps1",
+    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-local.ps1",
+    "test:python": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task test",
+    "lint:python": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task lint",
+    "check:release": "node scripts/check-release.mjs",
+    "test:delivery": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-python.ps1 -Task delivery",
+    "test:all": "npm run check:release && npm run typecheck && npm test && npm run lint:python && npm run test:python && npm run test:delivery"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-workspace": "0.1.1-rc.2",
+    "@deepseek-ai/schemastery": "3.18.1",
+    "pdfjs-dist": "4.10.38"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-code-runtime": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-llm": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-scope": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-timeout": "0.1.1-rc.2",
+    "@types/node": "22.19.15",
+    "playwright-core": "^1.62.1",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "koffi@3.1.6": true,
+    "node-pty@1.2.0-beta.15": true,
+    "protobufjs@7.6.5": true,
+    "@deepseek-ai/dsh-subprocess-local@0.1.1-rc.2": true,
+    "@google/genai@1.52.0": true
+  },
+  "license": "AGPL-3.0-only",
+  "author": "JaegerZhao",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JaegerZhao/Noodle_Agent.git"
+  },
+  "homepage": "https://github.com/JaegerZhao/Noodle_Agent#readme",
+  "bugs": {
+    "url": "https://github.com/JaegerZhao/Noodle_Agent/issues"
+  }
+}
