@@ -30,7 +30,7 @@ Issues = "https://github.com/JaegerZhao/Noodle_Agent/issues"
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3,<9",
-  "pytest-cov>=6,<7",
+  "pytest-cov>=6,<8",
   "respx>=0.22,<1",
   "ruff>=0.9,<1",
 ]
