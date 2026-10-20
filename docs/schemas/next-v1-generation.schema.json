@@ -1,0 +1,651 @@
+{
+  "$comment": "Generated from runtime models; oneOf/const retain tagged validation. Real allocation and writing requests additionally require every window/unit property by name.",
+  "$defs": {
+    "Administrative": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "ADMINISTRATIVE",
+          "title": "Mode",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "reason"
+      ],
+      "title": "Administrative",
+      "type": "object"
+    },
+    "AllocationPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "assignments": {
+          "patternProperties": {
+            "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Included"
+                },
+                {
+                  "$ref": "#/$defs/Navigation"
+                },
+                {
+                  "$ref": "#/$defs/Administrative"
+                },
+                {
+                  "$ref": "#/$defs/Decorative"
+                },
+                {
+                  "$ref": "#/$defs/Duplicated"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 160,
+            "minLength": 1
+          },
+          "title": "Assignments",
+          "type": "object"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/$defs/TopicHeader"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "topics",
+        "assignments"
+      ],
+      "title": "AllocationPlan",
+      "type": "object"
+    },
+    "Assessment": {
+      "additionalProperties": false,
+      "properties": {
+        "issues": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "supported_units": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Supported Units",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passed",
+        "issues",
+        "supported_units",
+        "reason"
+      ],
+      "title": "Assessment",
+      "type": "object"
+    },
+    "Decorative": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "DECORATIVE",
+          "title": "Mode",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "reason"
+      ],
+      "title": "Decorative",
+      "type": "object"
+    },
+    "Draft": {
+      "additionalProperties": false,
+      "properties": {
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/DraftSection"
+          },
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "summary",
+        "sections"
+      ],
+      "title": "Draft",
+      "type": "object"
+    },
+    "DraftSection": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "markdown": {
+          "minLength": 1,
+          "title": "Markdown",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Units",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "question",
+        "scope",
+        "markdown",
+        "units"
+      ],
+      "title": "DraftSection",
+      "type": "object"
+    },
+    "Duplicated": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_of": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Duplicate Of",
+          "type": "string"
+        },
+        "mode": {
+          "const": "DUPLICATE",
+          "title": "Mode",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "reason",
+        "duplicate_of"
+      ],
+      "title": "Duplicated",
+      "type": "object"
+    },
+    "Exclusion": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "NAVIGATION",
+            "ADMINISTRATIVE",
+            "DUPLICATE",
+            "DECORATIVE"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "duplicate_of": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duplicate Of"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "unit_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Unit Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit_id",
+        "category",
+        "reason"
+      ],
+      "title": "Exclusion",
+      "type": "object"
+    },
+    "Group": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "topic_keys": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Topic Keys",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "question",
+        "scope",
+        "topic_keys"
+      ],
+      "title": "Group",
+      "type": "object"
+    },
+    "Included": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "TOPIC",
+          "title": "Mode",
+          "type": "string"
+        },
+        "topic_key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Topic Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "topic_key"
+      ],
+      "title": "Included",
+      "type": "object"
+    },
+    "MergePlan": {
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/Group"
+          },
+          "minItems": 1,
+          "title": "Groups",
+          "type": "array"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "groups"
+      ],
+      "title": "MergePlan",
+      "type": "object"
+    },
+    "Navigation": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "NAVIGATION",
+          "title": "Mode",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "reason"
+      ],
+      "title": "Navigation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "excludes": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Excludes",
+          "type": "array"
+        },
+        "includes": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Includes",
+          "type": "array"
+        },
+        "prerequisites": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Prerequisites",
+          "type": "array"
+        }
+      },
+      "required": [
+        "includes"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "Topic": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Units",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "question",
+        "scope",
+        "units"
+      ],
+      "title": "Topic",
+      "type": "object"
+    },
+    "TopicHeader": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "question",
+        "scope"
+      ],
+      "title": "TopicHeader",
+      "type": "object"
+    },
+    "WindowPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "exclusions": {
+          "items": {
+            "$ref": "#/$defs/Exclusion"
+          },
+          "title": "Exclusions",
+          "type": "array"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/$defs/Topic"
+          },
+          "title": "Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "topics"
+      ],
+      "title": "WindowPlan",
+      "type": "object"
+    },
+    "WritingPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "assignments": {
+          "patternProperties": {
+            "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$": {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 160,
+            "minLength": 1
+          },
+          "title": "Assignments",
+          "type": "object"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/WrittenSection"
+          },
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "summary",
+        "sections",
+        "assignments"
+      ],
+      "title": "WritingPlan",
+      "type": "object"
+    },
+    "WrittenSection": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "markdown": {
+          "minLength": 1,
+          "title": "Markdown",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "question",
+        "scope",
+        "markdown"
+      ],
+      "title": "WrittenSection",
+      "type": "object"
+    }
+  },
+  "$id": "urn:noodle:next-v1:generation-contracts",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/WindowPlan"
+    },
+    {
+      "$ref": "#/$defs/AllocationPlan"
+    },
+    {
+      "$ref": "#/$defs/WritingPlan"
+    },
+    {
+      "$ref": "#/$defs/MergePlan"
+    },
+    {
+      "$ref": "#/$defs/Draft"
+    },
+    {
+      "$ref": "#/$defs/Assessment"
+    }
+  ]
+}

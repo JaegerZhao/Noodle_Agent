@@ -262,11 +262,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     next_init.add_argument("--data-dir", type=Path, required=True)
     sub.add_parser("next-schema", help="Print runtime next-v1 candidate and review JSON Schemas")
+    from .next.cli import configure
+
+    configure(sub)
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    if args.command in {"next-ingest", "next-worker", "next-status", "next-retry", "next-verify"}:
+        from .next.cli import run
+
+        run(args, _print)
+        return
     if args.command == "next-schema":
         from .next.contracts import Candidate, Review
 

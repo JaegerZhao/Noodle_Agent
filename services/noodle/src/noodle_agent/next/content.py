@@ -16,18 +16,40 @@ class ContentRepository:
         self.repository = repository
         self.sources = sources
 
-    def create_note(self, kind: str, title: str, *, domain: str = "general", aliases=()) -> str:
+    def create_note(
+        self,
+        kind: str,
+        title: str,
+        *,
+        domain: str = "general",
+        aliases=(),
+        creation_key: str | None = None,
+        lease=None,
+    ) -> str:
         if kind not in {"ATOMIC", "CONCEPT", "MOC"} or not title.strip():
             raise ValueError("Invalid note")
         note_id = identifier()
         folder = {"ATOMIC": "Notes", "CONCEPT": "Concepts", "MOC": "Maps"}[kind]
         stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", title).strip(" .")[:60] or "note"
         with self.repository.transaction() as connection:
+            if lease is not None:
+                from .jobs import require_lease
+
+                require_lease(connection, lease)
+            if creation_key is not None:
+                existing = one(
+                    connection, "SELECT * FROM notes WHERE creation_key=:key", key=creation_key
+                )
+                if existing:
+                    if existing["kind"] != kind or existing["domain"] != domain:
+                        raise Conflict("Creation key belongs to another note contract")
+                    return existing["id"]
             insert(
                 connection,
                 "notes",
                 id=note_id,
                 kind=kind,
+                creation_key=creation_key,
                 title=title,
                 domain=domain,
                 aliases_json=canonical(list(aliases)),

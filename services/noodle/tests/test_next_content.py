@@ -111,7 +111,7 @@ def test_next_fresh_migration_is_serialized_and_has_no_legacy_tables(tmp_path):
         assert not {"atomic_notes", "concept_modules", "syntheses", "note_versions"} & tables
         assert connection.execute("SELECT name FROM storage_contract").fetchone() == ("next-v1",)
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "next_0003",
+            "next_0004",
         )
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
@@ -392,7 +392,7 @@ def test_next_cli_does_not_load_legacy_service(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(cli, "_service", fail)
     cli.main(["next-init", "--data-dir", str(tmp_path / "new-cli")])
-    assert json.loads(capsys.readouterr().out)["current"] == "next_0003"
+    assert json.loads(capsys.readouterr().out)["current"] == "next_0004"
     cli.main(["next-schema"])
     schema = json.loads(capsys.readouterr().out)
     assert schema["contract"] == "next-v1"
@@ -483,7 +483,7 @@ def test_next_incremental_migration_preserves_rows_and_creates_backup(tmp_path):
             )
             connection.commit()
         database.init()
-        assert database.last_migration["current"] == "next_0003"
+        assert database.last_migration["current"] == "next_0004"
         assert database.last_migration["backup"]
         with database.engine.connect() as connection:
             assert connection.exec_driver_sql("SELECT id FROM sources").scalar_one() == "preserve"

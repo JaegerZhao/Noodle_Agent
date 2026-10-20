@@ -88,7 +88,7 @@ class TransportModule(Component):
                 request["extra_body"] = {
                     "thinking": {"type": "enabled" if thinking else "disabled"}
                 }
-            if operation and operation.startswith("semantic_synthesis."):
+            if operation and operation.startswith(("semantic_synthesis.", "next.")):
                 request["max_tokens"] = 16384
             response = self.owner.client.chat.completions.create(**request)
             choice = response.choices[0]

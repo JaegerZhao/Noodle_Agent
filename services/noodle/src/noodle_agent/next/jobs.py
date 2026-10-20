@@ -183,12 +183,93 @@ class JobQueue:
             raise ValueError("Attempt limit must be positive")
         with self.repository.transaction() as connection:
             job = require_lease(connection, lease)
+            status = "RETRY" if retry and job["attempts"] < max_attempts else "REVIEW"
             connection.execute(
                 text("""UPDATE jobs SET status=:status,error_json=:error,
                 lease_owner=NULL,lease_until=NULL WHERE id=:id"""),
                 {
                     "id": lease.job_id,
-                    "status": "RETRY" if retry and job["attempts"] < max_attempts else "REVIEW",
+                    "status": status,
                     "error": canonical(error),
                 },
+            )
+            return status
+
+    def defer(self, lease: Lease, progress: dict):
+        """Polling is progress, not a failed attempt; retain the same durable job."""
+        with self.repository.transaction() as c:
+            require_lease(c, lease)
+            c.execute(
+                text("""UPDATE jobs SET status='PENDING',result_json=:progress,
+                attempts=attempts-1,lease_owner=NULL,lease_until=NULL WHERE id=:id"""),
+                {"progress": canonical(progress), "id": lease.job_id},
+            )
+
+    def retry_review(self, job_id: str, *, reason: str):
+        """Explicit operator recovery after inspecting a review stop; never auto-loop."""
+        if not reason.strip():
+            raise ValueError("Recovery reason is required")
+        with self.repository.transaction() as c:
+            job = one(c, "SELECT * FROM jobs WHERE id=:id", id=job_id)
+            if not job or job["status"] != "REVIEW":
+                raise Conflict("Only a REVIEW job can be explicitly resumed")
+            self.repository.event(
+                c,
+                "JOB_RETRY_REQUESTED",
+                job_id,
+                None,
+                {
+                    "reason": reason,
+                    "previous_error": json.loads(job["error_json"]),
+                    "previous_attempts": job["attempts"],
+                },
+                key=f"job-retry:{job_id}:{identifier()}",
+            )
+            c.execute(
+                text(
+                    "UPDATE jobs SET status='PENDING',attempts=0,lease_owner=NULL,lease_until=NULL WHERE id=:id"
+                ),
+                {"id": job_id},
+            )
+
+    def reopen_invalid_output(self, job_id, note_id, revision_id, *, reason):
+        """Withdraw a failed completed output and reopen its parent job atomically."""
+        with self.repository.transaction() as c:
+            job = one(c, "SELECT * FROM jobs WHERE id=:id", id=job_id)
+            note = one(c, "SELECT * FROM notes WHERE id=:id", id=note_id)
+            proof = one(
+                c,
+                "SELECT id FROM build_artifacts WHERE job_id=:job AND storage_ref=:ref",
+                job=job_id,
+                ref=f"artifacts/builds/{revision_id}.json",
+            )
+            if (
+                not job
+                or job["status"] != "SUCCEEDED"
+                or not note
+                or note["current_revision_id"] != revision_id
+                or note["visibility"] != "ACTIVE"
+                or not proof
+                or not reason.strip()
+            ):
+                raise Conflict("Output or completed job changed before quality withdrawal")
+            c.execute(
+                text("UPDATE note_revisions SET status='WITHDRAWN' WHERE id=:id"),
+                {"id": revision_id},
+            )
+            c.execute(
+                text("UPDATE jobs SET status='REVIEW',error_json=:error WHERE id=:id"),
+                {"id": job_id, "error": canonical({"code": "QUALITY_RECHECK", "detail": reason})},
+            )
+            c.execute(
+                text("UPDATE events SET status='DISPATCHED' WHERE id=:id"), {"id": job["event_id"]}
+            )
+            self.repository.advance_epoch(c)
+            self.repository.event(
+                c,
+                "NOTE_INVALIDATED",
+                note_id,
+                revision_id,
+                {"reason": reason, "job_id": job_id},
+                key=f"quality-withdraw:{revision_id}",
             )

@@ -113,7 +113,7 @@ Compose 启动 API、Worker 和 Harness，并把本地数据挂载到 `data/`。
 
 ## 数据库升级
 
-API、Worker 和 `npm run db:upgrade` 共用版本迁移入口；`npm run db:status` 只查询版本。首次启动创建新库，旧库需要升级时先自动生成 SQLite 备份，再在事务中迁移。当前版本为 `0010`；不支持的旧结构会报错并回滚，不会直接设置版本号。迁移与恢复说明见 [运行指南](./docs/OPERATIONS.md)。
+API、Worker 和 `npm run db:upgrade` 共用版本迁移入口；`npm run db:status` 只查询版本。首次启动创建新库，旧库需要升级时先自动生成 SQLite 备份，再在事务中迁移。默认知识库版本为 `0010`；不支持的旧结构会报错并回滚，不会直接设置版本号。迁移与恢复说明见 [运行指南](./docs/OPERATIONS.md)。
 
 ## 无密钥验证
 
@@ -144,6 +144,7 @@ Noodle_Agent/
 │   │   ├── storage/           # ORM、FTS 与唯一 Alembic 升级入口
 │   │   ├── adapters/          # 解析、LLM、向量、视觉与存储接口
 │   │   ├── synthesis/         # Concept、知识体系、归并与自动同步
+│   │   ├── next/              # 显式启用的新系统实现，使用隔离数据目录
 │   │   ├── prompts/           # 生成、审核和视觉提示词
 │   │   ├── web/               # 工作台与第三方前端资源
 │   │   └── …                  # API、服务、数据库、Worker、质量检查
@@ -162,6 +163,7 @@ Noodle_Agent/
 - [跨文档知识归并](./docs/KNOWLEDGE-SYNC.md)
 - [配置、运行与备份](./docs/OPERATIONS.md)
 - [测试策略与当前限制](./docs/TESTING.md)
+- [新系统设计](./docs/NEXT-SYSTEM-DESIGN.md) · [分阶段实施与验收](./docs/IMPLEMENTATION-STATUS.md)（当前已接入隔离的 PDF 生成链路，尚未切换默认工作台）
 - [贡献指南](./CONTRIBUTING.md) · [安全报告](./SECURITY.md) · [第三方许可](./THIRD_PARTY_NOTICES.md)
 
 ## 当前边界

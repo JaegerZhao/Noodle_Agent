@@ -7,6 +7,7 @@ import json
 from sqlalchemy import text
 
 from .contracts import canonical, sha
+from .jobs import require_lease
 from .repository import Conflict, InvalidKnowledge, Repository, identifier, insert, now, one
 
 
@@ -157,7 +158,7 @@ class SourceRepository:
         )
 
     def record_parse(
-        self, revision_id: str, parser_version: str, config: dict, artifact: dict
+        self, revision_id: str, parser_version: str, config: dict, artifact: dict, *, lease=None
     ) -> str:
         content = canonical(artifact).encode("utf-8")
         digest = sha(content)
@@ -165,8 +166,20 @@ class SourceRepository:
         self.repository.put(ref, content)
         parse_id = identifier()
         with self.repository.transaction() as connection:
+            if lease is not None:
+                require_lease(connection, lease)
             if not self.source_valid(connection, revision_id):
                 raise Conflict("Source is not current")
+            existing = one(
+                connection,
+                """SELECT id FROM parse_runs WHERE source_revision_id=:revision
+                AND input_sha256=:input AND artifact_sha256=:digest LIMIT 1""",
+                revision=revision_id,
+                input=sha(canonical([revision_id, parser_version, config])),
+                digest=digest,
+            )
+            if existing:
+                return existing["id"]
             insert(
                 connection,
                 "parse_runs",
@@ -189,11 +202,14 @@ class SourceRepository:
         page: int | None = None,
         block_id: str | None = None,
         parse_id: str | None = None,
+        lease=None,
     ) -> str:
         evidence_id = identifier()
         if not quote.strip():
             raise InvalidKnowledge("Empty evidence")
         with self.repository.transaction() as connection:
+            if lease is not None:
+                require_lease(connection, lease)
             source = one(
                 connection,
                 """SELECT r.*,s.kind FROM source_revisions r
@@ -220,6 +236,19 @@ class SourceRepository:
                 )
                 if quote not in original or page is not None or parse_id is not None:
                     raise InvalidKnowledge("Author evidence does not match its snapshot")
+            existing = one(
+                connection,
+                """SELECT id FROM evidence_anchors
+                WHERE source_revision_id=:revision AND parse_run_id IS :parse
+                AND page_number IS :page AND locator_json=:locator AND sha256=:digest LIMIT 1""",
+                revision=revision_id,
+                parse=parse_id,
+                page=page,
+                locator=canonical({"block_id": block_id}),
+                digest=sha(quote),
+            )
+            if existing:
+                return existing["id"]
             insert(
                 connection,
                 "evidence_anchors",
