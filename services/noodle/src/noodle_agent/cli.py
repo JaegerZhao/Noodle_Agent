@@ -257,11 +257,38 @@ def build_parser() -> argparse.ArgumentParser:
     worker.add_argument("--once", action="store_true")
     sub.add_parser("db-upgrade", help="Upgrade the SQLite schema with backup")
     sub.add_parser("db-status", help="Show database and migration versions")
+    next_init = sub.add_parser(
+        "next-init", help="Initialize an isolated next-v1 store; refuses legacy data"
+    )
+    next_init.add_argument("--data-dir", type=Path, required=True)
+    sub.add_parser("next-schema", help="Print runtime next-v1 candidate and review JSON Schemas")
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    if args.command == "next-schema":
+        from .next.contracts import Candidate, Review
+
+        _print(
+            {
+                "contract": "next-v1",
+                "candidate": Candidate.model_json_schema(),
+                "review": Review.model_json_schema(),
+            }
+        )
+        return
+    if args.command == "next-init":
+        from .next.store import Store
+
+        store = Store(args.data_dir)
+        try:
+            _print(
+                {"contract": store.contract, "data_dir": str(store.root), **store.db.last_migration}
+            )
+        finally:
+            store.close()
+        return
     if args.command in {"db-upgrade", "db-status"}:
         from .db import Database
         from .storage.runner import status

@@ -16,16 +16,24 @@ from sqlalchemy import inspect
 _ENV_LOCK = threading.RLock()
 
 
-def config_for(connection=None):
+def config_for(connection=None, *, contract="legacy-v1"):
     config = Config()
     config.set_main_option("script_location", str(Path(__file__).with_name("migrations")))
+    config.set_main_option("path_separator", "os")
+    config.set_main_option("version_path_separator", "os")
+    if contract == "next-v1":
+        config.set_main_option(
+            "version_locations", str(Path(__file__).with_name("migrations") / "next_versions")
+        )
+    elif contract != "legacy-v1":
+        raise ValueError("Unknown storage contract")
     if connection is not None:
         config.attributes["connection"] = connection
     return config
 
 
-def status(engine):
-    head = ScriptDirectory.from_config(config_for()).get_current_head()
+def status(engine, *, contract="legacy-v1"):
+    head = ScriptDirectory.from_config(config_for(contract=contract)).get_current_head()
     with engine.connect() as connection:
         current = (
             connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar()
@@ -35,7 +43,7 @@ def status(engine):
     return {"current": current, "head": head, "needs_upgrade": current != head}
 
 
-def upgrade(engine):
+def upgrade(engine, *, contract="legacy-v1"):
     if engine.dialect.name != "sqlite":
         raise ValueError("Current migrations support SQLite only")
     database = engine.url.database
@@ -46,9 +54,21 @@ def upgrade(engine):
     with _ENV_LOCK, engine.connect() as connection:
         connection.exec_driver_sql("BEGIN IMMEDIATE")
         try:
-            config = config_for(connection)
+            config = config_for(connection, contract=contract)
             head = ScriptDirectory.from_config(config).get_current_head()
             names = set(inspect(connection).get_table_names())
+            if "storage_contract" in names:
+                stored = connection.exec_driver_sql(
+                    "SELECT name FROM storage_contract WHERE id=1"
+                ).scalar()
+                if stored != contract:
+                    raise ValueError(f"Storage contract mismatch: expected {contract}")
+            elif contract == "next-v1" and names - {"alembic_version"}:
+                raise ValueError(
+                    "Legacy or unknown database refused by next-v1; use an empty isolated store"
+                )
+            elif contract == "next-v1" and "alembic_version" in names:
+                raise ValueError("Unmarked versioned database refused by next-v1")
             current = (
                 connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar()
                 if "alembic_version" in names

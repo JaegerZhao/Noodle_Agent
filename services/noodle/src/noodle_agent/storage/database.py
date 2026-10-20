@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 
 class Database:
-    def __init__(self, url: str):
+    def __init__(self, url: str, *, contract: str = "legacy-v1"):
+        self.contract = contract
         self.engine = create_engine(
             url,
             future=True,
@@ -49,7 +50,7 @@ class Database:
     def init(self) -> None:
         from .runner import upgrade
 
-        self.last_migration = upgrade(self.engine)
+        self.last_migration = upgrade(self.engine, contract=self.contract)
 
     @contextmanager
     def session(self) -> Iterator[Session]:
