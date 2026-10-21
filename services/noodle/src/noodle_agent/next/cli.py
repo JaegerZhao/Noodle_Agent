@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..adapters.mineru import validate_pdf
 from ..config import Settings
-from .repository import rows
+from .repository import Conflict, one, rows
 from .store import Store
 from .worker import GenerationWorker
 
@@ -28,6 +28,19 @@ def configure(sub):
     retry.add_argument("--data-dir", type=Path, required=True)
     retry.add_argument("--job-id", required=True)
     retry.add_argument("--reason", required=True)
+    rebuild = sub.add_parser(
+        "next-rebuild",
+        help="Rebuild all atomics of a completed job, retaining parse and plan receipts",
+    )
+    rebuild.add_argument("--data-dir", type=Path, required=True)
+    rebuild.add_argument("--job-id", required=True)
+    rebuild.add_argument("--reason", required=True)
+    cancel = sub.add_parser(
+        "next-cancel-rebuild", help="Restore the completed result before an unfinished rebuild"
+    )
+    cancel.add_argument("--data-dir", type=Path, required=True)
+    cancel.add_argument("--job-id", required=True)
+    cancel.add_argument("--reason", required=True)
     verify = sub.add_parser("next-verify", help="Independently verify a completed generation job")
     verify.add_argument("--data-dir", type=Path, required=True)
     verify.add_argument("--job-id", required=True)
@@ -38,6 +51,34 @@ def configure(sub):
 def run(args, emit):
     store = Store(args.data_dir)
     try:
+        if args.command == "next-cancel-rebuild":
+            from .recovery import cancel_rebuild
+
+            emit(cancel_rebuild(store, args.job_id, reason=args.reason))
+            return
+        if args.command == "next-rebuild":
+            with store.db.engine.connect() as c:
+                job = one(c, "SELECT * FROM jobs WHERE id=:id", id=args.job_id)
+            if not job or job["kind"] != GenerationWorker.kind or job["status"] != "SUCCEEDED":
+                raise Conflict("Rebuild requires a completed atomic-generation job")
+            outputs = json.loads(job["result_json"])["notes"]
+            store.jobs.reopen_outputs(
+                args.job_id,
+                [(o["note_id"], o["revision_id"]) for o in outputs],
+                reason=args.reason,
+                rebuild=True,
+            )
+            # If interrupted between these transactions, next-retry safely resumes REVIEW.
+            store.jobs.retry_review(args.job_id, reason=args.reason)
+            emit(
+                {
+                    "job_id": args.job_id,
+                    "status": "PENDING",
+                    "rebuild_notes": len(outputs),
+                    "reuse": "verified source, parse and plan; no prior note body",
+                }
+            )
+            return
         if args.command == "next-verify":
             from .verification import verify_generation
 

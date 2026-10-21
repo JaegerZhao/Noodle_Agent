@@ -270,7 +270,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    if args.command in {"next-ingest", "next-worker", "next-status", "next-retry", "next-verify"}:
+    if args.command in {
+        "next-ingest",
+        "next-worker",
+        "next-status",
+        "next-retry",
+        "next-verify",
+        "next-rebuild",
+        "next-cancel-rebuild",
+    }:
         from .next.cli import run
 
         run(args, _print)

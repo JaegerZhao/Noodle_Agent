@@ -948,3 +948,202 @@ def test_page_grounded_panels_replace_stale_roles_and_bind_their_own_evidence(st
         assert anchor["source_revision_id"] == revision
         assert anchor["quoted_text"] == panel["text"]
     assert all("STALE" in u.text for u in units)  # frozen original manifest remains auditable
+
+
+def test_shared_checkpoint_computes_once_for_concurrent_writers(store):
+    import threading
+    import time
+
+    store.jobs.dispatch({"SOURCE_ADDED": ["TEST"]})
+    journal = Checkpoints(store.repository, store.jobs.claim("test", kind="TEST"))
+    ready = threading.Barrier(6)
+    calls = []
+
+    def build():
+        calls.append(1)
+        time.sleep(0.1)  # model response arrives after competing writers enter compute
+        return {"shared_page": "one frozen response"}
+
+    def request(_):
+        ready.wait(timeout=5)
+        return journal.compute("same-page", {"page": 31}, build)
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        outputs = list(pool.map(request, range(6)))
+    assert len(calls) == 1
+    assert all(value == outputs[0] for value in outputs)
+
+
+def test_full_rebuild_withdrawal_is_atomic_and_preserves_all_note_identities(store):
+    import json
+
+    from noodle_agent.next.repository import InvalidKnowledge
+
+    consumer = worker(store)
+    outcome = consumer.run_once()
+    with store.db.engine.connect() as c:
+        result = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+    outputs = [(n["note_id"], n["revision_id"]) for n in result["notes"]]
+    with pytest.raises(Conflict):
+        store.jobs.reopen_outputs(
+            outcome["job_id"], [outputs[0], (outputs[1][0], "stale")], reason="recheck"
+        )
+    assert all(store.get_note(n)["revision"]["status"] == "PUBLISHED" for n, _ in outputs)
+    assert query(store, "SELECT status FROM jobs") == "SUCCEEDED"
+    store.jobs.reopen_outputs(outcome["job_id"], outputs, reason="Full final-policy validation")
+    for note_id, _ in outputs:
+        with pytest.raises(InvalidKnowledge):
+            store.get_note(note_id)
+    store.jobs.retry_review(outcome["job_id"], reason="Full final-policy validation")
+    calls_before = consumer.agent.calls.count("next.write")
+    assert consumer.run_once()["status"] == "SUCCEEDED"
+    assert consumer.agent.calls.count("next.write") - calls_before == len(outputs)
+    assert query(store, "SELECT error_json FROM jobs") == "{}"
+    for note_id, previous in outputs:
+        current = store.get_note(note_id)
+        assert current["revision"]["ordinal"] == 2
+        assert current["revision"]["parent_revision_id"] == previous
+    assert query(store, "SELECT count(*) FROM notes") == 3
+
+
+def test_rebuild_cli_uses_completed_manifest_without_loading_legacy_service(
+    store, monkeypatch, capsys
+):
+    from noodle_agent import cli
+
+    result = worker(store).run_once()
+    monkeypatch.setattr(cli, "_service", lambda: pytest.fail("Legacy composition is forbidden"))
+    cli.main(
+        [
+            "next-rebuild",
+            "--data-dir",
+            str(store.root),
+            "--job-id",
+            result["job_id"],
+            "--reason",
+            "Final policy validation",
+        ]
+    )
+    assert '"rebuild_notes": 2' in capsys.readouterr().out
+    assert query(store, "SELECT status FROM jobs") == "PENDING"
+    assert query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'") == 2
+    cli.main(
+        [
+            "next-cancel-rebuild",
+            "--data-dir",
+            str(store.root),
+            "--job-id",
+            result["job_id"],
+            "--reason",
+            "Cancel the trial",
+        ]
+    )
+    assert '"restored_notes": 2' in capsys.readouterr().out
+    assert query(store, "SELECT status FROM jobs") == "SUCCEEDED"
+
+
+def test_recovery_rejects_old_head_if_writing_policy_changed(store, monkeypatch):
+    original_save = Checkpoints.save
+
+    def crash_after_first_publication(self, stage, inputs, value):
+        if stage == "publish.note-0":
+            raise ConnectionError("stopped after first head")
+        return original_save(self, stage, inputs, value)
+
+    monkeypatch.setattr(Checkpoints, "save", crash_after_first_publication)
+    consumer = worker(store)
+    assert consumer.run_once()["status"] == "RETRY"
+    monkeypatch.setattr(Checkpoints, "save", original_save)
+    original_init = Generation.__init__
+
+    def changed_policy(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        self.writing_policy += "\nA different writing policy."
+
+    monkeypatch.setattr(Generation, "__init__", changed_policy)
+    assert consumer.run_once()["status"] == "REVIEW"
+    assert query(store, "SELECT count(*) FROM note_revisions") == 1
+
+
+def test_cancel_partial_rebuild_restores_original_heads_and_fences_late_worker(store, monkeypatch):
+    import json
+
+    from noodle_agent.next.jobs import Lease
+    from noodle_agent.next.recovery import cancel_rebuild
+
+    consumer = worker(store)
+    result = consumer.run_once()
+    with store.db.engine.connect() as c:
+        baseline = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+    pairs = [(o["note_id"], o["revision_id"]) for o in baseline["notes"]]
+    store.jobs.reopen_outputs(result["job_id"], pairs, reason="Final policy trial", rebuild=True)
+    store.jobs.retry_review(result["job_id"], reason="Final policy trial")
+    original = Generation.generate_note
+
+    def interrupt_after_publish(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        raise ConnectionError("Operator interruption after one repaired publication")
+
+    monkeypatch.setattr(Generation, "generate_note", interrupt_after_publish)
+    assert consumer.run_once()["status"] == "RETRY"
+    late = store.jobs.claim("late", kind=consumer.kind)
+    cancellation = cancel_rebuild(
+        store, result["job_id"], reason="User cancelled full regeneration"
+    )
+    assert cancellation["restored_notes"] == 2
+    assert len(cancellation["discarded_revisions"]) == 1
+    assert all(store.get_note(n)["revision"]["id"] == r for n, r in pairs)
+    with pytest.raises(Conflict):
+        store.jobs.finish(Lease(late.job_id, late.token, late.input), {})
+    assert query(store, "SELECT status FROM jobs") == "SUCCEEDED"
+    assert (
+        query(store, "SELECT count(*) FROM events WHERE event_type='GENERATION_REBUILD_CANCELLED'")
+        == 1
+    )
+    # Re-withdrawing a restored head emits a new event instead of losing the transition.
+    before_events = query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_INVALIDATED'")
+    store.jobs.reopen_outputs(result["job_id"], pairs, reason="Another explicit trial")
+    assert (
+        query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_INVALIDATED'")
+        == before_events + 2
+    )
+
+
+def test_cancel_rebuild_does_not_restore_a_deleted_source(store):
+    import json
+
+    from noodle_agent.next.recovery import cancel_rebuild
+
+    outcome = worker(store).run_once()
+    with store.db.engine.connect() as c:
+        baseline = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+        source_id = one(c, "SELECT id FROM sources")["id"]
+    pairs = [(o["note_id"], o["revision_id"]) for o in baseline["notes"]]
+    store.jobs.reopen_outputs(outcome["job_id"], pairs, reason="Trial", rebuild=True)
+    store.set_source_deleted(source_id, True)
+    with pytest.raises(Conflict, match="source or policy changed"):
+        cancel_rebuild(store, outcome["job_id"], reason="Cancel trial")
+    assert query(store, "SELECT status FROM jobs") == "REVIEW"
+    assert query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'") == 2
+    assert query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_RESTORED'") == 0
+
+
+def test_cancel_rebuild_cannot_reverse_an_unrelated_quality_withdrawal(store):
+    import json
+
+    from noodle_agent.next.recovery import cancel_rebuild
+
+    result = worker(store).run_once()
+    with store.db.engine.connect() as c:
+        output = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])["notes"][0]
+    store.jobs.reopen_invalid_output(
+        result["job_id"],
+        output["note_id"],
+        output["revision_id"],
+        reason="Known content error, not a rebuild",
+    )
+    with pytest.raises(Conflict, match="explicit full-rebuild cycle"):
+        cancel_rebuild(
+            store, result["job_id"], reason="Cancellation must not resurrect known errors"
+        )
+    assert query(store, "SELECT status FROM jobs") == "REVIEW"

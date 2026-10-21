@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
-from .contracts import canonical
+from .contracts import canonical, sha
 from .repository import Conflict, Repository, identifier, now, one, rows
 
 
@@ -163,7 +163,7 @@ class JobQueue:
         with self.repository.transaction() as connection:
             job = require_lease(connection, lease)
             connection.execute(
-                text("""UPDATE jobs SET status='SUCCEEDED',result_json=:result,
+                text("""UPDATE jobs SET status='SUCCEEDED',result_json=:result,error_json='{}',
                 lease_owner=NULL,lease_until=NULL WHERE id=:id"""),
                 {"id": lease.job_id, "result": canonical(result)},
             )
@@ -233,30 +233,55 @@ class JobQueue:
             )
 
     def reopen_invalid_output(self, job_id, note_id, revision_id, *, reason):
-        """Withdraw a failed completed output and reopen its parent job atomically."""
+        self.reopen_outputs(job_id, [(note_id, revision_id)], reason=reason)
+
+    def reopen_outputs(self, job_id, outputs, *, reason, rebuild=False):
+        """Withdraw a checked output set and reopen its job in one transaction."""
+        outputs = list(outputs)
+        if not outputs or len({n for n, _ in outputs}) != len(outputs) or not reason.strip():
+            raise ValueError("A distinct nonempty output set and reason are required")
         with self.repository.transaction() as c:
             job = one(c, "SELECT * FROM jobs WHERE id=:id", id=job_id)
-            note = one(c, "SELECT * FROM notes WHERE id=:id", id=note_id)
-            proof = one(
-                c,
-                "SELECT id FROM build_artifacts WHERE job_id=:job AND storage_ref=:ref",
-                job=job_id,
-                ref=f"artifacts/builds/{revision_id}.json",
-            )
-            if (
-                not job
-                or job["status"] != "SUCCEEDED"
-                or not note
-                or note["current_revision_id"] != revision_id
-                or note["visibility"] != "ACTIVE"
-                or not proof
-                or not reason.strip()
-            ):
-                raise Conflict("Output or completed job changed before quality withdrawal")
-            c.execute(
-                text("UPDATE note_revisions SET status='WITHDRAWN' WHERE id=:id"),
-                {"id": revision_id},
-            )
+            if not job or job["status"] != "SUCCEEDED":
+                raise Conflict("Only a completed job can reopen an output set")
+            baseline = json.loads(job["result_json"])
+            rebuild_id = None
+            if rebuild:
+                expected = {(o["note_id"], o["revision_id"]) for o in baseline.get("notes", [])}
+                if job["kind"] != "GENERATE_ATOMICS" or set(outputs) != expected:
+                    raise Conflict("Full rebuild must match the completed output manifest")
+                rebuild_id = identifier()
+            for note_id, revision_id in outputs:
+                note = one(c, "SELECT * FROM notes WHERE id=:id", id=note_id)
+                proof = one(
+                    c,
+                    "SELECT id FROM build_artifacts WHERE job_id=:job AND storage_ref=:ref",
+                    job=job_id,
+                    ref=f"artifacts/builds/{revision_id}.json",
+                )
+                revision = one(c, "SELECT status FROM note_revisions WHERE id=:id", id=revision_id)
+                if (
+                    not note
+                    or note["current_revision_id"] != revision_id
+                    or note["visibility"] != "ACTIVE"
+                    or not proof
+                    or not revision
+                    or revision["status"] != "PUBLISHED"
+                ):
+                    raise Conflict("Output changed before quality withdrawal")
+            for note_id, revision_id in outputs:
+                c.execute(
+                    text("UPDATE note_revisions SET status='WITHDRAWN' WHERE id=:id"),
+                    {"id": revision_id},
+                )
+                self.repository.event(
+                    c,
+                    "NOTE_INVALIDATED",
+                    note_id,
+                    revision_id,
+                    {"reason": reason, "job_id": job_id, "rebuild_id": rebuild_id},
+                    key=f"quality-withdraw:{revision_id}:{identifier()}",
+                )
             c.execute(
                 text("UPDATE jobs SET status='REVIEW',error_json=:error WHERE id=:id"),
                 {"id": job_id, "error": canonical({"code": "QUALITY_RECHECK", "detail": reason})},
@@ -264,12 +289,10 @@ class JobQueue:
             c.execute(
                 text("UPDATE events SET status='DISPATCHED' WHERE id=:id"), {"id": job["event_id"]}
             )
+            if rebuild:
+                pending = {"request_id": rebuild_id, "baseline_sha256": sha(canonical(baseline))}
+                c.execute(
+                    text("UPDATE jobs SET result_json=:result WHERE id=:id"),
+                    {"id": job_id, "result": canonical({**baseline, "pending_rebuild": pending})},
+                )
             self.repository.advance_epoch(c)
-            self.repository.event(
-                c,
-                "NOTE_INVALIDATED",
-                note_id,
-                revision_id,
-                {"reason": reason, "job_id": job_id},
-                key=f"quality-withdraw:{revision_id}",
-            )

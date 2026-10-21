@@ -343,6 +343,7 @@ class Generation:
                 or set(receipt.report.get("units", [])) != set(selected)
                 or receipt.candidate_sha256 != frozen.fingerprint
                 or not receipt.passed
+                or receipt.report.get("writing_policy_sha256") != sha(self.writing_policy)
             ):
                 raise Conflict("Recovered note differs from the frozen group input")
             validate_math(self.store.get_note(note_id)["markdown"])

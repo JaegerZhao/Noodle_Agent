@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from threading import Lock
 
 from sqlalchemy import text
 
@@ -15,6 +16,8 @@ class Checkpoints:
     def __init__(self, repository: Repository, lease: Lease):
         self.repository = repository
         self.lease = lease
+        self._guard = Lock()
+        self._stage_locks = {}
 
     def load(self, stage: str, inputs: dict):
         with self.repository.db.engine.connect() as c:
@@ -96,5 +99,10 @@ class Checkpoints:
         return value
 
     def compute(self, stage: str, inputs: dict, function):
-        cached = self.load(stage, inputs)
-        return cached if cached is not None else self.save(stage, inputs, function())
+        # A shared page can be requested by several note writers concurrently.
+        # Serialize only the same stage, preserving parallelism across other stages.
+        with self._guard:
+            lock = self._stage_locks.setdefault(stage, Lock())
+        with lock:
+            cached = self.load(stage, inputs)
+            return cached if cached is not None else self.save(stage, inputs, function())
