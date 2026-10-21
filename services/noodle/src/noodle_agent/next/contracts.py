@@ -32,8 +32,16 @@ class Scope(Contract):
     prerequisites: list[Text] = Field(default_factory=list)
 
 
+class FragmentRef(Contract):
+    section_id: Id
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(gt=0)
+    sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
+
+
 class Input(Contract):
     atomic_revision_id: Id
+    fragments: list[FragmentRef] = Field(default_factory=list)
     section_ids: list[Id] = Field(min_length=1)
     evidence_ids: list[Id] = Field(min_length=1)
     role: Literal["SUPPORT", "EXAMPLE", "CONTRAST", "CONFLICT"] = "SUPPORT"

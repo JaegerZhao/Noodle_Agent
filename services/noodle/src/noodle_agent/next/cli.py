@@ -12,6 +12,9 @@ from .worker import GenerationWorker
 
 
 def configure(sub):
+    from .app_cli import configure as configure_application
+
+    configure_application(sub)
     ingest = sub.add_parser("next-ingest", help="Register a PDF in an isolated next-v1 store")
     ingest.add_argument("--data-dir", type=Path, required=True)
     ingest.add_argument("--pdf", type=Path, required=True)
@@ -51,6 +54,11 @@ def configure(sub):
 def run(args, emit):
     store = Store(args.data_dir)
     try:
+        from .app_cli import COMMANDS
+        from .app_cli import run as run_application
+
+        if args.command in COMMANDS:
+            return run_application(args, store, emit)
         if args.command == "next-cancel-rebuild":
             from .recovery import cancel_rebuild
 

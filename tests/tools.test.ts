@@ -173,3 +173,17 @@ describe('Noodle write tools', () => {
     await ctx.fiber.dispose()
   })
 })
+
+
+it('next mode exposes only the five implemented read capabilities', async () => {
+  const ctx = new Context()
+  await ctx.plugin(SystemPrompt)
+  await ctx.plugin(ToolRuntime)
+  await ctx.plugin(FakeNoodleService)
+  await ctx.plugin(ReadTools, { nextOnly: true })
+  expect(ctx.tools.schemas().map(tool => tool.name).sort()).toEqual([
+    'noodle_answer_knowledge', 'noodle_get_atomic_note', 'noodle_get_concept',
+    'noodle_list_concepts', 'noodle_search_knowledge',
+  ])
+  await ctx.fiber.dispose()
+})

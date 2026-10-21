@@ -1,0 +1,918 @@
+{
+  "$defs": {
+    "AnswerResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "READY",
+            "PROFILE_MISMATCH",
+            "INDEX_PENDING",
+            "NO_EVIDENCE",
+            "SCOPE_RESTRICTED",
+            "CLARIFICATION_REQUIRED",
+            "PROVIDER_ERROR",
+            "CONTENT_CHANGED",
+            "COVERAGE_GAP"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/Hit"
+          },
+          "title": "Hits",
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/Counts"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/Snapshot"
+        },
+        "timings_ms": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Timings Ms",
+          "type": "object"
+        },
+        "degraded_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Degraded Reason"
+        },
+        "diagnostics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Diagnostics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "answer_markdown": {
+          "title": "Answer Markdown",
+          "type": "string"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Citations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "request_id",
+        "status",
+        "message",
+        "hits",
+        "counts",
+        "snapshot",
+        "timings_ms",
+        "degraded_reason",
+        "answer_markdown",
+        "citations"
+      ],
+      "title": "AnswerResponse",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "citation_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Citation Id",
+          "type": "string"
+        },
+        "chunk_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "note_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Note Id",
+          "type": "string"
+        },
+        "revision_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Revision Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "ATOMIC",
+            "CONCEPT"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "section_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "start_offset": {
+          "minimum": 0,
+          "title": "Start Offset",
+          "type": "integer"
+        },
+        "end_offset": {
+          "exclusiveMinimum": 0,
+          "title": "End Offset",
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/Provenance"
+          },
+          "title": "Provenance",
+          "type": "array"
+        }
+      },
+      "required": [
+        "citation_id",
+        "chunk_id",
+        "note_id",
+        "revision_id",
+        "kind",
+        "title",
+        "section_id",
+        "start_offset",
+        "end_offset",
+        "sha256",
+        "evidence_ids",
+        "provenance"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Counts": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic_notes": {
+          "minimum": 0,
+          "title": "Atomic Notes",
+          "type": "integer"
+        },
+        "concept_notes": {
+          "minimum": 0,
+          "title": "Concept Notes",
+          "type": "integer"
+        },
+        "chunks": {
+          "minimum": 0,
+          "title": "Chunks",
+          "type": "integer"
+        },
+        "independent_source_families": {
+          "minimum": 0,
+          "title": "Independent Source Families",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "atomic_notes",
+        "concept_notes",
+        "chunks",
+        "independent_source_families"
+      ],
+      "title": "Counts",
+      "type": "object"
+    },
+    "Decision": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "NO_CHANGE",
+            "ADD_EVIDENCE",
+            "UPDATE_SECTION",
+            "CREATE_SECTION",
+            "LINK_ONLY",
+            "CREATE_CONCEPT",
+            "CONFLICT",
+            "INSUFFICIENT"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "concept_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Concept Id"
+        },
+        "section_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Id"
+        },
+        "section_title": {
+          "default": "",
+          "title": "Section Title",
+          "type": "string"
+        },
+        "section_question": {
+          "default": "",
+          "title": "Section Question",
+          "type": "string"
+        },
+        "proposal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Identity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "role": {
+          "default": "SUPPORT",
+          "enum": [
+            "SUPPORT",
+            "EXAMPLE",
+            "CONTRAST",
+            "CONFLICT"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "reason"
+      ],
+      "title": "Decision",
+      "type": "object"
+    },
+    "Diagnostics": {
+      "additionalProperties": false,
+      "properties": {
+        "lanes": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Lanes",
+          "type": "object"
+        },
+        "eligible_chunks": {
+          "title": "Eligible Chunks",
+          "type": "integer"
+        },
+        "context_tokens": {
+          "title": "Context Tokens",
+          "type": "integer"
+        },
+        "coverage_pending_revisions": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Coverage Pending Revisions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lanes",
+        "eligible_chunks",
+        "context_tokens",
+        "coverage_pending_revisions"
+      ],
+      "title": "Diagnostics",
+      "type": "object"
+    },
+    "Hit": {
+      "additionalProperties": false,
+      "properties": {
+        "citation_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Citation Id",
+          "type": "string"
+        },
+        "chunk_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "note_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Note Id",
+          "type": "string"
+        },
+        "revision_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Revision Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "ATOMIC",
+            "CONCEPT"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "section_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "start_offset": {
+          "minimum": 0,
+          "title": "Start Offset",
+          "type": "integer"
+        },
+        "end_offset": {
+          "exclusiveMinimum": 0,
+          "title": "End Offset",
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/Provenance"
+          },
+          "title": "Provenance",
+          "type": "array"
+        },
+        "section_title": {
+          "minLength": 1,
+          "title": "Section Title",
+          "type": "string"
+        },
+        "body": {
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "ranks": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Ranks",
+          "type": "object"
+        }
+      },
+      "required": [
+        "citation_id",
+        "chunk_id",
+        "note_id",
+        "revision_id",
+        "kind",
+        "title",
+        "section_id",
+        "start_offset",
+        "end_offset",
+        "sha256",
+        "evidence_ids",
+        "provenance",
+        "section_title",
+        "body",
+        "score",
+        "ranks"
+      ],
+      "title": "Hit",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "identity_key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Identity Key",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/noodle_agent__next__contracts__Scope"
+        }
+      },
+      "required": [
+        "title",
+        "domain",
+        "identity_key",
+        "question",
+        "scope"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "source_revision_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Source Revision Id",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        }
+      },
+      "required": [
+        "source_revision_id",
+        "source_sha256"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Query": {
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/noodle_agent__next__retrieval__contracts__Scope"
+        },
+        "allowed_kinds": {
+          "items": {
+            "enum": [
+              "ATOMIC",
+              "CONCEPT"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Kinds",
+          "type": "array"
+        },
+        "retrieval_mode": {
+          "default": "HYBRID",
+          "enum": [
+            "HYBRID",
+            "KEYWORD_ONLY"
+          ],
+          "title": "Retrieval Mode",
+          "type": "string"
+        },
+        "rerank": {
+          "default": "AUTO",
+          "enum": [
+            "AUTO",
+            "OFF",
+            "REQUIRED"
+          ],
+          "title": "Rerank",
+          "type": "string"
+        },
+        "top_k": {
+          "default": 8,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        },
+        "entity_note_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Entity Note Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "Query",
+      "type": "object"
+    },
+    "Resolution": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_sha256": {
+          "minLength": 1,
+          "title": "Expected Sha256",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ACCEPTED",
+            "SKIPPED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "expected_sha256",
+        "status",
+        "reason"
+      ],
+      "title": "Resolution",
+      "type": "object"
+    },
+    "SearchResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "READY",
+            "PROFILE_MISMATCH",
+            "INDEX_PENDING",
+            "NO_EVIDENCE",
+            "SCOPE_RESTRICTED",
+            "CLARIFICATION_REQUIRED",
+            "PROVIDER_ERROR",
+            "CONTENT_CHANGED",
+            "COVERAGE_GAP"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/Hit"
+          },
+          "title": "Hits",
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/Counts"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/Snapshot"
+        },
+        "timings_ms": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Timings Ms",
+          "type": "object"
+        },
+        "degraded_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Degraded Reason"
+        },
+        "diagnostics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Diagnostics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "request_id",
+        "status",
+        "message",
+        "hits",
+        "counts",
+        "snapshot",
+        "timings_ms",
+        "degraded_reason"
+      ],
+      "title": "SearchResponse",
+      "type": "object"
+    },
+    "Snapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/noodle_agent__next__retrieval__contracts__Scope"
+        },
+        "profile_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Profile Id"
+        },
+        "index_generation": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Index Generation"
+        },
+        "validity_epoch": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Validity Epoch"
+        },
+        "context_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Context Sha256"
+        }
+      },
+      "required": [
+        "scope",
+        "profile_id",
+        "index_generation",
+        "validity_epoch",
+        "context_sha256"
+      ],
+      "title": "Snapshot",
+      "type": "object"
+    },
+    "noodle_agent__next__contracts__Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "includes": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Includes",
+          "type": "array"
+        },
+        "excludes": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Excludes",
+          "type": "array"
+        },
+        "prerequisites": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Prerequisites",
+          "type": "array"
+        }
+      },
+      "required": [
+        "includes"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "noodle_agent__next__retrieval__contracts__Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "GLOBAL",
+          "enum": [
+            "GLOBAL",
+            "SOURCE",
+            "NOTES"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "source_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "note_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Note Ids",
+          "type": "array"
+        }
+      },
+      "title": "Scope",
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/Decision"
+    },
+    {
+      "$ref": "#/$defs/Resolution"
+    },
+    {
+      "$ref": "#/$defs/Query"
+    },
+    {
+      "$ref": "#/$defs/SearchResponse"
+    },
+    {
+      "$ref": "#/$defs/AnswerResponse"
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "next-v1 Concept maintenance and RAG runtime contracts"
+}

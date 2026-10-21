@@ -17,6 +17,7 @@ export interface Config extends Omit<HttpProviderConfig, 'apiPrefix'> {
 export const Config: Schema<Config> = Schema.object({
   baseUrl: Schema.string().default('http://127.0.0.1:8000'),
   apiPrefix: Schema.string().default('/internal/v1'),
+  retrievalMode: Schema.union(['HYBRID', 'KEYWORD_ONLY']).default('HYBRID'),
   timeoutMs: Schema.number().default(120_000),
   maxBodyChars: Schema.number().default(12_000),
   workspacePath: Schema.string().default(process.cwd()),
@@ -38,9 +39,9 @@ export function apply(ctx: Context, config: Config): void {
     throw new Error('noodle-dsh-bridge: maxBodyChars must be an integer >= 256')
   }
   ctx.plugin(NoodleHttpProvider, config)
-  ctx.plugin(ReadTools)
-  ctx.plugin(WriteTools)
-  ctx.plugin(AgentGuidance)
+  ctx.plugin(ReadTools, { nextOnly: config.apiPrefix === "/internal/next" })
+  if (config.apiPrefix !== "/internal/next") ctx.plugin(WriteTools)
+  ctx.plugin(AgentGuidance, { nextOnly: config.apiPrefix === "/internal/next" })
   ctx.plugin(WorkspaceBootstrap, {
     path: config.workspacePath,
     title: config.workspaceTitle,

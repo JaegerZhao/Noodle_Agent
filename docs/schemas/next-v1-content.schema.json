@@ -77,6 +77,41 @@
       "title": "Candidate",
       "type": "object"
     },
+    "FragmentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "section_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "start_offset": {
+          "minimum": 0,
+          "title": "Start Offset",
+          "type": "integer"
+        },
+        "end_offset": {
+          "exclusiveMinimum": 0,
+          "title": "End Offset",
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "start_offset",
+        "end_offset",
+        "sha256"
+      ],
+      "title": "FragmentRef",
+      "type": "object"
+    },
     "Input": {
       "additionalProperties": false,
       "properties": {
@@ -86,6 +121,13 @@
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
           "title": "Atomic Revision Id",
           "type": "string"
+        },
+        "fragments": {
+          "items": {
+            "$ref": "#/$defs/FragmentRef"
+          },
+          "title": "Fragments",
+          "type": "array"
         },
         "section_ids": {
           "items": {

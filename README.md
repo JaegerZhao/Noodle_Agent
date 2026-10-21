@@ -46,6 +46,14 @@ flowchart LR
 | Worker | PDF 流水线、质量检查、索引和跨文档知识同步 |
 | 存储 | SQLite 是领域事实源；FTS 与向量用于检索；文件存储保存原文和产物 |
 
+## 新系统重构进度
+
+P2 原子笔记、P3 Concept 维护和 P4 新 RAG 后端已实现，通过显式 `next-*` 命令使用。支持按章节维护 Concept、来源变化即时失效、FTS/RRF、float32 向量与可选 Chroma、带版本检查的引用回答。默认 `npm run dev` 仍启动当前工作台；新版 MOC、Vault 和完整前端属于 P5。
+
+- [P3 / P4 使用与实现](./docs/P3-P4-IMPLEMENTATION.md)
+- [阶段验收与限制](./docs/P3-P4-ACCEPTANCE.md)
+- [整体重构方案与进度](./docs/IMPLEMENTATION-STATUS.md)
+
 ## 快速开始
 
 需要 Node.js 22.19+ 或 24+、Python 3.12+。统一启停入口使用 Node.js，在 Windows、Linux 和 macOS 上使用相同的 npm 命令。

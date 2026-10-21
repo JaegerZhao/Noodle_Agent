@@ -94,6 +94,14 @@ class ContentRepository:
         ):
             return False
         if revision["kind"] == "CONCEPT":
+            blocked = rows(
+                connection,
+                "SELECT d.atomic_revision_id FROM contribution_decisions d WHERE d.concept_id=:note AND ((d.status='REVIEW' AND d.action='CONFLICT') OR (d.status='ACCEPTED' AND json_extract(d.decision_json,'$._requires_publication')=1 AND (d.applied_revision_id IS NULL OR d.applied_revision_id!=:revision)))",
+                note=revision["note_id"],
+                revision=revision_id,
+            )
+            if any(self.valid_revision(connection, item["atomic_revision_id"]) for item in blocked):
+                return False
             inputs = rows(
                 connection,
                 "SELECT atomic_revision_id FROM concept_inputs WHERE concept_revision_id=:id",

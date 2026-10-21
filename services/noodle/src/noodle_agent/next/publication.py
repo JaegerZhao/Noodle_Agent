@@ -83,6 +83,35 @@ class Publisher:
                                 s=section_id,
                             )
                         )
+                    if contribution.fragments:
+                        body = self.repository.read(
+                            source["markdown_ref"], source["markdown_sha256"]
+                        ).decode("utf-8")
+                        if {f.section_id for f in contribution.fragments} != set(
+                            contribution.section_ids
+                        ):
+                            raise InvalidKnowledge(
+                                "Fragment sections differ from selected sections"
+                            )
+                        for fragment in contribution.fragments:
+                            bounds = one(
+                                connection,
+                                "SELECT start_offset,end_offset FROM sections WHERE revision_id=:r AND section_id=:s",
+                                r=source["id"],
+                                s=fragment.section_id,
+                            )
+                            if (
+                                not bounds
+                                or not bounds["start_offset"]
+                                <= fragment.start_offset
+                                < fragment.end_offset
+                                <= bounds["end_offset"]
+                                or sha(body[fragment.start_offset : fragment.end_offset])
+                                != fragment.sha256
+                            ):
+                                raise InvalidKnowledge(
+                                    "Fragment range or hash does not match atomic body"
+                                )
                     if not set(contribution.evidence_ids).issubset(selected):
                         raise InvalidKnowledge("Input evidence outside selected atomic sections")
                     supported.update(contribution.evidence_ids)
@@ -151,6 +180,8 @@ class Publisher:
         review: Review,
         allow_protected_edit: bool = False,
         lease: Lease | None = None,
+        guard=None,
+        accepted=None,
     ) -> dict:
         candidate = Candidate.model_validate(candidate.model_dump())
         if candidate.policy_version != self.repository.policy_version:
@@ -242,6 +273,8 @@ class Publisher:
                 raise InvalidKnowledge("Unknown or inactive note")
             if note["current_revision_id"] != expected_revision:
                 raise Conflict("Note head changed")
+            if guard is not None:
+                guard(connection)
             manifest = self.validate_inputs(connection, note, candidate)
             if expected_revision and not allow_protected_edit:
                 for previous in rows(
@@ -312,6 +345,7 @@ class Publisher:
                         section_id=section.section_id,
                         atomic_revision_id=contribution.atomic_revision_id,
                         selection_json=canonical(contribution.section_ids),
+                        fragments_json=canonical([f.model_dump() for f in contribution.fragments]),
                         evidence_json=canonical(contribution.evidence_ids),
                         role=contribution.role,
                         action=contribution.action,
@@ -395,6 +429,8 @@ class Publisher:
                 input_sha256=input_hash,
                 created_at=now(),
             )
+            if accepted is not None:
+                accepted(connection, revision_id)
         return {
             "note_id": candidate.note_id,
             "revision_id": revision_id,

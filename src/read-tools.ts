@@ -37,13 +37,15 @@ function renderJson(value: unknown) {
   return [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }]
 }
 
-export function apply(ctx: Context): void {
-  ctx.tools.register(defineTool({
+export function apply(ctx: Context, config: { nextOnly?: boolean } = {}): void {
+  const available = (name: string) => !config.nextOnly || ['noodle_search_knowledge', 'noodle_answer_knowledge', 'noodle_get_atomic_note', 'noodle_list_concepts', 'noodle_get_concept'].includes(name)
+  if (available('noodle_search_knowledge')) ctx.tools.register(defineTool({
     name: 'noodle_search_knowledge',
     description: 'Search one unified Noodle knowledge index containing reusable Concepts and source-grounded AtomicNotes. Use Concept hits for canonical explanations and AtomicNote hits for precise PDF evidence.',
     parameters: {
       query: { type: 'string', required: true, description: 'Natural-language search query.' },
       source_version_id: { type: 'string', description: 'For current-source questions, pass the selected source_version_id to exclude unrelated sources and Concepts.' },
+      entity_note_ids: { type: 'array', items: { type: 'string' }, description: 'Known current note IDs resolving pronouns; never use previous answer text as evidence.' },
       limit: { type: 'integer', description: 'Maximum hits from 1 to 20.' },
     },
     output: {
@@ -52,6 +54,10 @@ export function apply(ctx: Context): void {
         additionalProperties: false,
         properties: {
           query: { type: 'string', required: true },
+          status: { type: 'string' },
+          coverageWarning: { type: 'string' },
+          atomicCount: { type: 'integer' },
+          conceptCount: { type: 'integer' },
           count: { type: 'integer', required: true },
           hits: { type: 'array', required: true, items: searchHitSchema },
         },
@@ -65,6 +71,7 @@ export function apply(ctx: Context): void {
       const limit = Math.min(20, Math.max(1, args.limit ?? 5))
       return ctx.noodle.searchKnowledge(query, limit, {
         ...(args.source_version_id ? { sourceVersionId: args.source_version_id } : {}),
+        ...(args.entity_note_ids ? { entityNoteIds: args.entity_note_ids } : {}),
         signal: exec.signal,
         callId: String(exec.callId),
         ...(exec.agent ? { sessionId: String(exec.agent.session.id) } : {}),
@@ -72,12 +79,13 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_answer_knowledge')) ctx.tools.register(defineTool({
     name: 'noodle_answer_knowledge',
     description: 'Answer a question using unified Concept + AtomicNote RAG and return citations tied to immutable versions and source pages when available.',
     parameters: {
       question: { type: 'string', required: true, description: 'Question grounded in the personal knowledge base.' },
       source_version_id: { type: 'string', description: 'For current-source questions, pass the selected source_version_id.' },
+      entity_note_ids: { type: 'array', items: { type: 'string' }, description: 'Known current note IDs for pronoun resolution within the explicit scope.' },
       limit: { type: 'integer', description: 'Maximum retrieval hits from 1 to 20.' },
     },
     output: {
@@ -114,6 +122,7 @@ export function apply(ctx: Context): void {
       const limit = Math.min(20, Math.max(1, args.limit ?? 5))
       return ctx.noodle.answerKnowledge(question, limit, {
         ...(args.source_version_id ? { sourceVersionId: args.source_version_id } : {}),
+        ...(args.entity_note_ids ? { entityNoteIds: args.entity_note_ids } : {}),
         signal: exec.signal,
         callId: String(exec.callId),
         ...(exec.agent ? { sessionId: String(exec.agent.session.id) } : {}),
@@ -121,7 +130,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_list_source_notes')) ctx.tools.register(defineTool({
     name: 'noodle_list_source_notes',
     description: 'List current assembled SourceNotes and their active immutable versions.',
     parameters: {
@@ -165,7 +174,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_get_source_note')) ctx.tools.register(defineTool({
     name: 'noodle_get_source_note',
     description: 'Get one SourceNote summary with its flattened outline, atomic-note references, theses, and source pages.',
     parameters: {
@@ -229,7 +238,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_get_atomic_note')) ctx.tools.register(defineTool({
     name: 'noodle_get_atomic_note',
     description: 'Read one active atomic note including stable block keys. Call this before proposing a block edit.',
     parameters: {
@@ -277,7 +286,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_get_job_status')) ctx.tools.register(defineTool({
     name: 'noodle_get_job_status',
     description: 'Read the current status, stage, progress, warnings, and error for a NoodleAgent processing job.',
     parameters: {
@@ -315,7 +324,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_list_syntheses')) ctx.tools.register(defineTool({
     name: 'noodle_list_syntheses',
     description: 'List all Noodle long-term knowledge Syntheses, including textbook-seeded and user-curated knowledge systems.',
     parameters: {},
@@ -350,7 +359,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_get_synthesis')) ctx.tools.register(defineTool({
     name: 'noodle_get_synthesis',
     description: 'Read one complete Synthesis directory and its Concept identifiers. Use this to navigate a knowledge domain.',
     parameters: {
@@ -395,7 +404,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_list_concepts')) ctx.tools.register(defineTool({
     name: 'noodle_list_concepts',
     description: 'Search the global Concept registry before creating a Synthesis or proposing a merge. Returns aliases and every active Synthesis path that reuses each Concept.',
     parameters: {
@@ -436,7 +445,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_get_concept')) ctx.tools.register(defineTool({
     name: 'noodle_get_concept',
     description: 'Read one Concept version, including structured blocks and source references. Pass the Synthesis-pinned version when navigating a release.',
     parameters: {
@@ -480,7 +489,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_suggest_concept_candidates')) ctx.tools.register(defineTool({
     name: 'noodle_suggest_concept_candidates',
     description: 'Retrieve AtomicNote candidates for one existing Concept module. Results are proposals only and never authorize a write.',
     parameters: {
@@ -523,7 +532,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_list_concept_contributions')) ctx.tools.register(defineTool({
     name: 'noodle_list_concept_contributions',
     description: 'List every source Contribution and lifecycle state for one Concept before changing or removing knowledge.',
     parameters: {
@@ -557,7 +566,7 @@ export function apply(ctx: Context): void {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  if (available('noodle_get_concept_update_job')) ctx.tools.register(defineTool({
     name: 'noodle_get_concept_update_job',
     description: 'Read the durable Worker state, Judge result, retry count, and failure detail for one asynchronous Concept update.',
     parameters: {

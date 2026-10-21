@@ -1,8 +1,10 @@
 # P4：仅面向原子笔记与 Concept 的检索和问答
 
-日期：2026-10-21。状态：**设计完成，尚未实现**。依赖 P2 的内容与证据、P3 的统一有效性和事件路由。先用有效 ATOMIC 验证检索，再接入 Concept。
+日期：2026-10-21。状态：**后端已实现并完成阶段验收**。依赖 P2 的内容与证据、P3 的统一有效性和事件路由。先用有效 ATOMIC 验证检索，再接入 Concept。
 
 配套：[总体方案](../NEXT-SYSTEM-DESIGN.md)、[实际实施记录](../IMPLEMENTATION-STATUS.md)、[P3 设计](./P3-CONCEPT-MAINTENANCE.md)、[查询 Schema](../schemas/planned-rag-query.schema.json)、[回答 Schema](../schemas/planned-rag-response.schema.json)。Schema 和下述接口均为设计合同。
+
+> 本文保留目标设计。当前实现见 [使用说明](../P3-P4-IMPLEMENTATION.md) 和 [验收记录](../P3-P4-ACCEPTANCE.md)；运行时 Schema 已另行导出，查询/回答缓存、全量质量基准等尚未实现。
 
 ## 先明确检索边界
 
@@ -12,7 +14,7 @@
 
 全库查询允许两类知识。限定某份 PDF 时，首版仅检索该来源有效 ATOMIC；不让包含该 PDF 一条引用的多来源 Concept 整页混入。需要 Concept 的受限查询明确返回范围限制，不静默扩大范围。
 
-## 当前代码和要替换的部分
+## 实施前的检索基础
 
 旧 `application/retrieval.py` 对候选向量逐个解析 JSON、计算 cosine，再与关键词分数加权；Concept 在旧 synthesis 模块另行检索。P4 不将这套分数直接平移到新库。
 

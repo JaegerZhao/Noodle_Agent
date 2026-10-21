@@ -84,7 +84,13 @@ class JobQueue:
             )
             for event in events:
                 kinds = routes.get(event["event_type"], [])
+                if callable(kinds):
+                    kinds = kinds(connection, event)
                 if not kinds:
+                    connection.execute(
+                        text("UPDATE events SET status='COMPLETED' WHERE id=:id"),
+                        {"id": event["id"]},
+                    )
                     continue
                 payload = {
                     "event_id": event["id"],

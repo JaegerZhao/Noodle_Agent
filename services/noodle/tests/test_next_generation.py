@@ -170,7 +170,7 @@ def test_pending_polling_resumes_same_submission_without_spending_retry_budget(s
     result = consumer.run_once()
     assert result["status"] == "SUCCEEDED" and result["note_count"] == 2
     assert parser.submissions == parser.downloads == 1
-    assert query(store, "SELECT attempts FROM jobs") == 1
+    assert query(store, "SELECT attempts FROM jobs WHERE kind='GENERATE_ATOMICS'") == 1
     assert query(store, "SELECT count(*) FROM notes") == 3
     assert query(store, "SELECT count(*) FROM note_revisions") == 3
     assert query(store, "SELECT count(*) FROM evidence_anchors") == 2
@@ -521,8 +521,8 @@ def test_worker_reports_retry_exhaustion_as_review(store):
 
     consumer = worker(store, agent=OfflineAgent())
     assert [consumer.run_once()["status"] for _ in range(3)] == ["RETRY", "RETRY", "REVIEW"]
-    assert query(store, "SELECT status FROM jobs") == "REVIEW"
-    assert query(store, "SELECT attempts FROM jobs") == 3
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "REVIEW"
+    assert query(store, "SELECT attempts FROM jobs WHERE kind='GENERATE_ATOMICS'") == 3
 
 
 def test_failed_semantic_plan_gets_bounded_feedback_repair_before_any_publication(store):
@@ -562,7 +562,7 @@ def test_operator_resume_preserves_receipts_and_audits_the_reason(store):
     store.jobs.retry_review(result["job_id"], reason="Inspected malformed provider output")
     assert query(store, "SELECT count(*) FROM job_checkpoints") == receipts
     assert query(store, "SELECT count(*) FROM events WHERE event_type='JOB_RETRY_REQUESTED'") == 1
-    assert query(store, "SELECT status FROM jobs") == "PENDING"
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "PENDING"
     with pytest.raises(Conflict):
         store.jobs.retry_review(result["job_id"], reason="Do not duplicate a running recovery")
 
@@ -585,7 +585,7 @@ def test_bounded_parallel_writing_keeps_distinct_notes_and_map_order(store):
     with store.db.engine.connect() as c:
         import json
 
-        job = one(c, "SELECT result_json FROM jobs")
+        job = one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")
         outputs = json.loads(job["result_json"])
         map_note = store.get_note(outputs["source_map"]["note_id"])
     assert len({n["note_id"] for n in outputs["notes"]}) == 2
@@ -740,7 +740,9 @@ def test_failed_published_output_withdraws_immediately_and_repairs_as_new_revisi
     consumer = worker(store)
     first = consumer.run_once()
     with store.db.engine.connect() as c:
-        result = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+        result = json.loads(
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+        )
     output = result["notes"][0]
     old = store.get_note(output["note_id"])
     store.jobs.reopen_invalid_output(
@@ -830,7 +832,9 @@ def test_repeated_quality_repair_keeps_current_unchanged_map_revision(store):
     map_heads = []
     for _ in range(2):
         with store.db.engine.connect() as c:
-            result = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+            result = json.loads(
+                one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            )
         note = result["notes"][0]
         store.jobs.reopen_invalid_output(
             outcome["job_id"],
@@ -841,7 +845,9 @@ def test_repeated_quality_repair_keeps_current_unchanged_map_revision(store):
         store.jobs.retry_review(outcome["job_id"], reason="Repair current output")
         assert consumer.run_once()["status"] == "SUCCEEDED"
         with store.db.engine.connect() as c:
-            result = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+            result = json.loads(
+                one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            )
         map_heads.append(result["source_map"]["revision_id"])
     assert map_heads[0] == map_heads[1]
     assert query(store, "SELECT count(*) FROM notes") == 3
@@ -856,7 +862,9 @@ def test_recovery_after_corrective_publication_uses_new_head_not_original_receip
     consumer = worker(store, agent=agent)
     outcome = consumer.run_once()
     with store.db.engine.connect() as c:
-        result = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+        result = json.loads(
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+        )
     note = result["notes"][0]
     store.jobs.reopen_invalid_output(
         outcome["job_id"], note["note_id"], note["revision_id"], reason="Inspected quality issue"
@@ -982,14 +990,16 @@ def test_full_rebuild_withdrawal_is_atomic_and_preserves_all_note_identities(sto
     consumer = worker(store)
     outcome = consumer.run_once()
     with store.db.engine.connect() as c:
-        result = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+        result = json.loads(
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+        )
     outputs = [(n["note_id"], n["revision_id"]) for n in result["notes"]]
     with pytest.raises(Conflict):
         store.jobs.reopen_outputs(
             outcome["job_id"], [outputs[0], (outputs[1][0], "stale")], reason="recheck"
         )
     assert all(store.get_note(n)["revision"]["status"] == "PUBLISHED" for n, _ in outputs)
-    assert query(store, "SELECT status FROM jobs") == "SUCCEEDED"
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "SUCCEEDED"
     store.jobs.reopen_outputs(outcome["job_id"], outputs, reason="Full final-policy validation")
     for note_id, _ in outputs:
         with pytest.raises(InvalidKnowledge):
@@ -998,7 +1008,7 @@ def test_full_rebuild_withdrawal_is_atomic_and_preserves_all_note_identities(sto
     calls_before = consumer.agent.calls.count("next.write")
     assert consumer.run_once()["status"] == "SUCCEEDED"
     assert consumer.agent.calls.count("next.write") - calls_before == len(outputs)
-    assert query(store, "SELECT error_json FROM jobs") == "{}"
+    assert query(store, "SELECT error_json FROM jobs WHERE kind='GENERATE_ATOMICS'") == "{}"
     for note_id, previous in outputs:
         current = store.get_note(note_id)
         assert current["revision"]["ordinal"] == 2
@@ -1025,7 +1035,7 @@ def test_rebuild_cli_uses_completed_manifest_without_loading_legacy_service(
         ]
     )
     assert '"rebuild_notes": 2' in capsys.readouterr().out
-    assert query(store, "SELECT status FROM jobs") == "PENDING"
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "PENDING"
     assert query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'") == 2
     cli.main(
         [
@@ -1039,7 +1049,7 @@ def test_rebuild_cli_uses_completed_manifest_without_loading_legacy_service(
         ]
     )
     assert '"restored_notes": 2' in capsys.readouterr().out
-    assert query(store, "SELECT status FROM jobs") == "SUCCEEDED"
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "SUCCEEDED"
 
 
 def test_recovery_rejects_old_head_if_writing_policy_changed(store, monkeypatch):
@@ -1074,7 +1084,9 @@ def test_cancel_partial_rebuild_restores_original_heads_and_fences_late_worker(s
     consumer = worker(store)
     result = consumer.run_once()
     with store.db.engine.connect() as c:
-        baseline = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+        baseline = json.loads(
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+        )
     pairs = [(o["note_id"], o["revision_id"]) for o in baseline["notes"]]
     store.jobs.reopen_outputs(result["job_id"], pairs, reason="Final policy trial", rebuild=True)
     store.jobs.retry_review(result["job_id"], reason="Final policy trial")
@@ -1095,7 +1107,7 @@ def test_cancel_partial_rebuild_restores_original_heads_and_fences_late_worker(s
     assert all(store.get_note(n)["revision"]["id"] == r for n, r in pairs)
     with pytest.raises(Conflict):
         store.jobs.finish(Lease(late.job_id, late.token, late.input), {})
-    assert query(store, "SELECT status FROM jobs") == "SUCCEEDED"
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "SUCCEEDED"
     assert (
         query(store, "SELECT count(*) FROM events WHERE event_type='GENERATION_REBUILD_CANCELLED'")
         == 1
@@ -1116,14 +1128,16 @@ def test_cancel_rebuild_does_not_restore_a_deleted_source(store):
 
     outcome = worker(store).run_once()
     with store.db.engine.connect() as c:
-        baseline = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])
+        baseline = json.loads(
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+        )
         source_id = one(c, "SELECT id FROM sources")["id"]
     pairs = [(o["note_id"], o["revision_id"]) for o in baseline["notes"]]
     store.jobs.reopen_outputs(outcome["job_id"], pairs, reason="Trial", rebuild=True)
     store.set_source_deleted(source_id, True)
     with pytest.raises(Conflict, match="source or policy changed"):
         cancel_rebuild(store, outcome["job_id"], reason="Cancel trial")
-    assert query(store, "SELECT status FROM jobs") == "REVIEW"
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "REVIEW"
     assert query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'") == 2
     assert query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_RESTORED'") == 0
 
@@ -1135,7 +1149,9 @@ def test_cancel_rebuild_cannot_reverse_an_unrelated_quality_withdrawal(store):
 
     result = worker(store).run_once()
     with store.db.engine.connect() as c:
-        output = json.loads(one(c, "SELECT result_json FROM jobs")["result_json"])["notes"][0]
+        output = json.loads(
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+        )["notes"][0]
     store.jobs.reopen_invalid_output(
         result["job_id"],
         output["note_id"],
@@ -1146,4 +1162,4 @@ def test_cancel_rebuild_cannot_reverse_an_unrelated_quality_withdrawal(store):
         cancel_rebuild(
             store, result["job_id"], reason="Cancellation must not resurrect known errors"
         )
-    assert query(store, "SELECT status FROM jobs") == "REVIEW"
+    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "REVIEW"

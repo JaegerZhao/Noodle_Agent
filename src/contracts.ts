@@ -1,5 +1,6 @@
 export interface RequestContext {
   sourceVersionId?: string
+  entityNoteIds?: string[]
   signal?: AbortSignal
   callId?: string
   sessionId?: string
@@ -26,6 +27,10 @@ export interface SearchHitView {
 }
 
 export interface SearchResultView {
+  status?: string
+  coverageWarning?: string
+  atomicCount?: number
+  conceptCount?: number
   query: string
   count: number
   hits: SearchHitView[]

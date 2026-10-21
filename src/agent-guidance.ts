@@ -28,10 +28,10 @@ Operational rules:
 - Successful edits create immutable AtomicNote and SourceNote versions. Do not describe them as in-place overwrites.
 - Markdown export is a projection, not the source of truth; the database release remains authoritative.`
 
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: { nextOnly?: boolean } = {}): void {
   ctx.systemPrompt.section({
     name: 'noodle:knowledge-agent-policy',
     order: 140,
-    text: GUIDANCE,
+    text: config.nextOnly ? `You are the Noodle next knowledge reader. Search and answer only from current ATOMIC and CONCEPT notes. PDFs and MOC are not fact retrieval corpora. Preserve explicit source scope; source-scoped queries only admit Atomic notes. Resolve pronouns using known current note IDs, never previous answer text as evidence. Distinguish INDEX_PENDING, CONTENT_CHANGED, COVERAGE_GAP and provider failures from zero relevant hits. This mode exposes read tools only; do not promise editing or old Synthesis operations. Never invent IDs, versions or citations.` : GUIDANCE,
   })
 }

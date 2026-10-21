@@ -41,6 +41,7 @@ import { NoodleService } from './service.js'
 export interface HttpProviderConfig {
   baseUrl: string
   apiPrefix?: string
+  retrievalMode?: "HYBRID" | "KEYWORD_ONLY"
   timeoutMs: number
   maxBodyChars: number
 }
@@ -244,7 +245,22 @@ export class NoodleHttpProvider extends NoodleService {
     return payload
   }
 
+  private async nextQuery(query: string, limit: number, context?: RequestContext): Promise<JsonObject> {
+    let scope: JsonObject = { mode: 'GLOBAL' }
+    if (context?.sourceVersionId) {
+      const source = object(await this.request(`/source-revisions/${encodeURIComponent(context.sourceVersionId)}`, { method: 'GET' }, context))
+      if (!string(source.source_id)) throw new Error('Selected source revision could not be resolved')
+      scope = { mode: 'SOURCE', source_ids: [string(source.source_id)] }
+    }
+    return { query, top_k: limit, scope, allowed_kinds: context?.sourceVersionId ? ['ATOMIC'] : ['ATOMIC', 'CONCEPT'], retrieval_mode: this.config.retrievalMode ?? 'HYBRID', rerank: 'AUTO', entity_note_ids: context?.entityNoteIds ?? [] }
+  }
+
   async searchKnowledge(query: string, limit: number, context?: RequestContext): Promise<SearchResultView> {
+    if (this.apiPrefix === '/internal/next') {
+      const payload = object(await this.request('/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(await this.nextQuery(query, limit, context)) }, context))
+      const hits = array(payload.hits).map(item => { const hit = object(item); return searchHit({ entity_type: hit.kind, note_id: hit.note_id, note_version_id: hit.revision_id, concept_id: hit.kind === 'CONCEPT' ? hit.note_id : '', title: hit.title, thesis: hit.section_title, body: hit.body, score: hit.score, evidence: array(hit.provenance).map(value => ({ page_label: string(object(value).page), quote: '', evidence_level: 'PUBLISHED_NOTE' })) }, this.config.maxBodyChars) })
+      return { query, count: hits.length, hits, status: string(payload.status), coverageWarning: string(payload.message), atomicCount: number(object(payload.counts).atomic_notes), conceptCount: number(object(payload.counts).concept_notes) }
+    }
     const params = new URLSearchParams({ q: query, limit: String(limit) })
     if (context?.sourceVersionId) params.set("source_version_id", context.sourceVersionId)
     const payload = await this.request(`/search?${params}`, { method: 'GET' }, context)
@@ -253,6 +269,10 @@ export class NoodleHttpProvider extends NoodleService {
   }
 
   async answerKnowledge(question: string, limit: number, context?: RequestContext): Promise<AnswerResultView> {
+    if (this.apiPrefix === '/internal/next') {
+      const payload = object(await this.request('/answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(await this.nextQuery(question, limit, context)) }, context))
+      return { question, answer: string(payload.answer_markdown), coverageWarning: string(payload.message) || (payload.status !== 'READY' ? string(payload.status) : ''), citations: array(payload.citations).map(value => { const row = object(value); return { noteId: string(row.note_id), noteVersionId: string(row.revision_id), title: string(row.title), score: number(row.score), pages: unique(array(row.provenance).map(p => string(object(p).page))).filter(Boolean) } }) }
+    }
     const payload = object(await this.request('/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -328,10 +348,15 @@ export class NoodleHttpProvider extends NoodleService {
 
   async getNote(noteId: string, context?: RequestContext): Promise<AtomicNoteView> {
     const payload = object(await this.request(
-      `/notes/${encodeURIComponent(noteId)}`,
+      `/notes/${encodeURIComponent(noteId)}${this.apiPrefix === '/internal/next' && context?.sourceVersionId ? `?source_revision_id=${encodeURIComponent(context.sourceVersionId)}` : ''}`,
       { method: 'GET' },
       context,
     ))
+    if (this.apiPrefix === '/internal/next') {
+      const revision = object(payload.revision)
+      const body = Array.from(string(payload.markdown))
+      return { noteId: string(payload.id), versionId: string(revision.id), title: string(payload.title), thesis: string(revision.summary), quality: 'MODEL_REVIEWED', review: '', blocks: array(payload.sections).map(value => { const section = object(value); return { blockKey: string(section.section_id), type: 'MARKDOWN', text: body.slice(number(section.start_offset), number(section.end_offset)).join(''), origin: 'PUBLISHED_NEXT_REVISION', assetCount: 0, assetPages: array(section.provenance).map(ref => string(object(ref).page)), evidence: [] } }) }
+    }
     return {
       noteId: string(payload.note_id),
       versionId: string(payload.version_id),
@@ -395,6 +420,12 @@ export class NoodleHttpProvider extends NoodleService {
     limit: number,
     context?: RequestContext,
   ): Promise<ConceptRegistryView> {
+    if (this.apiPrefix === '/internal/next') {
+      if (context?.sourceVersionId) throw new NoodleApiError('Source scope does not admit multi-source Concepts', 409, '/concepts')
+      const payload = object(await this.request(`/concepts?q=${encodeURIComponent(query)}&limit=${limit}`, { method: 'GET' }, context))
+      const concepts = array(payload.items).filter(value => object(value).eligible === true).map(value => { const row = object(value); return { conceptId: string(row.id), stableKey: string(row.id), versionId: string(row.current_revision_id), versionNo: 0, title: string(row.title), summary: '', aliases: array(JSON.parse(string(row.aliases_json) || '[]')).map(string), synthesisPaths: [], synthesisCount: 0 } })
+      return { count: concepts.length, concepts }
+    }
     const params = new URLSearchParams({ q: query, limit: String(limit) })
     if (context?.sourceVersionId) params.set("source_version_id", context.sourceVersionId)
     const rows = array(await this.request(`/concepts?${params}`, { method: 'GET' }, context))
@@ -495,12 +526,20 @@ export class NoodleHttpProvider extends NoodleService {
     context?: RequestContext,
     versionId?: string,
   ): Promise<ConceptView> {
+    if (this.apiPrefix === '/internal/next' && context?.sourceVersionId) throw new NoodleApiError('Source scope does not admit multi-source Concepts', 409, '/concepts')
     const query = versionId ? `?version_id=${encodeURIComponent(versionId)}` : ''
     const payload = object(await this.request(
       `/concepts/${encodeURIComponent(conceptId)}${query}`,
       { method: 'GET' },
       context,
     ))
+    if (this.apiPrefix === '/internal/next') {
+      if (context?.sourceVersionId) throw new NoodleApiError('Source scope does not admit multi-source Concepts', 409, '/concepts')
+      const revision = object(payload.revision)
+      if (versionId && versionId !== revision.id) throw new NoodleApiError('Pinned revision is not current', 409, '/concepts')
+      const body = Array.from(string(payload.markdown))
+      return { conceptId: string(payload.id), versionId: string(revision.id), title: string(payload.title), originalTitle: string(payload.title), scope: string(revision.scope_json), summary: string(revision.summary), status: 'CURRENT', blocks: array(payload.sections).map(value => { const section = object(value); return { blockKey: string(section.section_id), type: 'MARKDOWN', content: body.slice(number(section.start_offset), number(section.end_offset)).join(''), sourceRole: 'ATOMIC_SUPPORT', sourceRefs: array(section.provenance).map(ref => string(object(ref).source_revision_id)) } }) }
+    }
     return {
       conceptId: string(payload.concept_id),
       versionId: string(payload.version_id),

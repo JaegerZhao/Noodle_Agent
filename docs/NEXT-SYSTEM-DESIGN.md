@@ -6,7 +6,7 @@
 
 本次从原 PDF 重建知识库，不兼容旧笔记数据。保留现有上传、解析适配、任务恢复、PDF 阅读、DSH 会话、工具审批和跨平台启动等能力，重做内容模型、笔记生成、Concept 维护、检索、知识地图和相应前端。正式切换后，活动系统只包含新系统生成或按新规则接受的内容。
 
-P3、P4 已分别细化为 [Concept 维护设计](./design/P3-CONCEPT-MAINTENANCE.md) 和 [知识检索设计](./design/P4-KNOWLEDGE-RAG.md)，尚未实现。设计态 Schema 与示例见 [设计入口](./design/README.md)。
+P3、P4 已分别细化为 [Concept 维护设计](./design/P3-CONCEPT-MAINTENANCE.md) 和 [知识检索设计](./design/P4-KNOWLEDGE-RAG.md)，现已完成后端实现与阶段验收。运行方式及实现边界见 [P3/P4 使用说明](./P3-P4-IMPLEMENTATION.md)，真实结果见 [验收记录](./P3-P4-ACCEPTANCE.md)。设计态 Schema 与示例仍保留在 [设计入口](./design/README.md)。
 
 ## 目标与重构边界
 

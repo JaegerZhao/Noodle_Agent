@@ -63,7 +63,9 @@ class GenerationWorker:
         self.progress = progress or (lambda *_: None)
 
     def run_once(self, worker_id="next-generation"):
-        self.store.jobs.dispatch({"SOURCE_ADDED": [self.kind], "SOURCE_REPLACED": [self.kind]})
+        from .events import dispatch
+
+        dispatch(self.store)
         lease = self.store.jobs.claim(worker_id, kind=self.kind)
         if lease is None:
             return None

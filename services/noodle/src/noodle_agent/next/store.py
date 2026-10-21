@@ -67,6 +67,8 @@ class Store:
         review: Review,
         allow_protected_edit=False,
         lease: Lease | None = None,
+        guard=None,
+        accepted=None,
     ):
         return self.publisher.publish(
             candidate,
@@ -74,6 +76,8 @@ class Store:
             review=review,
             allow_protected_edit=allow_protected_edit,
             lease=lease,
+            guard=guard,
+            accepted=accepted,
         )
 
     def get_note(self, note_id: str, *, revision_id=None, historical=False):

@@ -261,7 +261,9 @@ def build_parser() -> argparse.ArgumentParser:
         "next-init", help="Initialize an isolated next-v1 store; refuses legacy data"
     )
     next_init.add_argument("--data-dir", type=Path, required=True)
-    sub.add_parser("next-schema", help="Print runtime next-v1 candidate and review JSON Schemas")
+    sub.add_parser(
+        "next-schema", help="Print runtime next-v1 content, Concept and retrieval JSON Schemas"
+    )
     from .next.cli import configure
 
     configure(sub)
@@ -270,27 +272,27 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    if args.command in {
-        "next-ingest",
-        "next-worker",
-        "next-status",
-        "next-retry",
-        "next-verify",
-        "next-rebuild",
-        "next-cancel-rebuild",
-    }:
+    if args.command.startswith("next-") and args.command not in {"next-init", "next-schema"}:
         from .next.cli import run
 
         run(args, _print)
         return
     if args.command == "next-schema":
+        from .next.concepts.contracts import Decision
+        from .next.concepts.review import Resolution
         from .next.contracts import Candidate, Review
+        from .next.retrieval.contracts import AnswerResponse, Query, SearchResponse
 
         _print(
             {
                 "contract": "next-v1",
                 "candidate": Candidate.model_json_schema(),
                 "review": Review.model_json_schema(),
+                "concept_decision": Decision.model_json_schema(),
+                "contribution_resolution": Resolution.model_json_schema(),
+                "rag_query": Query.model_json_schema(),
+                "rag_search": SearchResponse.model_json_schema(),
+                "rag_answer": AnswerResponse.model_json_schema(),
             }
         )
         return
