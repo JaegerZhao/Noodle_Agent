@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:noodle:design:planned-p4-response-v1",
+  "$comment": "DESIGN ONLY. Not a deployed runtime contract. Semantic and transactional checks are application responsibilities.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "planned-p4-response-v1"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+    },
+    "status": {
+      "enum": [
+        "READY",
+        "NO_EVIDENCE",
+        "INDEX_PENDING",
+        "CONTENT_CHANGED",
+        "PROVIDER_ERROR",
+        "COVERAGE_GAP",
+        "SCOPE_RESTRICTED",
+        "PROFILE_MISMATCH"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "answer_markdown": {
+      "type": "string"
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "const": "GLOBAL"
+                }
+              },
+              "required": [
+                "mode"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "const": "SOURCE"
+                },
+                "source_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "mode",
+                "source_ids"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "const": "NOTES"
+                },
+                "note_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "mode",
+                "note_ids"
+              ]
+            }
+          ]
+        },
+        "profile_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index_generation": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validity_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "context_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scope",
+        "profile_id",
+        "index_generation",
+        "validity_epoch",
+        "context_sha256"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "atomic_notes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "concept_notes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "independent_source_families": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "atomic_notes",
+        "concept_notes",
+        "chunks",
+        "independent_source_families"
+      ]
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "citation_id": {
+            "type": "string",
+            "pattern": "^K[1-9][0-9]*$"
+          },
+          "note_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+          },
+          "kind": {
+            "enum": [
+              "ATOMIC",
+              "CONCEPT"
+            ]
+          },
+          "revision_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+          },
+          "section_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+          },
+          "chunk_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+          },
+          "start_offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_offset": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "provenance": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "source_revision_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                },
+                "source_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "page": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "source_revision_id",
+                "source_sha256",
+                "page"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "citation_id",
+          "note_id",
+          "kind",
+          "revision_id",
+          "section_id",
+          "chunk_id",
+          "start_offset",
+          "end_offset",
+          "sha256",
+          "evidence_ids",
+          "provenance"
+        ]
+      },
+      "minItems": 0
+    },
+    "degraded_reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "contract_version",
+    "request_id",
+    "status",
+    "message",
+    "answer_markdown",
+    "snapshot",
+    "counts",
+    "citations",
+    "degraded_reason"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "READY"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "answer_markdown": {
+            "type": "string",
+            "minLength": 1
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "citation_id": {
+                  "type": "string",
+                  "pattern": "^K[1-9][0-9]*$"
+                },
+                "note_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                },
+                "kind": {
+                  "enum": [
+                    "ATOMIC",
+                    "CONCEPT"
+                  ]
+                },
+                "revision_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                },
+                "section_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                },
+                "chunk_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160,
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                },
+                "start_offset": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end_offset": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "evidence_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160,
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true
+                },
+                "provenance": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "source_revision_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160,
+                        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+                      },
+                      "source_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "page": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "source_revision_id",
+                      "source_sha256",
+                      "page"
+                    ]
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "citation_id",
+                "note_id",
+                "kind",
+                "revision_id",
+                "section_id",
+                "chunk_id",
+                "start_offset",
+                "end_offset",
+                "sha256",
+                "evidence_ids",
+                "provenance"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "NO_EVIDENCE",
+              "INDEX_PENDING",
+              "CONTENT_CHANGED",
+              "PROVIDER_ERROR",
+              "COVERAGE_GAP",
+              "SCOPE_RESTRICTED",
+              "PROFILE_MISMATCH"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "answer_markdown": {
+            "const": ""
+          },
+          "citations": {
+            "type": "array",
+            "maxItems": 0
+          }
+        },
+        "type": "object"
+      }
+    }
+  ]
+}

@@ -163,6 +163,7 @@ Noodle_Agent/
 - [跨文档知识归并](./docs/KNOWLEDGE-SYNC.md)
 - [配置、运行与备份](./docs/OPERATIONS.md)
 - [测试策略与当前限制](./docs/TESTING.md)
+- [P3 / P4 实施设计](./docs/design/README.md)（设计态，尚未实现）
 - [新系统设计](./docs/NEXT-SYSTEM-DESIGN.md) · [分阶段实施与验收](./docs/IMPLEMENTATION-STATUS.md)（当前已接入隔离的 PDF 生成链路，尚未切换默认工作台）
 - [贡献指南](./CONTRIBUTING.md) · [安全报告](./SECURITY.md) · [第三方许可](./THIRD_PARTY_NOTICES.md)
 

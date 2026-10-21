@@ -1,0 +1,39 @@
+{
+  "contract_version": "planned-p3-v1",
+  "concept_id": "concept_backprop",
+  "base_revision_id": "concept_r3",
+  "generation": 4,
+  "input_snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "candidate_catalog_generation": "catalog_12",
+  "candidate_search_complete": true,
+  "proposed_concept": null,
+  "fragments": [
+    {
+      "fragment_id": "fragment_chain_rule",
+      "atomic_revision_id": "atomic_c_r1",
+      "section_id": "local_derivative",
+      "start_offset": 120,
+      "end_offset": 310,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "evidence_ids": [
+        "evidence_c_p15"
+      ]
+    }
+  ],
+  "removed_input_ids": [],
+  "operations": [
+    {
+      "action": "UPDATE_SECTION",
+      "target_section_id": "hidden_delta",
+      "fragment_ids": [
+        "fragment_chain_rule"
+      ],
+      "reason": "增加下一层权重来自局部导数的解释",
+      "must_preserve": [
+        "已有误差项公式及适用条件"
+      ]
+    }
+  ],
+  "publication": "PUBLISH",
+  "remove_section_ids": []
+}

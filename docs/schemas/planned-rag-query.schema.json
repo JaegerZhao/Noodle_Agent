@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:noodle:design:planned-p4-query-v1",
+  "$comment": "DESIGN ONLY. Not a deployed runtime contract. Semantic and transactional checks are application responsibilities.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "planned-p4-query-v1"
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "const": "GLOBAL"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "const": "SOURCE"
+            },
+            "source_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+              },
+              "minItems": 1,
+              "maxItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "mode",
+            "source_ids"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "const": "NOTES"
+            },
+            "note_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "mode",
+            "note_ids"
+          ]
+        }
+      ]
+    },
+    "allowed_kinds": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "ATOMIC",
+          "CONCEPT"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "retrieval_mode": {
+      "enum": [
+        "HYBRID",
+        "KEYWORD_ONLY"
+      ]
+    },
+    "rerank": {
+      "enum": [
+        "AUTO",
+        "OFF",
+        "REQUIRED"
+      ]
+    },
+    "top_k": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    }
+  },
+  "required": [
+    "contract_version",
+    "query",
+    "scope",
+    "allowed_kinds",
+    "retrieval_mode",
+    "rerank",
+    "top_k"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "properties": {
+              "mode": {
+                "const": "SOURCE"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "allowed_kinds": {
+            "const": [
+              "ATOMIC"
+            ]
+          }
+        },
+        "type": "object"
+      }
+    }
+  ]
+}

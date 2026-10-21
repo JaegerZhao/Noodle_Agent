@@ -1,0 +1,46 @@
+{
+  "contract_version": "planned-p4-response-v1",
+  "request_id": "request_example",
+  "status": "READY",
+  "message": "示意响应，不是真实检索验收结果。",
+  "answer_markdown": "权重出现在相邻层线性变换的局部导数中。[K1]",
+  "snapshot": {
+    "scope": {
+      "mode": "GLOBAL"
+    },
+    "profile_id": "profile_example",
+    "index_generation": "generation_example",
+    "validity_epoch": 7,
+    "context_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "counts": {
+    "atomic_notes": 0,
+    "concept_notes": 1,
+    "chunks": 1,
+    "independent_source_families": 1
+  },
+  "citations": [
+    {
+      "citation_id": "K1",
+      "note_id": "concept_backprop",
+      "kind": "CONCEPT",
+      "revision_id": "concept_r4",
+      "section_id": "hidden_delta",
+      "chunk_id": "chunk_01",
+      "start_offset": 200,
+      "end_offset": 400,
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "evidence_ids": [
+        "evidence_c_p15"
+      ],
+      "provenance": [
+        {
+          "source_revision_id": "source_c_r1",
+          "source_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "page": 15
+        }
+      ]
+    }
+  ],
+  "degraded_reason": null
+}

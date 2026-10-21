@@ -1,0 +1,16 @@
+{
+  "contract_version": "planned-p4-query-v1",
+  "query": "反向传播为什么要乘下一层权重？",
+  "scope": {
+    "mode": "SOURCE",
+    "source_ids": [
+      "source_course_a"
+    ]
+  },
+  "allowed_kinds": [
+    "ATOMIC"
+  ],
+  "retrieval_mode": "HYBRID",
+  "rerank": "AUTO",
+  "top_k": 8
+}
