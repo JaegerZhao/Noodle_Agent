@@ -43,6 +43,7 @@ def configure(sub):
             )
         if name in {"next-search", "next-ask"}:
             parser.add_argument("--query", required=True)
+            parser.add_argument("--rerank", choices=["AUTO", "OFF", "REQUIRED"], default="AUTO")
             parser.add_argument("--source-id")
             parser.add_argument("--note-id", action="append")
             parser.add_argument("--top-k", type=int, default=8)
@@ -90,6 +91,7 @@ def run(args, store, emit):
             allowed_kinds=["ATOMIC"] if args.source_id else ["ATOMIC", "CONCEPT"],
             retrieval_mode=args.mode,
             top_k=args.top_k,
+            rerank=args.rerank,
         )
         emit(
             application.answerer.answer(query)

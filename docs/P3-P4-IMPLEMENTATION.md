@@ -109,7 +109,7 @@ NOODLE_CHROMA_PORT=8001
 NOODLE_NEXT_RERANK=on
 ```
 
-重新执行 `next-index` 建立对应后端的代次。默认后端是 `exact`，默认重排关闭；`AUTO` 在未配置重排器时使用 RRF，运行失败会报告降级；`REQUIRED` 未配置或失败则返回错误。这里实现的是结构化 LLM 重排，还没有专用 cross-encoder。
+重新执行 `next-index` 建立对应后端的代次。默认后端是 `exact`，默认重排关闭；CLI 可用 `--rerank OFF|AUTO|REQUIRED` 单次选择；`AUTO` 在未配置重排器时使用 RRF，运行失败会报告降级；`REQUIRED` 未配置或失败则返回错误。这里实现的是结构化 LLM 重排，还没有专用 cross-encoder。
 
 查询页和后台维护需配置同一向量后端和 profile。Chroma 不可用、覆盖不完整时不会悄悄切换为其他后端。远端 HTTP 的认证、TLS 与企业多租户隔离不在本阶段范围内，入口默认绑定本机。
 
@@ -155,4 +155,6 @@ Harness 显式设置 `NOODLE_API_BASE_URL=http://127.0.0.1:8002`、`NOODLE_API_P
 - FTS 中文是轻量字/二元词，不是领域分词器；分块目标与 0.2 cosine 阈值尚需更多学科基准调参。
 - 索引采用完整代次，Embedding 可复用，但旧代次、失活缓存和失败构建产物尚未自动回收。暂不缓存查询结果和回答，避免维护第二套失效规则。
 - MOC 只发出 `MOC_ENTRY_SUGGESTED`，不自动修改地图；该事件等待 P5 消费。完整 Vault、双链编辑和新版阅读前端尚未实现。
-- 模型审查通过不等于科学准确性已经获得独立人工确认；真实验收与工程测试范围见 [验收记录](./P3-P4-ACCEPTANCE.md)。
+- 模型审查通过不等于科学准确性已经获得独立人工确认；真实验收与工程测试范围见 [阶段验收记录](./P3-P4-ACCEPTANCE.md) 和 [扩大后的 RAG 实测](./RAG-VALIDATION.md)。
+
+本轮 RAG 扩测进一步统一了拒答/审查失败出口的有效性屏障，并将模型遗漏/重复排序纳入三次有界修正，详见 [RAG 实测](./RAG-VALIDATION.md)。

@@ -52,6 +52,7 @@ P2 原子笔记、P3 Concept 维护和 P4 新 RAG 后端已实现，通过显式
 
 - [P3 / P4 使用与实现](./docs/P3-P4-IMPLEMENTATION.md)
 - [阶段验收与限制](./docs/P3-P4-ACCEPTANCE.md)
+- [RAG、Chroma 与重排实测](./docs/RAG-VALIDATION.md)
 - [整体重构方案与进度](./docs/IMPLEMENTATION-STATUS.md)
 
 ## 快速开始

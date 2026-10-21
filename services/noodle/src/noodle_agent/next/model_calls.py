@@ -10,7 +10,7 @@ class Calls:
     def __init__(self, store, agent, journal=None):
         self.store, self.agent, self.journal = store, agent, journal
 
-    def run(self, operation, system, content, contract):
+    def run(self, operation, system, content, contract, *, check=None):
         if self.agent is None:
             raise QualityFailure("A real structured model provider must be configured")
         failures = []
@@ -38,7 +38,10 @@ class Calls:
                 if not self.journal:
                     data = canonical({"request": request, "response": raw}).encode()
                     self.store.put(f"artifacts/model/{sha(data)}.json", data)
-                return contract.model_validate(raw)
+                value = contract.model_validate(raw)
+                if check is not None:
+                    check(value)
+                return value
             except (ValueError, TypeError, json.JSONDecodeError) as exc:
                 failures.append(str(exc)[:3000])
         raise QualityFailure(f"{operation} failed after checked attempts: {failures[-1]}")

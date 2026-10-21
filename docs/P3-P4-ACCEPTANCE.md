@@ -73,3 +73,5 @@
 本次不会完成 MOC 自动编排或 Obsidian 回流。新 Concept 只发出 MOC 建议事件，等待 P5 消费；归并完整目录与单章上下文有明确预算，过大时进入复核；完整索引代次、缓存和失败产物的自动回收还未实现。没有完成 Linux/macOS 的本地实机验证，跨平台 CI 尚待提交后运行。
 
 本地详细产物在 `.local-only/rebuild-2026-10-21/`，含 `python-p3p4.xml`、`p3p4-real-result.json`、`p3p4-real-lifecycle.json`、`p3p4-small-evaluation.json`、`chroma-http-check.json`、`wheel-p3p4-check.json`、`p3p4-data-preservation.json`。包含私人课件和绝对路径，按项目规则不上传。
+
+后续 RAG 扩测新增 19 个工程测试，全量达到 243 通过；34 问题与重排/Chroma 对照、8 个回答/拒答行为以及发现的内容边界见 [RAG 实测](./RAG-VALIDATION.md)。本页上表保留 P3/P4 首轮 224 项验收记录。
