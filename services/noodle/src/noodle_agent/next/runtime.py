@@ -111,6 +111,7 @@ class Application:
                 break
         if not lease:
             return None
+        calls = None
         try:
             # The import is one fenced SQLite write transaction. A separate
             # heartbeat cannot acquire that same write lock; use its bounded
@@ -162,18 +163,12 @@ class Application:
                     result = reconcile(self.store, lease.job_id)
                 elif kind == "UPDATE_MAPS":
                     from .navigation import refresh_maps
+                    from .projection_batch import run_batch
 
-                    result = refresh_maps(self.store)
+                    result = run_batch(self.store, lease, kind, lambda: refresh_maps(self.store))
                 elif kind == "INDEX_NOTE":
-                    result = request_index(self.store, lease.job_id)
-                    coalesced = 0
-                    for _ in range(63):
-                        extra = self.store.jobs.claim(worker_id, kind="INDEX_NOTE")
-                        if extra is None:
-                            break
-                        self.store.jobs.finish(extra, {**result, "coalesced": True})
-                        coalesced += 1
-                    result["coalesced_jobs"] = coalesced
+                    from .projection_batch import run_batch
+                    result = run_batch(self.store, lease, kind, lambda: request_index(self.store, lease.job_id))
                 else:
                     result = self.indexer.build(
                         self.index_mode, lease, lease.input["payload"]["generation"]
@@ -206,9 +201,11 @@ class Application:
                 isinstance(exc, APIStatusError)
                 and (exc.status_code == 429 or exc.status_code >= 500)
             )
-            status = self.store.jobs.fail(
-                lease, {"code": type(exc).__name__, "detail": str(exc)[:2000]}, retry=retry
-            )
+            error = {"code": type(exc).__name__, "detail": str(exc)[:2000]}
+            context = getattr(calls, 'organization_snapshot', None)
+            if kind == 'REVIEW_ORGANIZATION' and context:
+                error['organization_snapshot'] = context
+            status = self.store.jobs.fail(lease, error, retry=retry)
             return {
                 "job_id": lease.job_id,
                 "kind": kind,

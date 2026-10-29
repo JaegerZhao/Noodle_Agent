@@ -23,7 +23,10 @@ class Element {
  children:Element[]=[];textContent='';hidden=false;value='';className='';scrollHeight=0;scrollTop=0;clientHeight=100
  constructor(public tag:string){}
  get options(){return this.children}get selectedOptions(){return this.children.filter(n=>n.value===this.value)}
- append(...nodes:Element[]){this.children.push(...nodes)}replaceChildren(...nodes:Element[]){this.children=[...nodes]}
+ parent:Element|null=null
+ append(...nodes:Element[]){for(const n of nodes){n.parent=this;this.children.push(n)}}replaceChildren(...nodes:Element[]){this.children=[...nodes];for(const n of nodes)n.parent=this}
+ remove(){if(this.parent)this.parent.children=this.parent.children.filter(n=>n!==this);this.parent=null}
+ insertBefore(node:Element,before:Element|null){node.remove();const i=before?this.children.indexOf(before):this.children.length;this.children.splice(i,0,node);node.parent=this}
  setAttribute(){}addEventListener(){}querySelectorAll(){return []}focus(){}select(){}
 }
 const walk=(node:Element):Element[]=>[node,...node.children.flatMap(walk)]
@@ -47,8 +50,10 @@ it('renders chunks before completion, then fills missed completion from history 
  expect(walk(panel.element).some(n=>n.className.includes('agent-markdown')&&n.textContent==='完整回答')).toBe(true)
  expect(walk(panel.element).find(n=>n.textContent==='发送')?.disabled).toBe(false);expect(draft.value).toBe('下一条草稿')
  expect(walk(panel.element).some(n=>n.textContent==='正在理解问题…')).toBe(false)
+ const historyNode=walk(panel.element).find(n=>n.className.includes('agent-markdown')&&n.textContent==='完整回答')!
  const form=walk(panel.element).find(n=>n.className==='question-form')!
  await form.onsubmit({preventDefault(){}});await vi.advanceTimersByTimeAsync(0)
+ expect(walk(panel.element)).toContain(historyNode)
  draft.value='另一条问题';await form.onsubmit({preventDefault(){}});await vi.advanceTimersByTimeAsync(0)
  expect(server.prompts).toHaveLength(2);expect(new Set(server.prompts).size).toBe(2)
 })

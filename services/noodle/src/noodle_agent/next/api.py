@@ -99,6 +99,11 @@ def create_app(root=None, *, application=None):
         from .retrieval.readiness import readiness
         return readiness(app_service)
 
+    @app.get('/internal/next/worker-health')
+    def worker_health():
+        from .worker_health import read
+        return read(store)
+
     @app.post("/internal/next/search", response_model=SearchResponse)
     def search(query: Query, request: Request):
         from .agent_api import scoped_query

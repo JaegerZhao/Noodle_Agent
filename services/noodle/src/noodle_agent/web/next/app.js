@@ -275,7 +275,7 @@ async function refreshSourceStates(ticket=navigationToken){
  if(readabilityChanged)void loadList({fresh:true}).catch(()=>{});
 }
 async function refreshShell(){if(shellRefreshing)return;shellRefreshing=true;try{
- const summary=await api('/workspace/summary');$('mapCount').textContent=String(summary.maps);$('conceptCount').textContent=String(summary.concepts);$('sourceCount').textContent=String(summary.sources);$('connection').replaceChildren(el('i'),document.createTextNode('知识服务已连接'));$('connection').parentElement.classList.add('online');
+ const [summary,health]=await Promise.all([api('/workspace/summary'),api('/worker-health',{signal:AbortSignal.timeout(12000)}).catch(()=>({status:'UNKNOWN'}))]);$('mapCount').textContent=String(summary.maps);$('conceptCount').textContent=String(summary.concepts);$('sourceCount').textContent=String(summary.sources);$('connection').replaceChildren(el('i'),document.createTextNode('知识服务已连接'+(['DEGRADED','STALE'].includes(health.status)?' · 后台恢复中':'')));$('connection').title=Object.entries(health.lanes||{}).filter(([,s])=>s.status==='RECOVERING'||!s.alive).map(([name,s])=>name+'：'+s.status).join('\n');$('connection').parentElement.classList.add('online');
  }finally{shellRefreshing=false;}}
 bindShell({refresh:async()=>{api.invalidate();const refresh=view==='files'?showSources():view==='maps'?showCatalogue('MOC'):view==='concepts'?showCatalogue('CONCEPT'):refreshReading?.();await Promise.all([refreshShell(),loadList(),refresh]);},showTasks:()=>showTasks().catch(e=>notice(e.message,true))});
 startTaskPolling({el,action,showTasks});

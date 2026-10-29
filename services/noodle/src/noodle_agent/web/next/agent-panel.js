@@ -2,6 +2,7 @@ import {AgentClient,foldEvents,mergeSessionEvents,bindCitationLinks,citationSour
 import {createProgressPolling} from './task-polling.js';
 import {renderMarkdown} from './markdown.js';
 import {QuestionContext} from './dialogue.js';
+import {reconcileChildren} from './dom-reconcile.js';
 
 const labels={noodle_answer_knowledge:'检索并回答',noodle_search_knowledge:'查找知识',noodle_get_atomic_note:'读取笔记小节',noodle_get_concept:'读取知识点',noodle_list_sources:'查找资料',noodle_list_tasks:'查找任务',noodle_edit_section:'修改笔记',noodle_get_readiness:'检查知识服务'};
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
@@ -10,7 +11,7 @@ let error=()=>{};
 export function createAgentPanel({onCitation,onContext=()=>{},onSession=()=>{}}){
  const root=el('section',undefined,'qa-panel dsh-panel'),toolbar=el('div',undefined,'agent-toolbar'),sessions=el('select'),history=el('div',undefined,'agent-history'),log=el('div',undefined,'assistant-log'),form=el('form',undefined,'question-form'),input=el('textarea'),scope=el('select'),mode=el('select'),send=el('button','发送','primary'),status=el('p','','agent-status'),context=new QuestionContext();
  let sessionId=null,entries=[],generation=0,running=false,submitting=false,connected=false,loaded=false,pendingRpc=null,selectedNote=null,pinnedNote=null,sourceItems=[],lastSeq=-1,renderPending=false;
- const drafts=new Map(),scopes=new Map();
+ const drafts=new Map(),scopes=new Map(),turnNodes=new Map();
  let sessionRunning=null,stopRequested=false,syncPolling=null,syncDelayed=false;
  const approvalInbox=new ApprovalInbox(),approvalArea=el('section',undefined,'agent-approval-area');approvalArea.setAttribute('aria-label','待审批操作');approvalArea.setAttribute('aria-live','polite');
  const storageKey='noodle.agent.session.'+location.host;
@@ -45,24 +46,28 @@ export function createAgentPanel({onCitation,onContext=()=>{},onSession=()=>{}})
    approvalArea.append(card);
   }
  }
- function render(){const keepBottom=log.scrollHeight-log.scrollTop-log.clientHeight<70,oldTop=log.scrollTop;log.replaceChildren();const turns=foldEvents(entries,{running:sessionRunning});let active=false;
-  if(!turns.length)log.append(el('div','直接询问你的笔记，或让助手查找资料、查看进度。','assistant-welcome'));
+ function render(){const keepBottom=log.scrollHeight-log.scrollTop-log.clientHeight<70,oldTop=log.scrollTop;const nodes=[],seen=new Set();const turns=foldEvents(entries,{running:sessionRunning});let active=false;
+  if(!turns.length)nodes.push(el('div','直接询问你的笔记，或让助手查找资料、查看进度。','assistant-welcome'));
   for(const turn of turns){
-   for(const text of turn.users)log.append(el('div',text,'chat-entry user'));
+   const key=generation+':'+turn.seq,signature=JSON.stringify([turn,sourceItems.map(s=>[s.current_revision_id,s.original_name||s.title])]);seen.add(key);
+   const previous=turnNodes.get(key);if(previous?.signature===signature){nodes.push(previous.node);active=active||turn.running;continue;}
+   const turnLog=el('div',undefined,'agent-turn');nodes.push(turnLog);turnNodes.set(key,{signature,node:turnLog});
+   for(const text of turn.users)turnLog.append(el('div',text,'chat-entry user'));
    if(turn.answers.length){for(const answer of turn.answers){const card=el('section',undefined,'chat-entry agent-answer'),text=el('div',undefined,'agent-markdown');renderMarkdown(text,answer.answer_markdown||answer.message||answer.coverageWarning||'未取得可用答案');card.append(text);bindCitationLinks(text,answer.citations||[],onCitation);
     if(answer.status&&answer.status!=='READY')card.append(el('p',answer.status,'agent-business-status status-error'));
     for(const citation of answer.citations||[]){const b=button('['+citation.citation_id+'] '+citation.title,()=>onCitation(citation),'citation');const titles={...Object.fromEntries(sourceItems.map(s=>[s.current_revision_id,s.original_name||s.title])),...(answer.source_titles||{})};for(const label of citationSources(citation,titles))b.append(el('small',label));card.append(b);}
     // Inline citation anchors share the exact immutable citation object.
     for(const link of text.querySelectorAll('a')){const id=(link.textContent||'').replace(/[\[\]]/g,'');const c=(answer.citations||[]).find(c=>c.citation_id===id);if(c)link.onclick=e=>{e.preventDefault();onCitation(c);};}
     const usage=formatRagUsage(answer.usage_summary);if(usage)card.append(el('small',usage,'agent-turn-usage'));
-    log.append(card);}}
-   else if(turn.streamingText||turn.texts.length){const text=el('div',undefined,'chat-entry agent-markdown');renderMarkdown(text,turn.streamingText||turn.texts.at(-1));log.append(text);}
-   if(turn.tools.length){const details=el('details',undefined,'agent-tool-list');details.append(el('summary',turn.tools.length+' 项工具操作'));for(const tool of turn.tools){const row=el('details',undefined,'agent-tool');const failed=tool.error||(tool.result?.status&&tool.result.status!=='READY');row.append(el('summary',(labels[tool.name]||tool.name.replace('noodle_',''))+' · '+(tool.result?(failed?'受阻':'完成'):turn.running?'执行中':'未完成')+(tool.elapsedMs?' · '+(tool.elapsedMs/1000).toFixed(1)+'秒':'')));row.append(el('pre',JSON.stringify({parameters:tool.args,result:tool.result},null,2)));details.append(row);}log.append(details);}
-   if(turn.interrupted||['aborted','interrupted'].includes(turn.reason?.kind))log.append(el('p','本次执行已结束，未取得完整回答。可以继续提问。','agent-progress'));
-   if(turn.running){active=true;log.append(el('p',turn.tools.length?'正在执行工具…':'正在理解问题…','agent-progress'));}
-   else if(turn.elapsedMs)log.append(el('small',(turn.elapsedMs/1000).toFixed(1)+' 秒'+(turn.approvalWaitMs?'（审批等待 '+(turn.approvalWaitMs/1000).toFixed(1)+' 秒）':'')+' · Agent 输入 '+(turn.usage.input+turn.usage.cached).toLocaleString()+' Token（缓存 '+turn.usage.cached.toLocaleString()+'）· 输出 '+turn.usage.output.toLocaleString(),'agent-turn-usage'));
+    turnLog.append(card);}}
+   else if(turn.streamingText||turn.texts.length){const text=el('div',undefined,'chat-entry agent-markdown');renderMarkdown(text,turn.streamingText||turn.texts.at(-1));turnLog.append(text);}
+   if(turn.tools.length){const details=el('details',undefined,'agent-tool-list');details.append(el('summary',turn.tools.length+' 项工具操作'));for(const tool of turn.tools){const row=el('details',undefined,'agent-tool');const failed=tool.error||(tool.result?.status&&tool.result.status!=='READY');row.append(el('summary',(labels[tool.name]||tool.name.replace('noodle_',''))+' · '+(tool.result?(failed?'受阻':'完成'):turn.running?'执行中':'未完成')+(tool.elapsedMs?' · '+(tool.elapsedMs/1000).toFixed(1)+'秒':'')));row.append(el('pre',JSON.stringify({parameters:tool.args,result:tool.result},null,2)));details.append(row);}turnLog.append(details);}
+   if(turn.interrupted||['aborted','interrupted'].includes(turn.reason?.kind))turnLog.append(el('p','本次执行已结束，未取得完整回答。可以继续提问。','agent-progress'));
+   if(turn.running){active=true;turnLog.append(el('p',turn.tools.length?'正在执行工具…':'正在理解问题…','agent-progress'));}
+   else if(turn.elapsedMs)turnLog.append(el('small',(turn.elapsedMs/1000).toFixed(1)+' 秒'+(turn.approvalWaitMs?'（审批等待 '+(turn.approvalWaitMs/1000).toFixed(1)+' 秒）':'')+' · Agent 输入 '+(turn.usage.input+turn.usage.cached).toLocaleString()+' Token（缓存 '+turn.usage.cached.toLocaleString()+'）· 输出 '+turn.usage.output.toLocaleString(),'agent-turn-usage'));
   }
-  setRunning(active);renderApprovals();if(keepBottom)log.scrollTop=log.scrollHeight;else log.scrollTop=oldTop;
+  for(const key of turnNodes.keys())if(!seen.has(key))turnNodes.delete(key);
+  reconcileChildren(log,nodes);setRunning(active);renderApprovals();if(keepBottom)log.scrollTop=log.scrollHeight;else log.scrollTop=oldTop;
  }
  async function refreshSessions(){const ticket=generation,seq=lastSeq,id=sessionId;const [value,workspaces]=await Promise.all([client.rpc('session.list'),client.rpc('workspace.list')]);const archived=new Set(workspaces.archivedSessionIds||[]);const items=(value.items||[]).filter(s=>!archived.has(s.sessionId)).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));if(ticket!==generation)return items;sessions.replaceChildren();for(const item of items){if(item.origin==='subagent')continue;const title=item.projections?.values?.title;const o=el('option',typeof title==='string'?title:title?.title||'新对话');o.value=item.sessionId;sessions.append(o);}if(sessionId===id&&sessionId&&items.some(s=>s.sessionId===sessionId)){sessions.value=sessionId;if(seq===lastSeq){const value=!!items.find(s=>s.sessionId===sessionId)?.running,changed=value!==sessionRunning;sessionRunning=value;setRunning(value);if(loaded&&changed)queueRender();}}return items;}
  async function hydrate(){if(!sessionId)return;const ticket=generation,id=sessionId;const value=await client.rpc('session.history',{sessionId:id,maxMessages:24});if(ticket!==generation||id!==sessionId)return;older.hidden=!value.hasMore;const merged=mergeSessionEvents(entries,value.events||[]),tail=Math.max(-1,...merged.map(x=>(x.event||x).seq)),changed=!loaded||merged.length!==entries.length||tail!==lastSeq;entries=merged;lastSeq=tail;loaded=true;if(changed){const answer=foldEvents(entries).flatMap(t=>t.answers).at(-1);if(answer)context.accept(context.begin('恢复会话',queryScope()),answer);queueRender();}}

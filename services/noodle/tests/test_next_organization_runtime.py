@@ -104,9 +104,10 @@ def test_current_full_graph_receipt_covers_history_without_erasing_failures(tmp_
             assert c.exec_driver_sql('SELECT status FROM jobs WHERE id=?',(old.job_id,)).scalar_one()=='REVIEW'
         published,_=atomic(store)
         concept(store,published)
-        assert coverage(store)['status']=='PARTIAL'
+        assert coverage(store)['status']=='WAITING'
         assert coverage(store)['pending'] == 0
-        assert coverage(store)['failed'] == 1
+        assert coverage(store)['failed'] == 0
+        assert coverage(store)['historical_failed'] == 1
         assert convergence_report(store,require_idle=False)['superseded_jobs']==[]
     finally:
         store.close()

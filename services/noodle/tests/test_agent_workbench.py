@@ -49,6 +49,19 @@ def test_readiness_distinguishes_live_profile_from_stored_index(workspace):
     assert 'api_key' not in json.dumps(value).lower()
 
 
+def test_scope_includes_current_knowledge_freshness_without_reusing_history(workspace):
+    store, client, *_ = workspace
+    path = context_path(store, 'fresh')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'context': {'scope': {'mode': 'GLOBAL'}},
+                                'user_question': '请重新检索最新内容'}), encoding='utf-8')
+    first = client.get('/internal/next/agent/context', headers={'x-harness-session-id': 'fresh'}).json()['context']
+    assert first['refresh_requested'] is True and first['knowledge_snapshot']['index_heads']
+    note(store, '新知识', '新上传的事实。')
+    second = client.get('/internal/next/agent/context', headers={'x-harness-session-id': 'fresh'}).json()['context']
+    assert second['knowledge_snapshot'] != first['knowledge_snapshot']
+
+
 def test_readiness_and_keyword_search_share_the_same_hybrid_head(workspace):
     from test_next_rag_effectiveness import Embedding
 

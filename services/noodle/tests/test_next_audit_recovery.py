@@ -155,6 +155,7 @@ def test_generation_dispatch_storage_conflict_does_not_exit_workspace(monkeypatc
     class Pool:
         def __init__(self, store, **kwargs):state['stop']=kwargs['stop']
         def start(self):return self
+        def close(self):pass
     class Worker:
         def __init__(self,*args,**kwargs):self.calls=0
         def run_once(self,*args):
@@ -163,6 +164,7 @@ def test_generation_dispatch_storage_conflict_does_not_exit_workspace(monkeypatc
             state['stop'].set()
     monkeypatch.setattr(module,'MaintenancePool',Pool)
     monkeypatch.setattr(module,'GenerationWorker',Worker)
+    monkeypatch.setattr('noodle_agent.next.worker_health.publish', lambda *args, **kwargs: None)
     monkeypatch.setattr(module,'Settings',SimpleNamespace(from_env=lambda:SimpleNamespace(mineru_poll_seconds=1)))
     module.run_workspace(None,emit=seen.append)
     assert [x['status'] for x in seen]==['WORKER_WAITING_STORAGE']

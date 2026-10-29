@@ -353,6 +353,9 @@ def ensure_plan(store, lease, note, calls, retriever=None):
             ),
             {"h": snapshot, "s": source_revision, "j": lease.job_id, "t": lease.token, "n": now()},
         )
+    # Reading all current Concept sections can be expensive. Only the planning
+    # claim is written above; catalogue reads must not hold SQLite's writer lock.
+    with store.db.engine.connect() as c:
         catalog = catalogue(store, c)
         if maintenance:
             exclusions=set(maintenance.get('resolution_context', {}).get('excluded_candidate_ids', []))

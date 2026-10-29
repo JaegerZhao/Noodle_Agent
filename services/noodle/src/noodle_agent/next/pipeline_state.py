@@ -61,7 +61,7 @@ def indexed_revisions(store, notes, profile_id=None):
     return set(), None
 
 
-def readiness(store, revision, *, profile_id=None):
+def readiness(store, revision, *, profile_id=None, structure=None):
     from .eligibility import eligible
     from .organization import coverage as organization_coverage
     with store.db.engine.connect() as c:
@@ -151,7 +151,7 @@ def readiness(store, revision, *, profile_id=None):
         'atomic_index': {'status': 'READY' if current['status'] == 'READY' else 'PARTIAL' if indexed else 'PENDING', 'generation': head['id'] if head else None, 'profile_id': head['profile_id'] if head else None, 'ready_at': ready_at},
         'concept_maintenance': {'status': background, 'total': len(concepts), 'completed': completed, 'indexed': len(concept_indexed), 'routing_pending': routing_pending,
             'failed_routing_jobs': sum(v['kind'] == 'ANALYZE_ATOMIC' for v in failures), 'failed_build_jobs': sum(v['kind'] == 'BUILD_CONCEPT' for v in failures), 'issues': failures[:10]},
-        'knowledge_structure': {**organization_coverage(store), 'scope': 'PUBLISHED_CONCEPTS',
+        'knowledge_structure': {**(organization_coverage(store) if structure is None else structure), 'scope': 'PUBLISHED_CONCEPTS',
             'upstream_pending': routing_pending + max(0, len(concepts) - completed),
             'upstream_status': background},
         'first_readable_at': min((n['published_at'] for n in notes), default=None)}
@@ -165,10 +165,13 @@ def reading(store, revision, *, profile_id=None):
 
 
 def record_index_milestones(store, profile_id):
+    from .organization import coverage
+
+    structure = coverage(store)
     with store.db.engine.connect() as c:
         revisions = rows(c, "SELECT s.current_revision_id FROM sources s WHERE s.kind='PDF' AND s.deleted_at IS NULL")
     for source in revisions:
-        state = readiness(store, source['current_revision_id'], profile_id=profile_id)
+        state = readiness(store, source['current_revision_id'], profile_id=profile_id, structure=structure)
         if not state['job_id']:
             continue
         for scope in [state['coverage'], *state['chapters']]:

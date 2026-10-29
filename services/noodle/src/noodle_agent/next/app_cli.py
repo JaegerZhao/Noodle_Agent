@@ -23,6 +23,7 @@ COMMANDS = {
     "next-restore",
     "next-run",
     "next-outline",
+    "next-index-retention",
 }
 
 
@@ -30,6 +31,11 @@ def configure(sub):
     for name in sorted(COMMANDS):
         parser = sub.add_parser(name)
         parser.add_argument("--data-dir", type=Path, required=True)
+        if name == 'next-index-retention':
+            parser.add_argument('--keep', type=int, default=3)
+            parser.add_argument('--min-age-days', type=int, default=7)
+            parser.add_argument('--protect-generation', action='append', default=[])
+            parser.add_argument('--apply', action='store_true')
         if name == "next-outline":
             parser.add_argument("--source-id", required=True)
             parser.add_argument("--output", type=Path)
@@ -71,6 +77,12 @@ def configure(sub):
 
 
 def run(args, store, emit):
+    if args.command == 'next-index-retention':
+        from .retrieval.retention import apply, plan
+        options = {'keep': args.keep, 'min_age_days': args.min_age_days, 'protected': args.protect_generation}
+        preview = plan(store, **options)
+        emit(apply(store, preview, **options) if args.apply else preview)
+        return
     if args.command == "next-outline":
         import json
 

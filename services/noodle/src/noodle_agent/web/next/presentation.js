@@ -28,12 +28,6 @@ export function bindShell({refresh,showTasks}) {
  $('refreshLibrary').onclick=()=>Promise.resolve(refresh()).catch(()=>{});
  for(const button of document.querySelectorAll('[data-panel]'))button.onclick=()=>button.dataset.panel==='jobs'?showTasks():focusPanel(button.dataset.panel);
 }
-export function viewHeader(el,action,title,summary,upload,refresh){
- const header=el('header',undefined,'view-header'),copy=el('div');copy.append(el('h1',title),el('p',summary,'view-summary'));header.append(copy);
- const tools=el('div',undefined,'header-actions');if(refresh){const b=action('刷新',refresh);b.className='secondary-button';tools.append(b);}if(upload){const b=action('上传 PDF',upload);b.className='primary-button';tools.append(b);}header.append(tools);return header;
-}
-export function phase(job){const p=JSON.parse(job.details_json||'{}');const stage=job.stage||'';const name=stage==='user-paused'?'已按要求暂停':stage==='book-plan-ready'?'全书规划通过':stage.startsWith('plan-book.')?'规划整本教材':stage==='visual'?'识别图表':stage==='visual-retry'?'图表服务重试':stage==='published'?'生成笔记':stage==='parse'?'解析 PDF':stage==='parse-part'?'分卷解析':stage==='chapter-completed'?'章节完成':stage==='chapter-reused'?'复用已生成章节':stage==='chapter-plan-ready'?'本章规划完成':stage.startsWith('allocate')?'规划主题':stage.startsWith('merge')?'整理主题':stage.startsWith('judge')?'核查内容':stage.startsWith('write')?'撰写笔记':'等待处理';return (p.chapter?p.chapter+' · ':'')+name+(p.total?` · ${p.completed??p.count??0} / ${p.total}`:'');}
-export function isUserPaused(job){return (job.status==='PAUSED'||(job.status==='REVIEW'&&JSON.parse(job.error_json||'{}').code==='USER_PAUSED'));}
 export function renderDrawer(jobs,ui){return renderTaskDrawer(jobs,ui);}
 
 export function attachPdfReader(reader,toolbar,note,{api,el,action,notice,isCurrent,sourceReader=null,initialPdf=false,initialPage=1}){

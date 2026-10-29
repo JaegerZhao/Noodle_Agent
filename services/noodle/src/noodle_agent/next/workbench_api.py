@@ -273,9 +273,11 @@ def install(app, store):
 
     @app.get('/internal/next/source-statuses')
     def source_statuses():
+        from .organization import coverage
         from .pipeline_state import readiness
         from .source_library import list_sources
-        return {'items': [readiness(store, s['current_revision_id'], profile_id=current_profile())
+        structure = coverage(store)
+        return {'items': [readiness(store, s['current_revision_id'], profile_id=current_profile(), structure=structure)
                           for s in list_sources(store, include_deleted=False)['items'] if s['kind'] == 'PDF']}
 
     @app.put("/internal/next/sources/{identity}/state")

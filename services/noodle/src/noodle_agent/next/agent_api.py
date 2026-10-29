@@ -112,6 +112,14 @@ def install(app, store):
         if not value:
             return {'context': None}
         context = dict(value['context'])
+        with store.db.engine.connect() as c:
+            epoch = c.exec_driver_sql('SELECT validity_epoch FROM storage_contract WHERE id=1').scalar_one()
+            version = c.exec_driver_sql('SELECT count(*),max(created_at) FROM note_revisions').one()
+            heads = [dict(r) for r in rows(c, 'SELECT mode_key,backend,generation FROM index_heads ORDER BY mode_key,backend')]
+        context['knowledge_snapshot'] = {'validity_epoch': epoch, 'revisions': version[0],
+                                         'latest_revision_at': version[1], 'index_heads': heads}
+        context['refresh_requested'] = bool(re.search(r'重新(?:检索|核验|查询)|最新|刚(?:修改|删除|上传)|refresh|recheck',
+                                                     value.get('user_question', ''), re.IGNORECASE))
         if context['scope']['mode'] == 'SOURCE':
             with store.db.engine.connect() as c:
                 source = one(c, 'SELECT id AS source_id,current_revision_id AS source_revision_id,title FROM sources WHERE id=:id AND deleted_at IS NULL', id=context['scope']['source_ids'][0])

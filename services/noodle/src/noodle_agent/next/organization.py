@@ -86,18 +86,37 @@ def coverage(store):
     """A current full-graph receipt can cover historical organization failures."""
     graph = organization_graph(store)
     with store.db.engine.connect() as c:
-        jobs = rows(c,"SELECT id,status,result_json FROM jobs WHERE kind='REVIEW_ORGANIZATION' ORDER BY rowid DESC")
+        jobs = rows(c,"SELECT id,status,result_json,error_json FROM jobs WHERE kind='REVIEW_ORGANIZATION' ORDER BY rowid DESC")
     for job in jobs:
         value = json.loads(job['result_json'])
         if job['status']=='SUCCEEDED' and value.get('scope')=='ALL_CURRENT_CONCEPTS' and value.get('reviewed_graph_snapshot')==graph['snapshot']:
             return {'status':'COMPLETE','covering_job_id':job['id'],'snapshot':graph['snapshot'],'pending':0}
-    failed = sum(j['status']=='REVIEW' for j in jobs)
+    def current_scope(value):
+        if value.get('reviewed_graph_snapshot') == graph['snapshot']:
+            return True
+        focus = value.get('concept_ids', [])
+        return bool(focus and value.get('reviewed_scope_snapshot') and
+                    value['reviewed_scope_snapshot'] == scope_signature(neighborhood(graph, set(focus))))
+
+    covered = {json.loads(j['result_json']).get('reviewed_scope_snapshot') for j in jobs
+               if j['status'] == 'SUCCEEDED' and current_scope(json.loads(j['result_json']))}
+    failed = 0
+    historical_failed = 0
+    for job in jobs:
+        if job['status'] != 'REVIEW':
+            continue
+        context = json.loads(job['error_json'] or '{}').get('organization_snapshot', {})
+        if current_scope(context) and context.get('reviewed_scope_snapshot') not in covered:
+            failed += 1
+        else:
+            historical_failed += 1
     pending = sum(j['status'] in {'PENDING', 'RUNNING', 'RETRY'} for j in jobs)
     local = next((j for j in jobs if j['status']=='SUCCEEDED'
                   and json.loads(j['result_json']).get('scope')=='CHANGED_CONCEPT_NEIGHBORHOOD'
-                  and json.loads(j['result_json']).get('reviewed_graph_snapshot')==graph['snapshot']), None)
+                  and current_scope(json.loads(j['result_json']))), None)
     return {'status':'PARTIAL' if failed else 'RUNNING' if any(j['status']=='RUNNING' for j in jobs) else 'WAITING',
         'covering_job_id':None,'snapshot':graph['snapshot'],'pending':pending,'failed':failed,
+        'historical_failed':historical_failed,
         'local_status':'COMPLETE' if local else 'RUNNING' if pending else 'WAITING',
         'local_covering_job_id':local['id'] if local else None,
         'global_coverage':'NOT_CURRENT'}
@@ -119,6 +138,13 @@ def neighborhood(graph, focus):
         wanted.update(n['id'] for n in ranked(catalog, {'title': nodes[identity]['title'], 'text': nodes[identity]['title']})[:4])
     return {'snapshot': graph['snapshot'], 'nodes': [n for n in graph['nodes'] if n['id'] in wanted],
             'edges': [e for e in graph['edges'] if e['source'] in wanted and e['target'] in wanted]}
+
+
+def scope_signature(graph):
+    """A local proof depends on its semantic neighborhood, not unrelated nodes."""
+    return sha(canonical({'nodes': sorted((n['id'], n['title'], n.get('description', ''),
+                                           n.get('domain', '')) for n in graph['nodes']),
+                          'edges': sorted(canonical(e) for e in graph['edges'])}))
 
 
 def scope_covers(previous, focus):
@@ -145,15 +171,7 @@ def maintain_organization(store, lease, calls):
             c,
             "SELECT result_json FROM jobs WHERE kind='REVIEW_ORGANIZATION' AND status='SUCCEEDED' ORDER BY rowid DESC LIMIT 1",
         )
-    if last:
-        checked = json.loads(last["result_json"])
-        if (
-            checked.get("reviewed_epoch") == current_epoch
-            and checked.get("policy") == policy
-            and checked.get('scope_key') == scope_key
-            and scope_covers(checked,focus)
-        ):
-            return {**checked, "status": "REUSED_REVIEW"}
+    checked = json.loads(last['result_json']) if last else {}
     graph = organization_graph(store)
     if last and scope_covers(checked,focus) and checked.get('reviewed_graph_snapshot')==graph['snapshot'] and checked.get('policy')==policy:
         return {**checked,'status':'REUSED_REVIEW','scope':scope,'scope_key':scope_key,
@@ -161,6 +179,12 @@ def maintain_organization(store, lease, calls):
     full_snapshot = graph['snapshot']
     if focus:
         graph = neighborhood(graph, set(focus))
+    if (focus and checked.get('scope_key') == scope_key and checked.get('policy') == policy
+            and checked.get('reviewed_scope_snapshot') == scope_signature(graph)):
+        return {**checked, 'status': 'REUSED_REVIEW', 'reviewed_epoch': current_epoch,
+                'reviewed_graph_snapshot': full_snapshot, 'reuse_reason': 'NO_LOCAL_ORGANIZATION_INPUT_CHANGE'}
+    calls.organization_snapshot = {'scope': scope, 'concept_ids': focus,
+        'reviewed_graph_snapshot': full_snapshot, 'reviewed_scope_snapshot': scope_signature(graph)}
     children = {e["target"] for e in graph["edges"] if e.get("navigation_role")}
     roots = [n["id"] for n in graph["nodes"] if n["id"] not in children]
     if len(roots) <= 1:
@@ -171,6 +195,7 @@ def maintain_organization(store, lease, calls):
             "policy": policy,
             'scope': scope, 'scope_key': scope_key, 'concept_ids': focus,
             'reviewed_graph_snapshot':graph['snapshot'],
+            'reviewed_scope_snapshot':scope_signature(graph),
         }
     with store.db.engine.connect() as c:
         valid = eligible(c)
@@ -380,6 +405,7 @@ def maintain_organization(store, lease, calls):
         reviewed_epoch = c.exec_driver_sql(
             "SELECT validity_epoch FROM storage_contract WHERE id=1"
         ).scalar_one()
+    final_graph = organization_graph(store)
     return {
         "status": "ORGANIZATION_REVIEWED",
         "policy": policy,
@@ -389,5 +415,6 @@ def maintain_organization(store, lease, calls):
         "independent_roots": [r.model_dump() for r in plan.independent_roots],
         "check": check.model_dump(),
         'scope': scope, 'scope_key': scope_key, 'concept_ids': focus,
-        'reviewed_graph_snapshot':organization_graph(store)['snapshot'],
+        'reviewed_graph_snapshot':final_graph['snapshot'],
+        'reviewed_scope_snapshot':scope_signature(neighborhood(final_graph, set(focus)) if focus else final_graph),
     }

@@ -68,6 +68,8 @@ def run_workspace(store, *, watch_vault=False, emit=print):
     thread = threading.Thread(target=generation, name="next-generation", daemon=True)
     thread.start()
     maintenance = MaintenancePool(store, settings=settings, stop=stop, emit=emit).start()
+    from .worker_health import publish
+    last_heartbeat = 0
     last_signature = None
     stable_since = 0
     last_error = None
@@ -75,6 +77,12 @@ def run_workspace(store, *, watch_vault=False, emit=print):
     last_projection = None
     try:
         while not stop.is_set():
+            if time.monotonic() - last_heartbeat >= 5:
+                try:
+                    publish(store, maintenance)
+                except OSError as exc:
+                    emit({'status': 'HEALTH_WRITE_FAILED', 'error_type': type(exc).__name__})
+                last_heartbeat = time.monotonic()
             result = None
             if watch_vault:
                 root = store.path("Vault")
@@ -129,6 +137,11 @@ def run_workspace(store, *, watch_vault=False, emit=print):
         maintenance.close()
     finally:
         stop.set()
+        maintenance.close()
+        try:
+            publish(store, maintenance, stopped=True)
+        except OSError:
+            pass
         # Running provider calls retain their publication lease fences. On process shutdown,
         # an unfinished job becomes reclaimable after its lease expires.
         thread.join(timeout=2)
