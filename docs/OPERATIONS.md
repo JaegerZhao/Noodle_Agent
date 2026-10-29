@@ -51,7 +51,15 @@ npm run stop
 
 当前工作台 `http://127.0.0.1:8011/app/`，DSH `http://127.0.0.1:3090/`。
 
-这个脚本仍绑定本机 Conda Python 和 `.local-only/formal-workspace-20261025T043825Z`，不是全新克隆即可使用的通用生产部署器。换机器先用通用入口，并另行配置正式实例；不要复制或公开私有运行目录和密钥。
+脚本不再硬编码 Conda 和日期路径。优先使用 `-RunDirectory` / `NOODLE_PRODUCTION_RUN`；否则发现唯一正在运行或唯一已配置的正式实例，多实例时要求显式指定。Python 可用 `-PythonExecutable` 指定，或沿用环境、仓库虚拟环境与 PATH。
+
+全新克隆完成依赖安装和构建后，可创建空实例：
+
+```powershell
+./scripts/start-production.ps1 -Action Start -RunDirectory .local-only/production -DataDirectory data/production -PythonExecutable python -ApiPort 8011 -HarnessPort 3090
+```
+
+初始化不导入测试 PDF，正常启用新解析。已有配置不会被覆盖。新代码验证后先执行 `python scripts/formal-workspace.py freeze <实例目录> --reason "本次发布说明"`，再 Restart；只重启会沿用该实例最新冻结代码，不会自动使用工作区改动。旧冻结版继续保留。
 
 普通情况下先在前端暂停生成、停止当前对话，再重启服务。未完成任务由租约和检查点恢复；REVIEW 任务不应当成普通排队任务自动整轮重跑。
 
@@ -103,3 +111,16 @@ API 前缀为 `/internal/next`，旧 `/internal/v1` 不再是当前业务入口�
 | 结构部分完成且无待执行项 | 可能涉及历史失败与当前图覆盖，不能只凭标签判断正文损坏 |
 
 排查先读取状态和日志，不盲目重传、重复发送、清空缓存或重跑全库。重启不保证供应商撤回已经收到的请求。
+
+## 索引维护与流程观察
+
+`GET /internal/next/worker-health` 提供独立后台心跳；`DEGRADED` 表示通道恢复中，`STALE` 表示超过二十秒未更新。该状态不替代笔记与索引就绪判断。
+
+```sh
+noodle next-index-retention --data-dir ./data/knowledge
+noodle next-index-retention --data-dir ./data/knowledge --keep 3 --min-age-days 7 --protect-generation <需要保留的代次>
+```
+
+默认只预览。显式加 `--apply` 才回收，每批最多五代，保留当前索引、各配置最近三代、七天内版本和指定保护项。操作要求停止 Worker、没有运行任务，并先生成库旁的完整恢复 ZIP；共享向量、正文、来源、修订和索引文件继续保留，不在线 VACUUM。恢复包应先解到新目录验证，不能覆盖运行库。正式库本轮仅预览，未执行回收。
+
+`python scripts/validate-pdf-pipeline.py <PDF>` 默认仅检查输入及哈希。显式 `--execute` 才经正式 API 上传并观察 Atomic、索引和 Concept 状态，可能产生服务费用；`--regenerate-removed` 表示对移除资料重新生成。只由服务端复用兼容 MinerU，不注入旧规划。中断观察器不取消任务，失败只记录不人工补完；记录在私有 `.local-only/pdf-api-*/`。全库结构覆盖仍单独报告，不以局部完成冒充。
