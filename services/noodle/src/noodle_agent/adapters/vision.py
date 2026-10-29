@@ -21,6 +21,20 @@ from ..telemetry import TelemetryRecorder, elapsed_ms, sha256_text
 from .llm import _loads_structured_json
 
 
+def text_items(value):
+    """A single model-returned string is one item, never a list of characters.
+
+    String table rows retain column boundaries as tab-separated text. Structured
+    node/table descriptions remain lossless JSON text, including nested values.
+    """
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [json.dumps(item, ensure_ascii=False) if isinstance(item, dict) else
+                '\t'.join(item) if isinstance(item, list) and item and all(isinstance(cell, str) for cell in item) else item for item in value]
+    return [value] if isinstance(value, str) else value
+
+
 class DisabledVisionProvider:
     name = "disabled"
     model_name = "disabled"
@@ -100,6 +114,15 @@ class DoubaoVisionProvider:
                     "image_sha256": image_sha256,
                 }
             )
+        source_page = all((item.get("context") or {}).get("extraction_mode") == "SOURCE_PAGE" for item in encoded)
+        effective_prompt = self.system_prompt
+        effective_version = self.prompt_version
+        if source_page:
+            effective_prompt = files("noodle_agent").joinpath("prompts", "source_page_evidence.v1.md").read_text(encoding="utf-8")
+            effective_version = "source-page-evidence-v1"
+            if all((item.get('context') or {}).get('evidence_policy') == 'native-delta-v1' for item in encoded):
+                effective_prompt = files('noodle_agent').joinpath('prompts', 'source_page_evidence.v2.md').read_text(encoding='utf-8')
+                effective_version = 'source-page-evidence-v2'
         compact_context = [
             {
                 "asset_id": item["external_block_id"],
@@ -143,24 +166,33 @@ class DoubaoVisionProvider:
             "|".join(item["image_sha256"] for item in encoded).encode("ascii")
         ).hexdigest()
         started_clock = perf_counter()
-        started_at = datetime.now(UTC).replace(tzinfo=None)
+        started_at = datetime.now(UTC)
         response = None
         content: str | None = None
+        normalizations = []
+        recovered = None
+        telemetry = getattr(self, 'telemetry', None)
+        if source_page and hasattr(telemetry, 'repository') and hasattr(telemetry, 'lease'):
+            from ..next.audit import recover_vision_format_response
+            recovered = recover_vision_format_response(telemetry.repository, telemetry.lease,
+                input_text=user_text, model=self.model_name, prompt_version=effective_version, image_sha256=batch_sha256)
         try:
-            response = self.client.chat.completions.create(
+            from ..next.cost_policy import enabled
+            economical = source_page and enabled() and self.model_name.startswith('doubao-seed-')
+            response = None if recovered is not None else self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
-                    {"role": "system", "content": self.system_prompt},
+                    {"role": "system", "content": effective_prompt},
                     {
                         "role": "user",
                         "content": content_parts,
                     },
                 ],
                 response_format={"type": "json_object"},
-                reasoning_effort=self.reasoning_effort,
-                max_tokens=self.max_output_tokens,
+                **({'extra_body': {'thinking': {'type': 'disabled'}}} if economical else {'reasoning_effort': self.reasoning_effort}),
+                max_tokens=max(self.max_output_tokens, 4800) if source_page else self.max_output_tokens,
             )
-            content = response.choices[0].message.content
+            content = recovered if recovered is not None else response.choices[0].message.content
             if not content:
                 raise RuntimeError("Vision model returned an empty response")
             result = _loads_structured_json(content)
@@ -173,6 +205,14 @@ class DoubaoVisionProvider:
                 raise TypeError("Vision images must be objects")
             ids = [str(raw.get("asset_id") or "") for raw in raw_images]
             expected = {str(item["external_block_id"]) for item in encoded}
+            if source_page and len(encoded) == len(raw_images) == 1 and not page_contexts and set(ids) != expected:
+                # Exactly one input page and one returned object: the binding
+                # comes from the request, not a model-echoed identifier. Multi-
+                # image and crop/context calls remain strict about ownership.
+                key = str(encoded[0]['external_block_id'])
+                normalizations.append({'code':'SINGLE_PAGE_ID_BOUND_TO_REQUEST', 'from':ids[0], 'to':key})
+                raw_images = [{**raw_images[0], 'asset_id':key}]
+                ids = [key]
             if len(ids) != len(set(ids)) or set(ids) != expected:
                 raise ValueError("Vision asset IDs must match the batch exactly")
             by_id = dict(zip(ids, raw_images, strict=True))
@@ -189,15 +229,15 @@ class DoubaoVisionProvider:
                     external_block_id=external_id,
                     image_sha256=item["image_sha256"],
                     model=self.model_name,
-                    prompt_version=self.prompt_version,
+                    prompt_version=effective_version,
                     asset_type=str(raw.get("type") or raw.get("asset_type") or "OTHER"),
                     is_decorative=bool(raw.get("decorative", raw.get("is_decorative", False))),
                     essential=bool(raw.get("essential", False)),
                     caption=str(raw.get("caption") or ""),
                     teaching_role=str(raw.get("role") or raw.get("teaching_role") or ""),
-                    ocr_text=raw.get("ocr_text") or [],
-                    factual_observations=raw.get("factual_observations") or [],
-                    spatial_relations=raw.get("spatial_relations") or [],
+                    ocr_text=text_items(raw.get("ocr_text")),
+                    factual_observations=text_items(raw.get("factual_observations")),
+                    spatial_relations=text_items(raw.get("spatial_relations")),
                     suggested_placement=str(raw.get("suggested_placement") or ""),
                     confidence=float(raw.get("confidence") or 0.0),
                     analysis_tier="API_FAST",
@@ -208,31 +248,37 @@ class DoubaoVisionProvider:
                     group_type=str(
                         raw.get("group_type") or ("FRAGMENT" if is_fragment else "SINGLE")
                     ),
-                    related_asset_ids=[str(value) for value in raw.get("related_asset_ids") or []],
+                    related_asset_ids=text_items(raw.get("related_asset_ids")),
                 )
         except Exception as exc:
+            if recovered is None:
+                self._record(
+                    visual_asset_id=None,
+                    image_sha256=batch_sha256,
+                    input_text=user_text,
+                    output_text=content,
+                    response=response,
+                    status="FAILED",
+                    started_at=started_at,
+                    elapsed=elapsed_ms(started_clock),
+                    error=exc,
+                    prompt_version=effective_version,
+                    normalizations=normalizations,
+                )
+            raise
+        if recovered is None:
             self._record(
                 visual_asset_id=None,
                 image_sha256=batch_sha256,
                 input_text=user_text,
                 output_text=content,
                 response=response,
-                status="FAILED",
+                status="COMPLETED",
                 started_at=started_at,
                 elapsed=elapsed_ms(started_clock),
-                error=exc,
+                prompt_version=effective_version,
+                normalizations=normalizations,
             )
-            raise
-        self._record(
-            visual_asset_id=None,
-            image_sha256=batch_sha256,
-            input_text=user_text,
-            output_text=content,
-            response=response,
-            status="COMPLETED",
-            started_at=started_at,
-            elapsed=elapsed_ms(started_clock),
-        )
         return understandings
 
     def _record(
@@ -247,6 +293,8 @@ class DoubaoVisionProvider:
         started_at: datetime,
         elapsed: int,
         error: Exception | None = None,
+        prompt_version: str | None = None,
+        normalizations=None,
     ) -> None:
         usage_obj = getattr(response, "usage", None)
         self.telemetry.record_vision(
@@ -254,7 +302,7 @@ class DoubaoVisionProvider:
             operation="understand_course_visual",
             provider=self.name,
             model=self.model_name,
-            prompt_version=self.prompt_version,
+            prompt_version=prompt_version or self.prompt_version,
             status=status,
             image_sha256=image_sha256,
             input_sha256=sha256_text(input_text),
@@ -262,6 +310,10 @@ class DoubaoVisionProvider:
             prompt_tokens=getattr(usage_obj, "prompt_tokens", None),
             completion_tokens=getattr(usage_obj, "completion_tokens", None),
             total_tokens=getattr(usage_obj, "total_tokens", None),
+            **({'reasoning_tokens': getattr(getattr(usage_obj, 'completion_tokens_details', None), 'reasoning_tokens', None)}
+               if hasattr(self.telemetry, 'repository') else {}),
+            **({'input_text':input_text, 'output_text':output_text, 'normalizations':normalizations or []}
+               if hasattr(self.telemetry, 'repository') else {}),
             response_id=getattr(response, "id", None),
             error_code=error.__class__.__name__ if error else None,
             error_detail=str(error)[:2_000] if error else None,

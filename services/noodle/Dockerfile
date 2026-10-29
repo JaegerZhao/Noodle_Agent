@@ -14,4 +14,4 @@ COPY .env.example ./
 
 EXPOSE 8000
 
-CMD ["noodle", "serve-internal", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["noodle", "next-api", "--data-dir", "/app/data", "--host", "0.0.0.0", "--port", "8000"]

@@ -3,7 +3,7 @@ FROM node:24-bookworm-slim
 ENV NODE_ENV=production \
     DSH_HOME=/data/dsh \
     NOODLE_API_BASE_URL=http://noodle-api:8000 \
-    NOODLE_API_PREFIX=/internal/v1
+    NOODLE_API_PREFIX=/internal/next
 
 WORKDIR /app
 

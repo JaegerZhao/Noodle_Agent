@@ -11,12 +11,26 @@ from .jobs import require_lease
 from .repository import Conflict, InvalidKnowledge, Repository, identifier, insert, now, one
 
 
+def matching_source(connection, digest, kind):
+    return one(connection, """SELECT s.id,s.current_revision_id,s.deleted_at,r.id AS matched_revision FROM sources s
+        JOIN source_revisions r ON r.source_id=s.id
+        WHERE r.sha256=:hash AND s.kind=:kind
+        ORDER BY CASE WHEN s.current_revision_id=r.id THEN 0 ELSE 1 END,r.ordinal DESC LIMIT 1""",
+        hash=digest, kind=kind)
+
+
+def duplicate_result(existing):
+    return {"source_id": existing["id"], "revision_id": existing["current_revision_id"],
+        "duplicate": True, "deleted": existing["deleted_at"] is not None,
+        "matched_revision_id": existing["matched_revision"]}
+
+
 class SourceRepository:
     def __init__(self, repository: Repository):
         self.repository = repository
 
     def add_source(
-        self, content: bytes, title: str, *, kind: str = "PDF", original_name: str = ""
+        self, content: bytes, title: str, *, kind: str = "PDF", original_name: str = "", regenerate_removed: bool = False
     ) -> dict:
         if kind not in {"PDF", "AUTHOR"} or not content or not title.strip():
             raise ValueError("Invalid source")
@@ -29,24 +43,29 @@ class SourceRepository:
         digest = sha(content)
         ref = f"blobs/{digest}.{'pdf' if kind == 'PDF' else 'md'}"
         self.repository.put(ref, content)
-        with self.repository.transaction() as connection:
-            existing = one(
-                connection,
-                """SELECT s.id,s.current_revision_id,s.deleted_at,r.id AS matched_revision FROM sources s
-                JOIN source_revisions r ON r.source_id=s.id
-                WHERE r.sha256=:hash AND s.kind=:kind
-                ORDER BY CASE WHEN s.current_revision_id=r.id THEN 0 ELSE 1 END,r.ordinal DESC LIMIT 1""",
-                hash=digest,
-                kind=kind,
-            )
+        if not regenerate_removed:
+            # The first upload of a removed PDF is a read-only confirmation
+            # probe. It need not queue behind background Concept/index writers.
+            with self.repository.db.engine.connect() as connection:
+                existing = matching_source(connection, digest, kind)
             if existing:
-                return {
-                    "source_id": existing["id"],
-                    "revision_id": existing["current_revision_id"],
-                    "duplicate": True,
-                    "deleted": existing["deleted_at"] is not None,
-                    "matched_revision_id": existing["matched_revision"],
-                }
+                return duplicate_result(existing)
+        with self.repository.transaction() as connection:
+            existing = matching_source(connection, digest, kind)
+            if existing:
+                if regenerate_removed and existing['deleted_at'] is not None:
+                    previous = one(connection, 'SELECT ordinal FROM source_revisions WHERE id=:id', id=existing['current_revision_id'])
+                    revision_id = identifier()
+                    insert(connection, 'source_revisions', id=revision_id, source_id=existing['id'],
+                           ordinal=previous['ordinal']+1, sha256=digest, blob_ref=ref, byte_size=len(content),
+                           original_name=original_name or title, created_at=now())
+                    connection.execute(text('UPDATE sources SET deleted_at=NULL,current_revision_id=:r,title=:t WHERE id=:s'),
+                                       {'r':revision_id,'t':title,'s':existing['id']})
+                    self.repository.advance_epoch(connection)
+                    self.repository.event(connection, 'SOURCE_REPLACED', existing['id'], revision_id,
+                        {'previous_revision_id':existing['current_revision_id'], 'reason':'EXPLICIT_REGENERATION_AFTER_REMOVAL'}, key=f'source:{revision_id}')
+                    return {'source_id':existing['id'],'revision_id':revision_id,'duplicate':False,'deleted':False,'regenerated':True}
+                return duplicate_result(existing)
             source_id, revision_id = identifier(), identifier()
             insert(
                 connection,
@@ -194,6 +213,35 @@ class SourceRepository:
             )
         return parse_id
 
+    def add_image_evidence(self, revision_id, *, page, block_id, parse_id, lease=None):
+        """Anchor immutable image bytes and location, without inventing a text quote."""
+        with self.repository.transaction() as connection:
+            if lease is not None:
+                require_lease(connection, lease)
+            source = one(connection, "SELECT s.kind FROM source_revisions r JOIN sources s ON s.id=r.source_id WHERE r.id=:id", id=revision_id)
+            parse = one(connection, "SELECT * FROM parse_runs WHERE id=:id", id=parse_id)
+            if not source or source["kind"] != "PDF" or not self.source_valid(connection, revision_id) or not parse or parse["source_revision_id"] != revision_id:
+                raise InvalidKnowledge("Image evidence requires its current PDF source and parse")
+            artifact = json.loads(self.repository.read(parse["artifact_ref"], parse["artifact_sha256"]))
+            block = next((b for b in artifact.get("blocks", []) if b.get("id") == block_id), None)
+            if not block or block.get("page") != page or not block.get("asset_ref"):
+                raise InvalidKnowledge("Image evidence location does not match the parsed block")
+            ref = block["asset_ref"]
+            from pathlib import PurePosixPath
+            expected = PurePosixPath(ref).stem
+            if len(expected) != 64 or any(c not in "0123456789abcdef" for c in expected):
+                raise InvalidKnowledge("Image evidence requires a content-addressed asset")
+            self.repository.read(ref, expected)
+            locator = canonical({"block_id": block_id, "kind": "SOURCE_IMAGE_ASSET", "asset_ref": ref, "image_sha256": expected})
+            quote = canonical({"evidence_origin": "SOURCE_IMAGE_ASSET", "page": page, "asset_ref": ref, "image_sha256": expected})
+            existing = one(connection, "SELECT id FROM evidence_anchors WHERE source_revision_id=:r AND parse_run_id=:p AND locator_json=:l AND sha256=:h", r=revision_id, p=parse_id, l=locator, h=sha(quote))
+            if existing:
+                return existing["id"]
+            identity = identifier()
+            insert(connection, "evidence_anchors", id=identity, source_revision_id=revision_id,
+                parse_run_id=parse_id, page_number=page, locator_json=locator, quoted_text=quote, sha256=sha(quote))
+            return identity
+
     def add_evidence(
         self,
         revision_id: str,
@@ -262,24 +310,32 @@ class SourceRepository:
             )
         return evidence_id
 
-    def set_source_deleted(self, source_id: str, deleted: bool):
-        with self.repository.transaction() as connection:
+    def set_source_deleted(self, source_id: str, deleted: bool, *, expected_revision=None, _connection=None, _emit=True):
+        from contextlib import nullcontext
+        with self.repository.transaction() if _connection is None else nullcontext(_connection) as connection:
             source = one(connection, "SELECT * FROM sources WHERE id=:id", id=source_id)
             if not source:
                 raise KeyError(source_id)
+            if expected_revision is not None and source["current_revision_id"] != expected_revision:
+                raise Conflict("Source revision changed")
             if bool(source["deleted_at"]) == deleted:
-                return
+                return {'source_id': source_id, 'deleted': deleted, 'changed': False}
+            if not deleted:
+                original = one(connection, 'SELECT blob_ref,sha256 FROM source_revisions WHERE id=:id', id=source['current_revision_id'])
+                if original is None:
+                    raise Conflict('Original source revision is unavailable')
+                try:
+                    self.repository.read(original['blob_ref'], original['sha256'])
+                except (OSError, ValueError) as exc:
+                    raise Conflict('Original source file is unavailable or changed; cannot restore') from exc
             connection.execute(
                 text("UPDATE sources SET deleted_at=:value WHERE id=:id"),
                 {"value": now() if deleted else None, "id": source_id},
             )
-            self.repository.advance_epoch(connection)
-            token = identifier()
-            self.repository.event(
-                connection,
-                "SOURCE_DELETED" if deleted else "SOURCE_RESTORED",
-                source_id,
-                source["current_revision_id"],
-                {},
-                key=f"source-state:{token}",
-            )
+            if _emit:
+                self.repository.advance_epoch(connection)
+                token = identifier()
+                self.repository.event(
+                    connection, "SOURCE_DELETED" if deleted else "SOURCE_RESTORED",
+                    source_id, source["current_revision_id"], {}, key=f"source-state:{token}")
+            return {'source_id': source_id, 'deleted': deleted, 'changed': True}

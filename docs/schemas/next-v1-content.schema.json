@@ -26,6 +26,17 @@
           "title": "Summary",
           "type": "string"
         },
+        "entity_hints": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityHints"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "scope": {
           "$ref": "#/$defs/Scope"
         },
@@ -35,6 +46,17 @@
           },
           "minItems": 1,
           "title": "Sections",
+          "type": "array"
+        },
+        "origin_source_revisions": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Origin Source Revisions",
           "type": "array"
         },
         "map_entries": {
@@ -75,6 +97,42 @@
         "sections"
       ],
       "title": "Candidate",
+      "type": "object"
+    },
+    "EntityHints": {
+      "additionalProperties": false,
+      "properties": {
+        "intent": {
+          "default": "EXPLAIN",
+          "enum": [
+            "EXPLAIN",
+            "COMPARE",
+            "OVERVIEW",
+            "SUMMARY"
+          ],
+          "title": "Intent",
+          "type": "string"
+        },
+        "subject": {
+          "default": "",
+          "title": "Subject",
+          "type": "string"
+        },
+        "subjects": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Subjects",
+          "type": "array"
+        },
+        "context": {
+          "default": "",
+          "title": "Context",
+          "type": "string"
+        }
+      },
+      "title": "EntityHints",
       "type": "object"
     },
     "FragmentRef": {
@@ -245,6 +303,45 @@
           "minLength": 1,
           "title": "Basis",
           "type": "string"
+        },
+        "navigation_role": {
+          "anyOf": [
+            {
+              "enum": [
+                "TOPIC_CHILD",
+                "TOPIC_PARENT"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Navigation Role"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "support_revision_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Support Revision Ids",
+          "type": "array"
         }
       },
       "required": [

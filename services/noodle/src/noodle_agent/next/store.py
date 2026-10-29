@@ -36,8 +36,8 @@ class Store:
     def read(self, ref: str, expected_hash: str):
         return self.repository.read(ref, expected_hash)
 
-    def add_source(self, content: bytes, title: str, *, kind="PDF", original_name=""):
-        return self.sources.add_source(content, title, kind=kind, original_name=original_name)
+    def add_source(self, content: bytes, title: str, *, kind="PDF", original_name="", regenerate_removed=False):
+        return self.sources.add_source(content, title, kind=kind, original_name=original_name, regenerate_removed=regenerate_removed)
 
     def replace_source(
         self, source_id: str, content: bytes, *, expected_revision: str, original_name=""
@@ -88,3 +88,6 @@ class Store:
 
     def withdraw_note(self, note_id: str, *, expected_revision: str):
         return self.content.withdraw_note(note_id, expected_revision=expected_revision)
+
+    def restore_note(self, note_id: str, *, expected_revision: str):
+        return self.content.restore_note(note_id, expected_revision=expected_revision)

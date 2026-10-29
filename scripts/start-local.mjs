@@ -35,7 +35,7 @@ try {
   await checkPort(Number(new URL(env.NOODLE_API_BASE_URL).port))
   await checkPort(Number(env.DSH_WEB_PORT))
   ensureRuntime()
-  const build = await run(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '-p', join(root, 'tsconfig.json')], { env })
+  const build = await run(process.execPath, [join(root, 'scripts/build-plugin.mjs')], { env })
   if (build) throw new Error('TypeScript build failed')
   const api = background('api')
   const deadline = Date.now() + 60000
@@ -45,13 +45,15 @@ try {
     try {
       const response = await fetch(`${env.NOODLE_API_BASE_URL}/health`, { signal: AbortSignal.timeout(2000) })
       const body = await response.json()
-      if (response.ok && body.api_surface === 'internal-v1') { healthy = true; break }
+      if (response.ok && body.contract === 'next-v1') { healthy = true; break }
     } catch { /* startup in progress */ }
     await new Promise(resolve => setTimeout(resolve, 250))
   }
   if (!healthy) throw new Error(`API startup failed. See ${local}`)
-  const worker = background('worker')
-  writeFileSync(join(local, 'services.json'), JSON.stringify({ api: api.pid, worker: worker.pid, launcher: process.pid, projectRoot: root, started_at: new Date().toISOString() }, null, 2))
+  if (env.NOODLE_BACKGROUND_WORKERS !== undefined && !['0', '1'].includes(env.NOODLE_BACKGROUND_WORKERS)) throw new Error('NOODLE_BACKGROUND_WORKERS must be 0 or 1')
+  const worker = env.NOODLE_BACKGROUND_WORKERS === '0' ? null : background('worker')
+  if (!worker) console.log('Background workers paused: browsing and explicit chat remain available.')
+  writeFileSync(join(local, 'services.json'), JSON.stringify({ api: api.pid, worker: worker?.pid ?? null, launcher: process.pid, projectRoot: root, started_at: new Date().toISOString() }, null, 2))
   console.log(`Noodle Workbench: ${env.NOODLE_API_BASE_URL}/app/`)
   console.log(`Noodle Harness: ${env.NOODLE_HARNESS_WEB_URL}`)
   const harness = spawn(process.execPath, [harnessEntry], { cwd: root, env, stdio: 'inherit', windowsHide: true })

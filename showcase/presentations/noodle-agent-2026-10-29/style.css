@@ -1,0 +1,103 @@
+/* Composition derived from presenter-mode-reveal, image-single and two-column. */
+.noodle-deck{background:var(--bg-soft)}
+.noodle-deck .slide{padding:80px 104px 92px;justify-content:flex-start;transition:opacity .18s var(--ease);transform:none}
+.noodle-deck .slide.is-prev{transform:none}
+.noodle-deck .slide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:48px;min-height:104px;flex-shrink:0}
+.noodle-deck h2{font-size:54px;line-height:1.25;font-weight:600;letter-spacing:-.025em;margin:0;max-width:1420px}
+.noodle-deck h3{font-size:32px;line-height:1.4;font-weight:600;margin:0 0 16px}
+.noodle-deck p{font-size:28px;line-height:1.7;margin:0 0 24px;color:var(--text-2)}
+.noodle-deck strong{font-weight:650;color:var(--text-1)}
+.noodle-deck .chapter-name{font-size:20px;line-height:1.4;color:var(--text-3);padding-top:12px;white-space:nowrap}
+.noodle-deck .slide-body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:30px}
+.noodle-deck .deck-footer{left:104px;right:104px;bottom:36px;color:var(--text-3);font-size:18px;border-top:0;padding:0}
+.wordmark{font-size:18px;font-weight:600;color:var(--text-3)}
+.noodle-deck .slide-number{font-size:18px}
+.noodle-deck .lede{font-size:34px;font-weight:400;line-height:1.65;max-width:1400px}
+.noodle-deck .accent{color:var(--accent)}
+.noodle-deck .muted{color:var(--text-3)}
+.noodle-deck .small{font-size:22px;line-height:1.65}
+.noodle-deck .subtle{font-size:22px;color:var(--text-3)}
+.noodle-deck .rule-note{padding:24px 0 0;border-top:1px solid var(--border);font-size:24px;line-height:1.65;color:var(--text-2)}
+.noodle-deck .two{display:grid;grid-template-columns:1.12fr 1fr;gap:64px;align-items:start}
+.noodle-deck .three{display:grid;grid-template-columns:1.12fr 1fr .98fr;gap:44px}
+.noodle-deck .block{padding-top:28px;border-top:2px solid var(--border-strong)}
+.noodle-deck .block.focal{border-color:var(--accent)}
+.noodle-deck .statement{font-size:42px;line-height:1.5;font-weight:600;max-width:1400px;color:var(--text-1)}
+.noodle-deck .term{font-family:var(--font-mono);font-size:23px}
+.noodle-deck .diagram-layout{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:48px;flex:1;min-height:0;align-items:center}
+.noodle-deck .img-frame{border-radius:var(--radius-sm);box-shadow:none;background:var(--bg);margin:0;min-width:0}
+.noodle-deck .diagram-frame{aspect-ratio:auto;height:774px;width:100%;border:0}
+.noodle-deck .diagram-frame img{object-fit:contain}
+.noodle-deck .diagram-rail{align-self:center;border-left:3px solid var(--accent);padding-left:30px}
+.noodle-deck .diagram-rail h3{font-size:30px}
+.noodle-deck .diagram-rail p{font-size:26px;line-height:1.65;margin-bottom:30px}
+.noodle-deck .diagram-rail p:last-child{margin-bottom:0}
+.noodle-deck .diagram-rail .small{font-size:21px}
+.noodle-deck .screen-layout{flex:1;min-height:0;display:flex;flex-direction:column;gap:16px;align-items:center}
+.noodle-deck .screen-frame{aspect-ratio:16/9;width:1332px;height:749.25px;border:1px solid var(--border)}
+.noodle-deck .screen-caption{width:1332px;display:flex;justify-content:space-between;gap:32px;line-height:1.5}
+.noodle-deck .screen-caption p{font-size:22px;margin:0}
+.noodle-deck .comparison-images{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:30px;flex:1;min-height:0;align-content:center}
+.noodle-deck .comparison-images .img-frame{aspect-ratio:16/9;width:100%;border:1px solid var(--border)}
+.noodle-deck .comparison-images h3{font-size:26px;margin-top:20px}
+.noodle-deck .cover{justify-content:center;gap:40px}
+.noodle-deck .cover h1{font-size:120px;line-height:1.05;letter-spacing:-.045em;font-weight:650;margin:0;color:var(--text-1)}
+.noodle-deck .cover-line{height:8px;width:112px;background:var(--accent);margin-bottom:4px}
+.noodle-deck .cover .lede{font-size:38px;max-width:1510px;line-height:1.6;margin:0}
+.noodle-deck .cover-flow{display:flex;gap:32px;align-items:center;margin-top:18px;font-size:28px;color:var(--text-2)}
+.noodle-deck .cover-flow i{font-style:normal;color:var(--accent)}
+.noodle-deck .cover-bottom{font-size:22px;color:var(--text-3);margin-top:20px}
+.noodle-deck .problem-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:72px;row-gap:48px}
+.noodle-deck .problem{display:grid;grid-template-columns:160px 1fr;gap:28px;padding:24px 0;border-bottom:1px solid var(--border)}
+.noodle-deck .problem h3{font-size:30px;margin:0}
+.noodle-deck .problem p{font-size:27px;margin:0}
+.noodle-deck table{width:100%;border-collapse:collapse;font-size:25px;text-align:left;line-height:1.65}
+.noodle-deck th{font-weight:600;color:var(--text-3);font-size:21px;border-bottom:2px solid var(--border-strong);padding:16px 22px}
+.noodle-deck td{padding:22px;border-bottom:1px solid var(--border);vertical-align:top}
+.noodle-deck .compact-table{font-size:22px;line-height:1.55}
+.noodle-deck .compact-table td{padding:13px 20px}
+.noodle-deck .tool-groups{display:grid;grid-template-columns:1fr 1fr;gap:36px 64px}
+.noodle-deck .tool-group{padding:22px 0;border-top:1px solid var(--border-strong)}
+.noodle-deck .tool-group p{font-size:25px;margin:0}
+.noodle-deck .tool-group h3{font-size:30px;margin-bottom:14px}
+.noodle-deck .write-tools{background:var(--accent-soft);border-left:4px solid var(--accent);padding:26px 32px;font-size:26px}
+.noodle-deck .edit-flow{display:flex;align-items:stretch;gap:18px;margin:40px 0}
+.noodle-deck .edit-step{flex:1;border:1px solid var(--border-strong);padding:30px 24px;border-radius:var(--radius-sm);font-size:28px;line-height:1.6}
+.noodle-deck .edit-step em{display:block;font-size:21px;font-style:normal;color:var(--text-3);margin-top:14px}
+.noodle-deck .edit-arrow{display:flex;align-items:center;font-size:28px;color:var(--text-3)}
+.noodle-deck .memory-row{display:grid;grid-template-columns:280px 1fr 1.15fr;gap:36px;align-items:center;padding:30px 0;border-bottom:1px solid var(--border);font-size:27px}
+.noodle-deck .memory-row b{font-size:30px;font-weight:600}
+.noodle-deck .memory-row span:last-child{color:var(--text-2)}
+.noodle-deck .citation-chain{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
+.noodle-deck .chain{display:flex;flex-direction:column;gap:18px}
+.noodle-deck .chain-item{font-size:27px;line-height:1.55;border-left:3px solid var(--border-strong);padding:16px 24px}
+.noodle-deck .chain-item strong{display:block;font-size:29px}
+.noodle-deck .chain-item span{font-family:var(--font-mono);font-size:21px;color:var(--text-3)}
+.noodle-deck .timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin:24px 0}
+.noodle-deck .time-step{border-top:4px solid var(--border-strong);padding:28px 20px 0 0}
+.noodle-deck .time-step.active{border-color:var(--accent)}
+.noodle-deck .time-step h3{font-size:30px}
+.noodle-deck .time-step p{font-size:26px}
+.noodle-deck .bar-row{display:grid;grid-template-columns:180px 1fr 260px;gap:28px;align-items:center;margin:25px 0;font-size:28px}
+.noodle-deck .bar-track{height:44px;background:var(--surface-2)}
+.noodle-deck .bar-fill{height:100%;background:var(--text-3)}
+.noodle-deck .bar-fill.after{background:var(--accent)}
+.noodle-deck .metric{font-size:90px;line-height:1.1;font-weight:600;color:var(--accent);margin-bottom:22px}
+.noodle-deck .metric-label{font-size:24px;color:var(--text-2)}
+.noodle-deck .roadmap{display:grid;grid-template-columns:1.1fr 1fr 1.05fr;gap:48px}
+.noodle-deck .roadmap>div{border-top:3px solid var(--border-strong);padding-top:28px}
+.noodle-deck .roadmap .future{border-color:var(--accent)}
+.noodle-deck .roadmap p{font-size:27px}
+.noodle-deck .notes{display:none!important}
+.deck-controls{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:25;opacity:.15;transition:opacity .2s}
+.deck-controls:hover,.deck-controls:focus-within{opacity:1}
+.deck-controls button{font:14px var(--font-sans);padding:8px 12px;border:1px solid var(--border-strong);background:var(--bg);color:var(--text-2);border-radius:var(--radius-sm);cursor:pointer}
+.deck-controls button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.noodle-deck .img-frame img{cursor:zoom-in}
+#image-dialog{border:1px solid var(--border);padding:44px 16px 16px;background:var(--bg);max-width:98vw;max-height:98vh;width:96vw;height:96vh;border-radius:var(--radius-sm)}
+#image-dialog::backdrop{background:color-mix(in srgb,var(--text-1) 80%,transparent)}
+#image-dialog img{width:100%;height:100%;object-fit:contain}
+.close-image{position:absolute;right:16px;top:10px;border:0;background:var(--bg);color:var(--text-2);font:18px var(--font-sans);cursor:pointer}
+body[data-preview="1"] .deck-controls{display:none}
+@media(prefers-reduced-motion:reduce){.noodle-deck .slide{transition:none}.deck-controls{transition:none}}
+@media print{.deck-controls,#image-dialog{display:none!important}.noodle-deck .slide{padding:40px!important}.noodle-deck .slide-head{min-height:80px}.noodle-deck .diagram-frame{height:65vh}.noodle-deck .screen-frame{height:65vh;width:100%}.noodle-deck .screen-caption{width:100%}}

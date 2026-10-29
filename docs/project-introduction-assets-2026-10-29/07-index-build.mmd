@@ -1,0 +1,17 @@
+flowchart LR
+    A["当前有效 Atomic / Concept（读取当前发布版本）"]
+    B["按小节编译 Chunk（范围、偏移、hash 与来源证据）"]
+    C["生成全文检索词（标题 / 正文 → FTS5）"]
+    D["复用向量或批量 Embedding（按 profile + 内容 hash 缓存）"]
+    E["归一化 float32 向量（矩阵、缓存与校验文件）"]
+    F["构建索引代与 manifest（全文投影 + 向量 + Chunk 元数据）"]
+    G["发布前检查（来源资格、版本、profile 与覆盖）"]
+    H["原子激活索引 head（查询使用同一索引快照）"]
+    A --> B
+    B --> C
+    B --> D
+    D --> E
+    C --> F
+    E --> F
+    F --> G
+    G --> H

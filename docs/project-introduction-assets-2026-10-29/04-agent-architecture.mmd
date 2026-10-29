@@ -1,0 +1,26 @@
+flowchart LR
+    W["用户 / Web 工作台（阅读、上传与右侧助手）"]
+    B["FastAPI 会话桥（RPC 白名单 / scope / rpcId）"]
+    H["DeepSeek Harness（Agent Loop / Session）"]
+    T["17 个领域工具（13 读 / 4 个审批写操作）"]
+    P["TypeScript HTTP Provider（统一状态、引用与追踪头）"]
+    A["FastAPI /internal/next（参数、范围和请求校验）"]
+    D["Python 领域服务（知识演化 / RAG / 版本发布）"]
+    DB["SQLite（身份 / 版本 / 事件 / 任务 / 证据）"]
+    FS["不可变正文与本地资产（PDF / Markdown / 检查点）"]
+    Q["独立 Worker（租约、心跳与阶段恢复）"]
+    M["解析与模型服务（MinerU / 文本 / 视觉 / Embedding）"]
+    I["全文与向量索引（FTS5 / ExactVectors）"]
+    W --> B
+    B -->|会话 RPC| H
+    H --> T
+    T --> P
+    P --> A
+    A --> D
+    W -->|资料与阅读请求| A
+    D --> DB
+    D --> FS
+    D --> I
+    DB -.->|领取任务| Q
+    Q --> D
+    Q --> M

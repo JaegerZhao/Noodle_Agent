@@ -19,6 +19,18 @@ class Checkpoints:
         self._guard = Lock()
         self._stage_locks = {}
 
+    def exists(self, stage: str) -> bool:
+        with self.repository.db.engine.connect() as c:
+            return (
+                one(
+                    c,
+                    "SELECT 1 FROM job_checkpoints WHERE job_id=:job AND stage=:stage AND state='DONE'",
+                    job=self.lease.job_id,
+                    stage=stage,
+                )
+                is not None
+            )
+
     def load(self, stage: str, inputs: dict):
         with self.repository.db.engine.connect() as c:
             row = one(
@@ -36,6 +48,39 @@ class Checkpoints:
                 f"Uncertain external submission: {stage}; inspect provider before retrying"
             )
         return json.loads(self.repository.read(row["artifact_ref"], row["artifact_sha256"]))
+
+    def operator_recovery(self, stages: list[str]):
+        """Only an explicit retry newer than these failed receipts permits fresh calls."""
+        if not stages:
+            return None
+        with self.repository.db.engine.connect() as c:
+            event = one(
+                c,
+                "SELECT id,created_at,payload_json FROM events WHERE event_type='JOB_RETRY_REQUESTED' AND entity_id=:job ORDER BY created_at DESC,id DESC LIMIT 1",
+                job=self.lease.job_id,
+            )
+            params = {f"s{i}": stage for i, stage in enumerate(stages)}
+            placeholders = ",".join(":" + key for key in params)
+            latest = one(
+                c,
+                f"SELECT max(created_at) AS created_at,max(rowid) AS sequence FROM job_checkpoints WHERE job_id=:job AND state='DONE' AND stage IN ({placeholders})",
+                job=self.lease.job_id,
+                **params,
+            )
+        if not event or not latest["created_at"]:
+            return None
+        payload = json.loads(event["payload_json"])
+        watermark = payload.get("checkpoint_watermark")
+        if watermark is not None:
+            if latest["sequence"] > watermark:
+                return None
+        elif event["created_at"] <= latest["created_at"]:
+            return None
+        recovery = {"event_id": event["id"]}
+        # Historical retries included a reason in checkpoint input hashes.
+        if "reason" in payload:
+            recovery["reason"] = payload["reason"]
+        return recovery
 
     def intent(self, stage: str, inputs: dict):
         with self.repository.transaction() as c:

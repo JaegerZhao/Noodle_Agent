@@ -1,0 +1,25 @@
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are the Noodle personal knowledge assistant. Use the registered Noodle
+      domain tools for current notes, evidence, source readiness and requested edits.
+      Ordinary knowledge questions use the answer tool once; use search when the user
+      wants to locate or inspect material. Navigation maps are not factual evidence.
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+    toolResultPruner: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import os
 import re
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from ..storage.database import Database
 from .contracts import canonical, sha
@@ -23,12 +25,28 @@ class InvalidKnowledge(ValueError):
     """Content lacks current, valid support or violates a domain constraint."""
 
 
+def storage_busy(exc):
+    return isinstance(exc, OperationalError) and any(value in str(exc.orig).lower()
+        for value in ('database is locked', 'database table is locked', 'database is busy'))
+
+
 def identifier() -> str:
     return str(uuid.uuid4())
 
 
 def now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def storage_path_key(path: Path) -> Path:
+    """Windows may resolve the same path with or without its extended prefix."""
+    value = str(path)
+    if os.name == 'nt':
+        if value[:8].upper() == '\\\\?\\UNC\\':
+            value = '\\\\' + value[8:]
+        elif re.match(r'^\\\\\?\\[A-Za-z]:\\', value):
+            value = value[4:]
+    return Path(value)
 
 
 def one(connection, sql: str, **params):
@@ -71,7 +89,15 @@ class Repository:
     @contextmanager
     def transaction(self):
         with self.db.engine.connect() as connection:
-            connection.exec_driver_sql("BEGIN IMMEDIATE")
+            for attempt in range(5):
+                try:
+                    connection.exec_driver_sql("BEGIN IMMEDIATE")
+                    break
+                except OperationalError as exc:
+                    connection.rollback()
+                    if not storage_busy(exc) or attempt == 4:
+                        raise
+                    time.sleep(min(1, .1 * 2**attempt))
             try:
                 yield connection
                 connection.commit()
@@ -81,7 +107,7 @@ class Repository:
 
     def path(self, ref: str) -> Path:
         result = (self.root / ref).resolve()
-        if Path(ref).is_absolute() or not result.is_relative_to(self.root):
+        if Path(ref).is_absolute() or not storage_path_key(result).is_relative_to(storage_path_key(self.root)):
             raise InvalidKnowledge("Storage reference escapes root")
         return result
 
@@ -98,9 +124,21 @@ class Repository:
                 stream.write(content)
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.replace(temporary, path)
+            # Publish a fully written inode without replacing another worker's
+            # immutable file. On Windows replacing a file concurrently opened
+            # for reading can raise PermissionError, even for identical bytes.
+            try:
+                os.link(temporary, path)
+            except FileExistsError:
+                if path.is_symlink() or path.read_bytes() != content:
+                    raise InvalidKnowledge("Immutable file differs") from None
         finally:
-            temporary.unlink(missing_ok=True)
+            try:
+                temporary.unlink(missing_ok=True)
+            except PermissionError:
+                # NTFS may temporarily hold the same inode through its published
+                # name. A leftover private temp file is not a publication error.
+                pass
 
     def read(self, ref: str, expected_hash: str) -> bytes:
         content = self.path(ref).read_bytes()

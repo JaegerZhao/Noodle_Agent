@@ -1,3 +1,4 @@
+import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -133,3 +134,37 @@ def test_repeated_worker_crashes_are_bounded(store):
     assert store.jobs.claim("worker", kind="CRASH") is None
     with store.db.engine.connect() as connection:
         assert one(connection, "SELECT status FROM jobs WHERE id=:id", id=job)["status"] == "REVIEW"
+
+
+@pytest.mark.parametrize('body', [None, {}])
+def test_retry_api_needs_no_reason_and_rejects_duplicate_requests(store, body):
+    from fastapi.testclient import TestClient
+
+    from noodle_agent.next.api import create_app
+    from noodle_agent.next.runtime import Application
+
+    job_id = store.jobs.enqueue(event_id(store), 'INGEST', {'revision': 'unchanged'})
+    lease = store.jobs.claim('test', kind='INGEST')
+    store.jobs.fail(lease, {'code': 'INSPECTED_FAILURE'}, retry=False)
+    with TestClient(create_app(application=Application(store, index_mode='KEYWORD_ONLY'))) as client:
+        url = f'/internal/next/jobs/{job_id}/retry'
+        kwargs = {} if body is None else {'json': body}
+        response = client.post(url, **kwargs)
+        assert response.status_code == 200
+        assert response.json() == {'job_id': job_id, 'status': 'PENDING'}
+        assert client.post(url).status_code == 409
+        assert client.post('/internal/next/jobs/missing/retry').status_code == 409
+        schema = client.get('/openapi.json').json()['paths']['/internal/next/jobs/{identity}/retry']
+        assert 'requestBody' not in schema['post']
+    with store.db.engine.connect() as connection:
+        job = one(connection, 'SELECT * FROM jobs WHERE id=:id', id=job_id)
+        assert job['attempts'] == 0
+        assert json.loads(job['input_json']) == {'revision': 'unchanged'}
+        events = connection.exec_driver_sql(
+            "SELECT payload_json FROM events WHERE event_type='JOB_RETRY_REQUESTED'"
+        ).fetchall()
+        assert len(events) == 1
+        audit = json.loads(events[0][0])
+        assert audit['previous_error']['code'] == 'INSPECTED_FAILURE'
+        assert audit['previous_attempts'] == 1
+        assert 'reason' not in audit

@@ -37,6 +37,10 @@ def numeric(value):
                 return (-1 if isinstance(node.op, ast.USub) else 1) * visit(node.operand)
             if isinstance(node, ast.BinOp) and type(node.op) in OPS:
                 left, right = visit(node.left), visit(node.right)
+                # 0**0 has context-dependent conventions (e.g. the L0
+                # pseudo-norm). Python's value is not a mathematical verdict.
+                if isinstance(node.op, ast.Pow) and left == right == 0:
+                    raise ValueError("Context-dependent zero power")
                 if isinstance(node.op, ast.Pow) and abs(right) > 100:
                     raise ValueError("Exponent budget exceeded")
                 result = OPS[type(node.op)](left, right)

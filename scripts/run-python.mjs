@@ -14,8 +14,8 @@ const args = {
   test: ['-m', 'pytest', './services/noodle/tests', '--basetemp', join(runtime, `pytest-${randomUUID()}`), '-p', 'no:cacheprovider'],
   lint: ['-m', 'ruff', 'check', './services/noodle/src', './services/noodle/tests'],
   delivery: [join(root, 'scripts/delivery-check.py')],
-  upgrade: ['-m', 'noodle_agent.cli', 'db-upgrade'],
-  status: ['-m', 'noodle_agent.cli', 'db-status'],
+  upgrade: ['-m', 'noodle_agent.cli', 'db-upgrade', '--data-dir', env.NOODLE_DATA_DIR],
+  status: ['-m', 'noodle_agent.cli', 'db-status', '--data-dir', env.NOODLE_DATA_DIR],
 }[task]
 if (!args) throw new Error('Unknown Python task')
 process.exitCode = await run(python, args, { env, cwd: ['api', 'worker', 'upgrade', 'status'].includes(task) ? cwd : root })

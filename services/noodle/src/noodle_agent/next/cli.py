@@ -1,4 +1,4 @@
-"""Explicit opt-in commands for the isolated rebuild, before legacy composition."""
+"""Current generation, recovery and inspection commands for next-v1 stores."""
 
 import json
 import time
@@ -30,7 +30,6 @@ def configure(sub):
     )
     retry.add_argument("--data-dir", type=Path, required=True)
     retry.add_argument("--job-id", required=True)
-    retry.add_argument("--reason", required=True)
     rebuild = sub.add_parser(
         "next-rebuild",
         help="Rebuild all atomics of a completed job, retaining parse and plan receipts",
@@ -77,7 +76,7 @@ def run(args, emit):
                 rebuild=True,
             )
             # If interrupted between these transactions, next-retry safely resumes REVIEW.
-            store.jobs.retry_review(args.job_id, reason=args.reason)
+            store.jobs.retry_review(args.job_id)
             emit(
                 {
                     "job_id": args.job_id,
@@ -93,7 +92,7 @@ def run(args, emit):
             emit(verify_generation(store, args.job_id))
             return
         if args.command == "next-retry":
-            store.jobs.retry_review(args.job_id, reason=args.reason)
+            store.jobs.retry_review(args.job_id)
             emit({"job_id": args.job_id, "status": "PENDING", "checkpoints": "preserved"})
             return
         if args.command == "next-ingest":

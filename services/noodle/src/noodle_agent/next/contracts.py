@@ -74,13 +74,25 @@ class MapEntry(Contract):
     description: str = ""
 
 
+class EntityHints(Contract):
+    intent: Literal["EXPLAIN", "COMPARE", "OVERVIEW", "SUMMARY"] = "EXPLAIN"
+    subject: str = ""
+    subjects: list[Text] = Field(default_factory=list)
+    context: str = ""
+
+
 class Link(Contract):
     from_section_id: Id | None = None
     target_note_id: Id
     target_section_id: Id | None = None
-    relation: Literal["LINKS_TO", "PREREQUISITE_OF", "RELATED_TO", "COMPARES_WITH", "CONTRADICTS"]
+    relation: Literal["LINKS_TO", "PREREQUISITE_OF", "RELATED_TO", "COMPARES_WITH", "CONTRADICTS", 'USES', 'VARIANT_OF']
     status: Literal["CONFIRMED", "SUGGESTED"]
     basis: Text
+    navigation_role: Literal["TOPIC_CHILD", "TOPIC_PARENT"] | None = None
+    position: int | None = Field(default=None, ge=0)
+    support_revision_ids: list[Id] = Field(default_factory=list)
+    origin: Literal["AUTHOR", "SYSTEM"] | None = None
+    semantic_direction: Literal['OUTGOING', 'INCOMING'] | None = None
 
 
 class Candidate(Contract):
@@ -88,8 +100,10 @@ class Candidate(Contract):
     note_id: Id
     title: Text
     summary: str = ""
+    entity_hints: EntityHints | None = None
     scope: Scope
     sections: list[Section] = Field(min_length=1)
+    origin_source_revisions: list[Id] = Field(default_factory=list, max_length=100)
     map_entries: list[MapEntry] = Field(default_factory=list)
     map_policy: Literal["MANUAL", "AUTO", "SOURCE"] = "MANUAL"
     links: list[Link] = Field(default_factory=list)
@@ -98,6 +112,7 @@ class Candidate(Contract):
     @model_validator(mode="after")
     def unique_ids(self):
         for values in (
+            self.origin_source_revisions,
             [s.section_id for s in self.sections],
             [m.entry_id for m in self.map_entries],
         ):
@@ -107,7 +122,17 @@ class Candidate(Contract):
 
     @property
     def fingerprint(self) -> str:
-        return sha(canonical(self.model_dump()))
+        value = self.model_dump()
+        # Empty origins were implicit in earlier next-v1 receipts.
+        if not self.origin_source_revisions:
+            value.pop("origin_source_revisions")
+        if self.entity_hints is None:
+            value.pop("entity_hints", None)
+        for link in value["links"]:
+            for key in ("navigation_role", "position", "support_revision_ids", "origin", 'semantic_direction'):
+                if link.get(key) is None or link.get(key) == []:
+                    link.pop(key, None)
+        return sha(canonical(value))
 
 
 class Review(Contract):

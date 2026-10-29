@@ -1,6 +1,7 @@
 """Run the bundled front-end KaTeX engine before accepting generated Markdown."""
 
 import json
+import os
 import shutil
 import subprocess
 from importlib.resources import files
@@ -30,7 +31,7 @@ process.stdout.write(JSON.stringify({count,errors}));
 """
 
 
-def validate_math(markdown: str) -> dict:
+def validate_math(markdown: str, *, check_arithmetic=True) -> dict:
     if "$" not in markdown and r"\(" not in markdown and r"\[" not in markdown:
         return {"count": 0, "errors": []}
     node = shutil.which("node")
@@ -46,6 +47,7 @@ def validate_math(markdown: str) -> dict:
             encoding="utf-8",
             timeout=20,
             check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise QualityFailure("KaTeX validation could not complete") from exc
@@ -56,5 +58,8 @@ def validate_math(markdown: str) -> dict:
         raise QualityFailure(
             "KaTeX rendering errors: " + json.dumps(report["errors"], ensure_ascii=False)
         )
-    report["arithmetic_checks"] = validate_arithmetic(markdown)
+    if check_arithmetic:
+        report["arithmetic_checks"] = validate_arithmetic(markdown)
+    else:
+        report['arithmetic_check_policy'] = 'MODEL_REVIEW_ONLY'
     return report

@@ -1,0 +1,2036 @@
+[
+  {
+    "slug": "01-knowledge-evolution",
+    "title": "知识演化完整流程",
+    "width": 896,
+    "height": 552,
+    "nodes": [
+      {
+        "id": "A",
+        "x": 40,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "PDF 上传与来源版本",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "B",
+        "x": 336,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "MinerU 解析",
+        "sub": "或复用兼容缓存",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "C",
+        "x": 632,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "类型识别与目录规划",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "D",
+        "x": 632,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "必要视觉证据",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "E",
+        "x": 336,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "Atomic 写作",
+        "sub": "逐节有限审查",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "F",
+        "x": 40,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "发布 Atomic",
+        "sub": "",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "G",
+        "x": 40,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "Atomic 索引与浏览",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "H",
+        "x": 336,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "Concept 归属与构建",
+        "sub": "",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "I",
+        "x": 632,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "Concept 索引",
+        "sub": "结构维护",
+        "focal": false,
+        "store": false
+      }
+    ],
+    "edges": [
+      {
+        "source": "A",
+        "target": "B",
+        "points": [
+          [
+            264,
+            84
+          ],
+          [
+            336,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "C",
+        "points": [
+          [
+            560,
+            84
+          ],
+          [
+            632,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "C",
+        "target": "D",
+        "points": [
+          [
+            744,
+            128
+          ],
+          [
+            744,
+            232
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "E",
+        "points": [
+          [
+            632,
+            276
+          ],
+          [
+            560,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "E",
+        "target": "F",
+        "points": [
+          [
+            336,
+            276
+          ],
+          [
+            264,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "F",
+        "target": "G",
+        "points": [
+          [
+            152,
+            320
+          ],
+          [
+            152,
+            424
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "F",
+        "target": "H",
+        "points": [
+          [
+            264,
+            300
+          ],
+          [
+            296,
+            300
+          ],
+          [
+            296,
+            468
+          ],
+          [
+            336,
+            468
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "H",
+        "target": "I",
+        "points": [
+          [
+            560,
+            468
+          ],
+          [
+            632,
+            468
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      }
+    ]
+  },
+  {
+    "slug": "02-atomic-generation",
+    "title": "PDF 到 Atomic、笔记组织与索引",
+    "width": 896,
+    "height": 608,
+    "nodes": [
+      {
+        "id": "A",
+        "x": 40,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "PDF 与来源登记",
+        "sub": "稳定 source_id / 来源版本",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "B",
+        "x": 336,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "解析并保存来源证据",
+        "sub": "正文块 · 公式 · 图片 · 页码",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "C",
+        "x": 632,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "资料识别与主题规划",
+        "sub": "书籍分章；课件与论文聚合",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "D",
+        "x": 632,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "按需视觉识别",
+        "sub": "原生文本不足或图表待理解",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "E",
+        "x": 336,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "构建 Atomic 草稿",
+        "sub": "多小节 · 图文 · 来源分配",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "F",
+        "x": 40,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "逐节审查与有限修复",
+        "sub": "Flash 一次审查 / 一次修复",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "G",
+        "x": 40,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "版本校验与 Atomic 发布",
+        "sub": "正文、资产和证据一起提交",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "H",
+        "x": 336,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "资料内笔记组织",
+        "sub": "书籍目录 / 小节顺序 / MOC",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "I",
+        "x": 632,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "Atomic 索引构建",
+        "sub": "Chunk → Embedding → 索引代",
+        "focal": false,
+        "store": false
+      }
+    ],
+    "edges": [
+      {
+        "source": "A",
+        "target": "B",
+        "points": [
+          [
+            264,
+            84
+          ],
+          [
+            336,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "C",
+        "points": [
+          [
+            560,
+            84
+          ],
+          [
+            632,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "C",
+        "target": "D",
+        "points": [
+          [
+            744,
+            128
+          ],
+          [
+            744,
+            232
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "E",
+        "points": [
+          [
+            632,
+            276
+          ],
+          [
+            560,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "E",
+        "target": "F",
+        "points": [
+          [
+            336,
+            276
+          ],
+          [
+            264,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "F",
+        "target": "G",
+        "points": [
+          [
+            152,
+            320
+          ],
+          [
+            152,
+            424
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "G",
+        "target": "H",
+        "points": [
+          [
+            264,
+            452
+          ],
+          [
+            336,
+            452
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "G",
+        "target": "I",
+        "points": [
+          [
+            152,
+            512
+          ],
+          [
+            152,
+            568
+          ],
+          [
+            744,
+            568
+          ],
+          [
+            744,
+            512
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      }
+    ]
+  },
+  {
+    "slug": "03-concept-maintenance",
+    "title": "Concept 归并、索引与结构维护",
+    "width": 896,
+    "height": 608,
+    "nodes": [
+      {
+        "id": "A",
+        "x": 40,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "读取有效 Atomic",
+        "sub": "冻结版本、小节与来源角色",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "B",
+        "x": 336,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "组装对象候选与上下文",
+        "sub": "名称 / 别名 / 已有绑定 / 核心覆盖",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "C",
+        "x": 632,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "对象身份判断",
+        "sub": "Pro：复用、新建或待解决",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "D",
+        "x": 632,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "分配小节贡献",
+        "sub": "新增 / 支持 / 阅读 / 上下文 / 冲突",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "E",
+        "x": 336,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "计算目标状态",
+        "sub": "有效贡献签名与 generation",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "F",
+        "x": 40,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "增量构建正文与媒体",
+        "sub": "复用已有核心；图片独立判断",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "G",
+        "x": 40,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "审查并发布 Concept",
+        "sub": "来源、版本、目标代次与租约校验",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "H",
+        "x": 336,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "Concept 向量与全文索引",
+        "sub": "仅纳入当前有效版本",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "I",
+        "x": 632,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "知识结构整理",
+        "sub": "关系类型、方向与知识体系",
+        "focal": false,
+        "store": false
+      }
+    ],
+    "edges": [
+      {
+        "source": "A",
+        "target": "B",
+        "points": [
+          [
+            264,
+            84
+          ],
+          [
+            336,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "C",
+        "points": [
+          [
+            560,
+            84
+          ],
+          [
+            632,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "C",
+        "target": "D",
+        "points": [
+          [
+            744,
+            128
+          ],
+          [
+            744,
+            232
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "E",
+        "points": [
+          [
+            632,
+            276
+          ],
+          [
+            560,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "E",
+        "target": "F",
+        "points": [
+          [
+            336,
+            276
+          ],
+          [
+            264,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "F",
+        "target": "G",
+        "points": [
+          [
+            152,
+            320
+          ],
+          [
+            152,
+            424
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "G",
+        "target": "H",
+        "points": [
+          [
+            264,
+            452
+          ],
+          [
+            336,
+            452
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "G",
+        "target": "I",
+        "points": [
+          [
+            152,
+            512
+          ],
+          [
+            152,
+            568
+          ],
+          [
+            744,
+            568
+          ],
+          [
+            744,
+            512
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "I",
+        "target": "H",
+        "points": [
+          [
+            632,
+            484
+          ],
+          [
+            560,
+            484
+          ]
+        ],
+        "label": "再索引",
+        "label_box": [
+          568,
+          452,
+          56,
+          24
+        ],
+        "dashed": true,
+        "d": ""
+      }
+    ]
+  },
+  {
+    "slug": "04-agent-architecture",
+    "title": "完整项目与 DSH 架构",
+    "width": 1320,
+    "height": 888,
+    "nodes": [
+      {
+        "id": "W",
+        "x": 40,
+        "y": 56,
+        "w": 232,
+        "h": 88,
+        "title": "用户 / Web 工作台",
+        "sub": "阅读、上传与右侧助手",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "B",
+        "x": 40,
+        "y": 232,
+        "w": 232,
+        "h": 88,
+        "title": "FastAPI 会话桥",
+        "sub": "RPC 白名单 / scope / rpcId",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "H",
+        "x": 368,
+        "y": 56,
+        "w": 232,
+        "h": 88,
+        "title": "DeepSeek Harness",
+        "sub": "Agent Loop / Session",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "T",
+        "x": 368,
+        "y": 232,
+        "w": 232,
+        "h": 88,
+        "title": "17 个领域工具",
+        "sub": "13 读 / 4 个审批写操作",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "P",
+        "x": 368,
+        "y": 408,
+        "w": 232,
+        "h": 88,
+        "title": "TypeScript HTTP Provider",
+        "sub": "统一状态、引用与追踪头",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "A",
+        "x": 704,
+        "y": 408,
+        "w": 232,
+        "h": 88,
+        "title": "FastAPI /internal/next",
+        "sub": "参数、范围和请求校验",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "D",
+        "x": 1000,
+        "y": 408,
+        "w": 232,
+        "h": 88,
+        "title": "Python 领域服务",
+        "sub": "知识演化 / RAG / 版本发布",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "DB",
+        "x": 1000,
+        "y": 240,
+        "w": 232,
+        "h": 88,
+        "title": "SQLite",
+        "sub": "身份 / 版本 / 事件 / 任务 / 证据",
+        "focal": false,
+        "store": true
+      },
+      {
+        "id": "FS",
+        "x": 1000,
+        "y": 584,
+        "w": 232,
+        "h": 88,
+        "title": "不可变正文与本地资产",
+        "sub": "PDF / Markdown / 检查点",
+        "focal": false,
+        "store": true
+      },
+      {
+        "id": "Q",
+        "x": 704,
+        "y": 584,
+        "w": 232,
+        "h": 88,
+        "title": "独立 Worker",
+        "sub": "租约、心跳与阶段恢复",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "M",
+        "x": 704,
+        "y": 760,
+        "w": 232,
+        "h": 88,
+        "title": "解析与模型服务",
+        "sub": "MinerU / 文本 / 视觉 / Embedding",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "I",
+        "x": 1000,
+        "y": 760,
+        "w": 232,
+        "h": 88,
+        "title": "全文与向量索引",
+        "sub": "FTS5 / ExactVectors",
+        "focal": false,
+        "store": true
+      }
+    ],
+    "edges": [
+      {
+        "source": "W",
+        "target": "B",
+        "points": [
+          [
+            156,
+            144
+          ],
+          [
+            156,
+            232
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "H",
+        "points": [
+          [
+            272,
+            276
+          ],
+          [
+            320,
+            276
+          ],
+          [
+            320,
+            100
+          ],
+          [
+            368,
+            100
+          ]
+        ],
+        "label": "会话 RPC",
+        "label_box": [
+          328,
+          168,
+          80,
+          24
+        ],
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "H",
+        "target": "T",
+        "points": [
+          [
+            484,
+            144
+          ],
+          [
+            484,
+            232
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "T",
+        "target": "P",
+        "points": [
+          [
+            484,
+            320
+          ],
+          [
+            484,
+            408
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "P",
+        "target": "A",
+        "points": [
+          [
+            600,
+            452
+          ],
+          [
+            704,
+            452
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "A",
+        "target": "D",
+        "points": [
+          [
+            936,
+            452
+          ],
+          [
+            1000,
+            452
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "W",
+        "target": "A",
+        "points": [
+          [
+            40,
+            100
+          ],
+          [
+            16,
+            100
+          ],
+          [
+            16,
+            528
+          ],
+          [
+            820,
+            528
+          ],
+          [
+            820,
+            496
+          ]
+        ],
+        "label": "资料与阅读请求",
+        "label_box": [
+          392,
+          496,
+          128,
+          24
+        ],
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "DB",
+        "points": [
+          [
+            1116,
+            408
+          ],
+          [
+            1116,
+            328
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "FS",
+        "points": [
+          [
+            1116,
+            496
+          ],
+          [
+            1116,
+            584
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "I",
+        "points": [
+          [
+            1232,
+            452
+          ],
+          [
+            1280,
+            452
+          ],
+          [
+            1280,
+            804
+          ],
+          [
+            1232,
+            804
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "DB",
+        "target": "Q",
+        "points": [],
+        "label": "领取任务",
+        "label_box": [
+          952,
+          520,
+          80,
+          24
+        ],
+        "dashed": true,
+        "d": "M 1232,284 H 1240 Q 1248,284 1248,292 V 544 Q 1248,552 1240,552 H 1124 a 8,8 0 0,0 -16,0 H 828 Q 820,552 820,560 V 584"
+      },
+      {
+        "source": "Q",
+        "target": "D",
+        "points": [
+          [
+            936,
+            628
+          ],
+          [
+            968,
+            628
+          ],
+          [
+            968,
+            476
+          ],
+          [
+            1000,
+            476
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "Q",
+        "target": "M",
+        "points": [
+          [
+            820,
+            672
+          ],
+          [
+            820,
+            760
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      }
+    ]
+  },
+  {
+    "slug": "05-rag-retrieval",
+    "title": "混合检索与引用回答",
+    "width": 1192,
+    "height": 528,
+    "nodes": [
+      {
+        "id": "Q",
+        "x": 40,
+        "y": 120,
+        "w": 224,
+        "h": 88,
+        "title": "问题、范围与实体提示",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "S",
+        "x": 336,
+        "y": 120,
+        "w": 224,
+        "h": 88,
+        "title": "索引快照与有效版本",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "L",
+        "x": 632,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "关键词召回",
+        "sub": "FTS5 / BM25",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "V",
+        "x": 632,
+        "y": 240,
+        "w": 224,
+        "h": 88,
+        "title": "向量召回",
+        "sub": "查询 Embedding / 余弦相似度",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "R",
+        "x": 928,
+        "y": 140,
+        "w": 224,
+        "h": 88,
+        "title": "RRF 排名融合",
+        "sub": "",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "C",
+        "x": 928,
+        "y": 400,
+        "w": 224,
+        "h": 88,
+        "title": "可选重排与证据包",
+        "sub": "去重、邻域扩展与按笔记限额",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "A",
+        "x": 632,
+        "y": 400,
+        "w": 224,
+        "h": 88,
+        "title": "生成引用回答",
+        "sub": "一次支持检查与有限修正",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "G",
+        "x": 336,
+        "y": 400,
+        "w": 224,
+        "h": 88,
+        "title": "引用、结构与当前性检查",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "O",
+        "x": 40,
+        "y": 400,
+        "w": 224,
+        "h": 88,
+        "title": "返回领域答案与引用",
+        "sub": "note / revision / section / PDF 页码",
+        "focal": false,
+        "store": false
+      }
+    ],
+    "edges": [
+      {
+        "source": "Q",
+        "target": "S",
+        "points": [
+          [
+            264,
+            164
+          ],
+          [
+            336,
+            164
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "S",
+        "target": "L",
+        "points": [
+          [
+            560,
+            144
+          ],
+          [
+            592,
+            144
+          ],
+          [
+            592,
+            84
+          ],
+          [
+            632,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "S",
+        "target": "V",
+        "points": [
+          [
+            560,
+            184
+          ],
+          [
+            608,
+            184
+          ],
+          [
+            608,
+            284
+          ],
+          [
+            632,
+            284
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "L",
+        "target": "R",
+        "points": [
+          [
+            856,
+            84
+          ],
+          [
+            896,
+            84
+          ],
+          [
+            896,
+            164
+          ],
+          [
+            928,
+            164
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "V",
+        "target": "R",
+        "points": [
+          [
+            856,
+            284
+          ],
+          [
+            880,
+            284
+          ],
+          [
+            880,
+            196
+          ],
+          [
+            928,
+            196
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "R",
+        "target": "C",
+        "points": [
+          [
+            1040,
+            228
+          ],
+          [
+            1040,
+            400
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "C",
+        "target": "A",
+        "points": [
+          [
+            928,
+            444
+          ],
+          [
+            856,
+            444
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "A",
+        "target": "G",
+        "points": [
+          [
+            632,
+            444
+          ],
+          [
+            560,
+            444
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "G",
+        "target": "O",
+        "points": [
+          [
+            336,
+            444
+          ],
+          [
+            264,
+            444
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      }
+    ]
+  },
+  {
+    "slug": "06-invalidation",
+    "title": "删除、索引失效与恢复",
+    "width": 896,
+    "height": 552,
+    "nodes": [
+      {
+        "id": "A",
+        "x": 40,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "删除、撤回或替换来源",
+        "sub": "",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "B",
+        "x": 336,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "更新当前有效资格",
+        "sub": "撤回时先过滤；恢复时重新核验",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "C",
+        "x": 632,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "按贡献依赖重整 Concept",
+        "sub": "重算正文、媒体与关系支持",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "D",
+        "x": 632,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "请求索引维护",
+        "sub": "合并待处理索引需求",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "E",
+        "x": 336,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "重建当前有效 Chunk 集合",
+        "sub": "失效 Chunk 不进入新索引代",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "F",
+        "x": 40,
+        "y": 232,
+        "w": 224,
+        "h": 88,
+        "title": "校验并激活新索引代",
+        "sub": "旧向量可留作历史，查询不再使用",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "G",
+        "x": 40,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "恢复来源或笔记",
+        "sub": "重算依赖并重新索引",
+        "focal": false,
+        "store": false
+      }
+    ],
+    "edges": [
+      {
+        "source": "A",
+        "target": "B",
+        "points": [
+          [
+            264,
+            84
+          ],
+          [
+            336,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "C",
+        "points": [
+          [
+            560,
+            84
+          ],
+          [
+            632,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "C",
+        "target": "D",
+        "points": [
+          [
+            744,
+            128
+          ],
+          [
+            744,
+            232
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "D",
+        "points": [
+          [
+            560,
+            108
+          ],
+          [
+            592,
+            108
+          ],
+          [
+            592,
+            212
+          ],
+          [
+            684,
+            212
+          ],
+          [
+            684,
+            232
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "E",
+        "points": [
+          [
+            632,
+            276
+          ],
+          [
+            560,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "E",
+        "target": "F",
+        "points": [
+          [
+            336,
+            276
+          ],
+          [
+            264,
+            276
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "G",
+        "target": "B",
+        "points": [
+          [
+            152,
+            424
+          ],
+          [
+            152,
+            372
+          ],
+          [
+            304,
+            372
+          ],
+          [
+            304,
+            164
+          ],
+          [
+            448,
+            164
+          ],
+          [
+            448,
+            128
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      }
+    ]
+  },
+  {
+    "slug": "07-index-build",
+    "title": "全文与向量索引构建",
+    "width": 1240,
+    "height": 552,
+    "nodes": [
+      {
+        "id": "A",
+        "x": 40,
+        "y": 120,
+        "w": 224,
+        "h": 88,
+        "title": "当前有效 Atomic / Concept",
+        "sub": "读取当前发布版本",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "B",
+        "x": 336,
+        "y": 120,
+        "w": 224,
+        "h": 88,
+        "title": "按小节编译 Chunk",
+        "sub": "范围、偏移、hash 与来源证据",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "C",
+        "x": 632,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "生成全文检索词",
+        "sub": "标题 / 正文 → FTS5",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "D",
+        "x": 632,
+        "y": 240,
+        "w": 224,
+        "h": 88,
+        "title": "复用向量或批量 Embedding",
+        "sub": "按 profile + 内容 hash 缓存",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "E",
+        "x": 928,
+        "y": 240,
+        "w": 224,
+        "h": 88,
+        "title": "归一化 float32 向量",
+        "sub": "矩阵、缓存与校验文件",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "F",
+        "x": 928,
+        "y": 40,
+        "w": 224,
+        "h": 88,
+        "title": "构建索引代与 manifest",
+        "sub": "全文投影 + 向量 + Chunk 元数据",
+        "focal": false,
+        "store": false
+      },
+      {
+        "id": "G",
+        "x": 928,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "发布前检查",
+        "sub": "来源资格、版本、profile 与覆盖",
+        "focal": true,
+        "store": false
+      },
+      {
+        "id": "H",
+        "x": 632,
+        "y": 424,
+        "w": 224,
+        "h": 88,
+        "title": "原子激活索引 head",
+        "sub": "查询使用同一索引快照",
+        "focal": true,
+        "store": false
+      }
+    ],
+    "edges": [
+      {
+        "source": "A",
+        "target": "B",
+        "points": [
+          [
+            264,
+            164
+          ],
+          [
+            336,
+            164
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "C",
+        "points": [
+          [
+            560,
+            144
+          ],
+          [
+            592,
+            144
+          ],
+          [
+            592,
+            84
+          ],
+          [
+            632,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "B",
+        "target": "D",
+        "points": [
+          [
+            560,
+            184
+          ],
+          [
+            608,
+            184
+          ],
+          [
+            608,
+            284
+          ],
+          [
+            632,
+            284
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "D",
+        "target": "E",
+        "points": [
+          [
+            856,
+            284
+          ],
+          [
+            928,
+            284
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "C",
+        "target": "F",
+        "points": [
+          [
+            856,
+            84
+          ],
+          [
+            928,
+            84
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "E",
+        "target": "F",
+        "points": [
+          [
+            1040,
+            240
+          ],
+          [
+            1040,
+            128
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "F",
+        "target": "G",
+        "points": [
+          [
+            1152,
+            84
+          ],
+          [
+            1200,
+            84
+          ],
+          [
+            1200,
+            468
+          ],
+          [
+            1152,
+            468
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      },
+      {
+        "source": "G",
+        "target": "H",
+        "points": [
+          [
+            928,
+            468
+          ],
+          [
+            856,
+            468
+          ]
+        ],
+        "label": "",
+        "label_box": null,
+        "dashed": false,
+        "d": ""
+      }
+    ]
+  }
+]

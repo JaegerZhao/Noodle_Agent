@@ -1,8 +1,8 @@
 import { healProfilesModuleFallback } from '@deepseek-ai/dsh-app-boot'
-import { mkdir, rm, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile, readFile, cp, access, lstat, readlink, symlink, unlink } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 process.env.DSH_WEB_PORT ||= process.env.NOODLE_DSH_WEB_PORT || '3080'
 
@@ -10,8 +10,17 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const runtimeDir = resolve(process.env.NOODLE_RUNTIME_DIR ?? join(root, '.runtime'))
 const localRuntimeDir = join(runtimeDir, 'local')
 const harnessStatePath = join(localRuntimeDir, 'harness.json')
-const dshHome = process.env.DSH_HOME ?? join(runtimeDir, 'dsh-home')
-const pluginPath = pathToFileURL(join(root, 'dist', 'index.js')).href
+const knowledgeProfile = (process.env.NOODLE_DSH_PROFILE ?? 'knowledge') === 'knowledge'
+const dshHome = process.env.DSH_HOME ?? join(runtimeDir, knowledgeProfile ? 'dsh-knowledge' : 'dsh-home')
+if (knowledgeProfile) {
+  await mkdir(dshHome, { recursive: true })
+  const preset = join(dshHome, '.agent-presets', 'noodle-knowledge')
+  try { await access(preset) } catch { await cp(join(root, 'config/agent-presets/noodle-knowledge'), preset, { recursive: true, errorOnExist: true, force: false }) }
+  if (!process.env.DSH_HOME) {
+    try { await access(join(dshHome, 'settings.yaml')) } catch { await writeFile(join(dshHome, 'settings.yaml'), 'agent-presets:\n  default: noodle-knowledge\n', { flag: 'wx' }) }
+  }
+}
+const pluginRoot = dirname(dirname(resolve(process.env.NOODLE_PLUGIN_MODULE || join(root, 'dist', 'index.js'))))
 const patchPath = join(runtimeDir, 'noodle.overlay.yml')
 await mkdir(localRuntimeDir, { recursive: true })
 // Profile roots may live outside the checkout. Use Harness's supported
@@ -23,7 +32,20 @@ await writeFile(providerManifest, JSON.stringify({ dependencies: {
   ...packageManifest.dependencies, ...packageManifest.devDependencies,
 } }))
 try { healProfilesModuleFallback(providerManifest, dshHome) } finally { await rm(providerManifest, { force: true }) }
-await writeFile(patchPath, `- insert:\n    - id: noodle-domain-agent\n      name: '${pluginPath.replaceAll("'", "''")}'\n      config:\n        baseUrl: !!js process.env.NOODLE_API_BASE_URL || 'http://127.0.0.1:8000'\n        apiPrefix: !!js process.env.NOODLE_API_PREFIX || '/internal/v1'\n        timeoutMs: !!js Number(process.env.NOODLE_API_TIMEOUT_MS || 120000)\n        maxBodyChars: 12000\n        workspacePath: '${(process.env.NOODLE_HARNESS_WORKSPACE ?? root).replaceAll("'", "''")}'\n        workspaceTitle: Noodle Agent\n`, 'utf8')
+// A package entry (rather than a file URL) lets Harness discover its dsh.client
+// metadata. The managed junction pins both host and client to the same release.
+const pluginLink = join(dshHome, 'profiles', 'node_modules', '@noodle', 'agent')
+await mkdir(dirname(pluginLink), { recursive: true })
+try {
+  const existing = await lstat(pluginLink)
+  if (!existing.isSymbolicLink()) throw new Error('Noodle profile package link is occupied by a real directory')
+  if (resolve(await readlink(pluginLink)) !== pluginRoot) await unlink(pluginLink)
+} catch (error) { if (error.code !== 'ENOENT') throw error }
+try { await lstat(pluginLink) } catch (error) {
+  if (error.code !== 'ENOENT') throw error
+  await symlink(pluginRoot, pluginLink, process.platform === 'win32' ? 'junction' : 'dir')
+}
+await writeFile(patchPath, `- insert:\n    - id: noodle-domain-agent\n      name: '@noodle/agent'\n      config:\n        baseUrl: !!js process.env.NOODLE_API_BASE_URL || 'http://127.0.0.1:8000'\n        apiPrefix: !!js process.env.NOODLE_API_PREFIX || '/internal/next'\n        retrievalMode: !!js process.env.NOODLE_NEXT_RETRIEVAL_MODE || 'HYBRID'\n        timeoutMs: !!js Number(process.env.NOODLE_API_TIMEOUT_MS || 120000)\n        maxBodyChars: 12000\n        workspacePath: '${(process.env.NOODLE_HARNESS_WORKSPACE ?? root).replaceAll("'", "''")}'\n        workspaceTitle: Noodle Agent\n`, 'utf8')
 
 const dshBin = join(root, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const dshArgs = [dshBin, 'web', '--patch', patchPath, '--no-open']
@@ -33,6 +55,7 @@ const child = spawn(process.execPath, dshArgs, {
   cwd: process.env.NOODLE_LAUNCH_CWD ?? root,
   env: { ...process.env, DSH_HOME: dshHome },
   stdio: 'inherit',
+  windowsHide: true,
 })
 await writeFile(harnessStatePath, JSON.stringify({
   supervisor: process.pid,

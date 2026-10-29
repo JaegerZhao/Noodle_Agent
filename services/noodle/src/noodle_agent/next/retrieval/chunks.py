@@ -4,9 +4,9 @@ import re
 
 from ..contracts import canonical, sha
 from ..repository import rows
-from ..segmentation import ranges, tokens
+from ..segmentation import retrieval_ranges, tokens
 
-CHUNK_POLICY = "semantic-cl100k-v1"
+CHUNK_POLICY = "semantic-cl100k-v2-short600-tail100"
 
 
 def compile_chunks(store, note):
@@ -22,9 +22,28 @@ def compile_chunks(store, note):
                 r=revision,
             )
         ]
+        origins = [
+            r["sha256"]
+            for r in rows(
+                c,
+                "SELECT sr.sha256 FROM author_origin_sources ao JOIN source_revisions sr ON sr.id=ao.source_revision_id WHERE ao.revision_id=:r",
+                r=revision,
+            )
+        ]
+        origin_by_source = {}
+        for row in rows(
+            c,
+            "SELECT DISTINCT e.source_revision_id,sr.sha256 FROM concept_inputs ci JOIN author_origin_sources ao ON ao.revision_id=ci.atomic_revision_id JOIN source_revisions sr ON sr.id=ao.source_revision_id JOIN section_evidence se ON se.revision_id=ci.atomic_revision_id JOIN evidence_anchors e ON e.id=se.evidence_id WHERE ci.concept_revision_id=:r",
+            r=revision,
+        ):
+            origin_by_source.setdefault(row["source_revision_id"], []).append(row["sha256"])
+        for item in evidence:
+            families = origins or origin_by_source.get(item["source_revision_id"], [])
+            if families:
+                item["source_families"] = families
     for section in note["sections"]:
         start, end = section["start_offset"], section["end_offset"]
-        for a, b in ranges(body[start:end]):
+        for a, b in retrieval_ranges(body[start:end]):
             value = body[start + a : start + b]
             refs = [e for e in evidence if e["section_id"] == section["section_id"]]
             identity = {

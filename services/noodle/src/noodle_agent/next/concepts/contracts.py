@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 
 from ..contracts import Contract, Id, Scope, Text
 
@@ -11,6 +11,15 @@ class Identity(Contract):
     identity_key: Id
     question: Text
     scope: Scope
+
+    @field_validator("scope")
+    @classmethod
+    def automatic_identity_scope(cls, value):
+        # Automatic identities can start with partial coverage. Absence in the
+        # first fragment must not permanently forbid later chapters. Object,
+        # domain and question still constrain routing; factual conditions stay
+        # in the source-supported sections. Manual chapter protection is separate.
+        return value.model_copy(update={"excludes": []})
 
 
 class Decision(Contract):
@@ -31,6 +40,21 @@ class Decision(Contract):
     proposal: Identity | None = None
     role: Literal["SUPPORT", "EXAMPLE", "CONTRAST", "CONFLICT"] = "SUPPORT"
     reason: Text
+
+    @model_validator(mode="before")
+    @classmethod
+    def canonical_section_proposal(cls, value):
+        if not isinstance(value, dict) or not isinstance(value.get("proposal"), dict):
+            return value
+        result, proposal = dict(value), dict(value["proposal"])
+        for key in ("section_title", "section_question", "role"):
+            if key in proposal:
+                nested = proposal.pop(key)
+                if result.get(key) not in (None, "", nested):
+                    raise ValueError("Conflicting Concept section proposal: " + key)
+                result[key] = nested
+        result["proposal"] = proposal
+        return result
 
 
 class Check(Contract):

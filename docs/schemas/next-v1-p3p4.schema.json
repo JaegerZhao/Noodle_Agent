@@ -180,6 +180,18 @@
           },
           "title": "Provenance",
           "type": "array"
+        },
+        "matched_ranges": {
+          "items": {
+            "$ref": "#/$defs/MatchedRange"
+          },
+          "title": "Matched Ranges",
+          "type": "array"
+        },
+        "expansion_reason": {
+          "default": "MATCH_ONLY",
+          "title": "Expansion Reason",
+          "type": "string"
         }
       },
       "required": [
@@ -351,6 +363,55 @@
           },
           "title": "Coverage Pending Revisions",
           "type": "array"
+        },
+        "candidate_count": {
+          "default": 0,
+          "title": "Candidate Count",
+          "type": "integer"
+        },
+        "rerank": {
+          "additionalProperties": true,
+          "title": "Rerank",
+          "type": "object"
+        },
+        "context_artifact_tokens": {
+          "default": 0,
+          "title": "Context Artifact Tokens",
+          "type": "integer"
+        },
+        "answer_input_tokens_estimate": {
+          "default": 0,
+          "title": "Answer Input Tokens Estimate",
+          "type": "integer"
+        },
+        "review_input_tokens_estimate": {
+          "default": 0,
+          "title": "Review Input Tokens Estimate",
+          "type": "integer"
+        },
+        "answer_revisions": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Answer Revisions",
+          "type": "integer"
+        },
+        "knowledge_repair_requested": {
+          "default": false,
+          "title": "Knowledge Repair Requested",
+          "type": "boolean"
+        },
+        "post_repair_semantic_review": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Post Repair Semantic Review"
         }
       },
       "required": [
@@ -445,6 +506,18 @@
           "title": "Provenance",
           "type": "array"
         },
+        "matched_ranges": {
+          "items": {
+            "$ref": "#/$defs/MatchedRange"
+          },
+          "title": "Matched Ranges",
+          "type": "array"
+        },
+        "expansion_reason": {
+          "default": "MATCH_ONLY",
+          "title": "Expansion Reason",
+          "type": "string"
+        },
         "section_title": {
           "minLength": 1,
           "title": "Section Title",
@@ -465,6 +538,18 @@
           },
           "title": "Ranks",
           "type": "object"
+        },
+        "rerank_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerank Score"
         }
       },
       "required": [
@@ -527,6 +612,41 @@
       "title": "Identity",
       "type": "object"
     },
+    "MatchedRange": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "start_offset": {
+          "minimum": 0,
+          "title": "Start Offset",
+          "type": "integer"
+        },
+        "end_offset": {
+          "exclusiveMinimum": 0,
+          "title": "End Offset",
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chunk_id",
+        "start_offset",
+        "end_offset",
+        "sha256"
+      ],
+      "title": "MatchedRange",
+      "type": "object"
+    },
     "Provenance": {
       "additionalProperties": false,
       "properties": {
@@ -554,6 +674,13 @@
           ],
           "default": null,
           "title": "Page"
+        },
+        "source_families": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Families",
+          "type": "array"
         }
       },
       "required": [
@@ -607,7 +734,7 @@
           "type": "string"
         },
         "top_k": {
-          "default": 8,
+          "default": 6,
           "maximum": 20,
           "minimum": 1,
           "title": "Top K",

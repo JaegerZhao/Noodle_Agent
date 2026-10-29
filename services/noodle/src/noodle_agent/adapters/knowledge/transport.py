@@ -7,12 +7,9 @@ from typing import Any
 
 from ...composition import Component
 from ...config import Settings
-from ...domain import (
-    Answer,
-    SearchHit,
-)
 from ...telemetry import elapsed_ms
 from .common import (
+    TruncatedStructuredResponse,
     _loads_structured_json,
     compact_reference_ids,
 )
@@ -44,11 +41,7 @@ class TransportModule(Component):
     @property
     def _language_instruction(self) -> str:
         if self.owner.note_language.lower() in {"zh", "zh-cn", "chinese"}:
-            return (
-                "无论来源使用何种语言，标题、核心结论、正文和标签都必须使用简体中文。"
-                "关键专业术语首次出现时写成“中文名称（Original Term）”，后续可只用中文或通用缩写；"
-                "公式、代码、模型名、人名和论文名保留原文。"
-            )
+            return "无论来源使用何种语言，标题、核心结论、正文和标签都必须使用简体中文。关键专业术语首次出现时写成“中文名称（Original Term）”，后续可只用中文或通用缩写；公式、代码、模型名、人名和论文名保留原文。"
         return f"输出语言必须为 {self.owner.note_language}。"
 
     def _json_call(
@@ -69,7 +62,7 @@ class TransportModule(Component):
         user_json = json.dumps(user, ensure_ascii=False)
         telemetry_input = f"{system}\n{user_json}"
         started_clock = perf_counter()
-        started_at = datetime.now(UTC).replace(tzinfo=None)
+        started_at = datetime.now(UTC)
         response = None
         content: str | None = None
         finish_reason: str | None = None
@@ -84,30 +77,120 @@ class TransportModule(Component):
                 "response_format": {"type": "json_object"},
                 "temperature": 0.1,
             }
-            if selected_model.startswith("deepseek-v4"):
+            if selected_model.startswith(("deepseek-v4", "deepseek-flash")):
                 request["extra_body"] = {
                     "thinking": {"type": "enabled" if thinking else "disabled"}
                 }
+                if thinking:
+                    request["reasoning_effort"] = "low"
             if operation and operation.startswith(("semantic_synthesis.", "next.")):
                 request["max_tokens"] = 16384
+                from ...next.cost_policy import REVIEWS, enabled
+
+                if enabled() and operation in REVIEWS and (not thinking):
+                    request["max_tokens"] = 8192
             response = self.owner.client.chat.completions.create(**request)
             choice = response.choices[0]
             content = choice.message.content
             raw_finish_reason = getattr(choice, "finish_reason", None)
-            finish_reason = raw_finish_reason if isinstance(raw_finish_reason, str) else None
+            finish_reason = (
+                raw_finish_reason if isinstance(raw_finish_reason, str) else None
+            )
             usage_obj = getattr(response, "usage", None)
             usage = {
                 "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
                 "completion_tokens": getattr(usage_obj, "completion_tokens", None),
                 "total_tokens": getattr(usage_obj, "total_tokens", None),
+                "prompt_cache_hit_tokens": getattr(
+                    usage_obj, "prompt_cache_hit_tokens", None
+                ),
+                "prompt_cache_miss_tokens": getattr(
+                    usage_obj, "prompt_cache_miss_tokens", None
+                ),
+                "prompt_tokens_details": {
+                    "cached_tokens": getattr(
+                        getattr(usage_obj, "prompt_tokens_details", None),
+                        "cached_tokens",
+                        None,
+                    )
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": getattr(
+                        getattr(usage_obj, "completion_tokens_details", None),
+                        "reasoning_tokens",
+                        None,
+                    )
+                },
             }
-            if not content:
-                raise RuntimeError("LLM returned an empty structured response")
             if finish_reason in {"length", "max_tokens"}:
-                raise RuntimeError(
+                raise TruncatedStructuredResponse(
                     "LLM structured response was truncated before the JSON object completed"
                 )
-            result = decode_output(_loads_structured_json(content))
+            if not content:
+                raise RuntimeError("LLM returned an empty structured response")
+            try:
+                normalizations = []
+                decoded = _loads_structured_json(content, normalizations=normalizations)
+                if normalizations and hasattr(self.owner.telemetry, "repository"):
+                    from ...next.contracts import canonical, sha
+
+                    telemetry = self.owner.telemetry
+                    original_ref = f"artifacts/format-originals/{sha(content)}.txt"
+                    telemetry.repository.put(original_ref, content.encode("utf-8"))
+                    receipt = {
+                        **{
+                            k: v
+                            for k, v in normalizations[0].items()
+                            if k != "normalized"
+                        },
+                        "operation": operation,
+                        "job_id": getattr(
+                            getattr(telemetry, "lease", None), "job_id", None
+                        ),
+                        "original_ref": original_ref,
+                        "original_sha256": sha(content),
+                        "normalized_sha256": sha(normalizations[0]["normalized"]),
+                    }
+                    data = canonical(receipt).encode("utf-8")
+                    telemetry.repository.put(
+                        f"artifacts/format-recoveries/{sha(data)}.json", data
+                    )
+            except ValueError:
+                if (
+                    not getattr(self.owner, "next_json_closure", False)
+                    or not operation
+                    or (not operation.startswith("next."))
+                ):
+                    raise
+                from ...next.json_format import close_outer_object
+
+                recovered = close_outer_object(content, finish_reason)
+                if recovered is None:
+                    raise
+                decoded, normalized = recovered
+                if self.owner.telemetry is not None:
+                    from ...next.contracts import canonical, sha
+
+                    telemetry = self.owner.telemetry
+                    if hasattr(telemetry, "repository"):
+                        original_ref = f"artifacts/format-originals/{sha(content)}.txt"
+                        telemetry.repository.put(original_ref, content.encode("utf-8"))
+                        receipt = {
+                            "policy": "outer-object-closure-v1",
+                            "operation": operation,
+                            "job_id": getattr(
+                                getattr(telemetry, "lease", None), "job_id", None
+                            ),
+                            "original_ref": original_ref,
+                            "original_sha256": sha(content),
+                            "normalized_sha256": sha(normalized),
+                            "suffix": "}",
+                        }
+                        data = canonical(receipt).encode("utf-8")
+                        telemetry.repository.put(
+                            f"artifacts/format-recoveries/{sha(data)}.json", data
+                        )
+            result = decode_output(decoded)
         except Exception as exc:
             if self.owner.telemetry is not None:
                 self.owner.telemetry.record_llm(
@@ -123,15 +206,24 @@ class TransportModule(Component):
                     started_at=started_at,
                     elapsed_ms=elapsed_ms(started_clock),
                     usage=usage,
+                    **{
+                        "thinking_enabled": thinking,
+                        "max_output_tokens": request.get("max_tokens"),
+                        "cost_policy": user.get("cost_policy"),
+                        "model_selection_reason": user.get("model_selection_reason"),
+                    }
+                    if hasattr(self.owner.telemetry, "repository")
+                    else {},
                     response_id=getattr(response, "id", None),
                     finish_reason=finish_reason,
                     error=exc,
                 )
             raise
-
         if self.owner.telemetry is not None:
             self.owner.telemetry.record_llm(
-                operation=operation or self.owner.telemetry.current().stage or "structured_json",
+                operation=operation
+                or self.owner.telemetry.current().stage
+                or "structured_json",
                 provider=self.owner.name,
                 model=selected_model,
                 prompt_version=prompt_version,
@@ -141,6 +233,14 @@ class TransportModule(Component):
                 started_at=started_at,
                 elapsed_ms=elapsed_ms(started_clock),
                 usage=usage,
+                **{
+                    "thinking_enabled": thinking,
+                    "max_output_tokens": request.get("max_tokens"),
+                    "cost_policy": user.get("cost_policy"),
+                    "model_selection_reason": user.get("model_selection_reason"),
+                }
+                if hasattr(self.owner.telemetry, "repository")
+                else {},
                 response_id=getattr(response, "id", None),
                 finish_reason=finish_reason,
             )
@@ -164,42 +264,4 @@ class TransportModule(Component):
             operation=operation,
             prompt_version=prompt_version,
             thinking=thinking,
-        )
-
-    def answer(self, question: str, hits: list[SearchHit]) -> Answer:
-        if not hits:
-            return Answer(answer="当前知识库没有足够证据回答这个问题。", hits=[])
-        context = [
-            {
-                "note_id": hit.note_id,
-                "title": hit.title,
-                "thesis": hit.thesis,
-                "body": hit.body,
-                "evidence": hit.evidence,
-                "assets": hit.assets,
-            }
-            for hit in hits
-        ]
-        response = self.owner._json_call(
-            system=(
-                "只根据给定知识库证据回答。证据不足时明确说明。"
-                "回答必须使用简体中文；关键专业术语首次出现时附原文括注。"
-                '输出 JSON：{"answer":"...","used_note_ids":["..."],"coverage_warning":null}。'
-            ),
-            user={"question": question, "context": context},
-        )
-        # Empty ``used_note_ids`` is an explicit no-evidence/refusal signal,
-        # not permission to cite every retrieved candidate. Missing or invalid
-        # citation IDs likewise fail closed to protect provenance.
-        raw_used = response.get("used_note_ids")
-        used = (
-            {str(note_id) for note_id in raw_used if str(note_id).strip()}
-            if isinstance(raw_used, list)
-            else set()
-        )
-        selected = [hit for hit in hits if hit.note_id in used]
-        return Answer(
-            answer=str(response.get("answer") or "当前知识库没有足够证据回答这个问题。"),
-            hits=selected,
-            coverage_warning=response.get("coverage_warning"),
         )

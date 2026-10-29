@@ -1,0 +1,91 @@
+{
+  "artifact_kind": "concept_candidate",
+  "schema_version": "wiki-concept-v1",
+  "candidate_kind": "FULL",
+  "concept_id": "demo_concept_backprop",
+  "base_revision_id": null,
+  "title": "反向传播",
+  "domain": "machine-learning",
+  "aliases": [
+    "Backpropagation"
+  ],
+  "scope": {
+    "includes": [
+      "反向传播的用途和链式法则解释"
+    ],
+    "excludes": [
+      "具体优化器的完整更新算法"
+    ],
+    "prerequisites": [
+      "导数与链式法则"
+    ]
+  },
+  "summary": "通过链式法则计算梯度，并与参数优化区分。",
+  "inputs": [
+    {
+      "ref_id": "input_a",
+      "note_kind": "ATOMIC",
+      "note_id": "demo_note_a",
+      "note_revision_id": "demo_note_a_r1",
+      "note_section_ids": [
+        "demo_a_definition"
+      ],
+      "evidence_anchor_ids": [
+        "demo_ev_a_definition"
+      ],
+      "role": "SUPPORT"
+    },
+    {
+      "ref_id": "input_b",
+      "note_kind": "ATOMIC",
+      "note_id": "demo_note_b",
+      "note_revision_id": "demo_note_b_r1",
+      "note_section_ids": [
+        "demo_b_chain_rule"
+      ],
+      "evidence_anchor_ids": [
+        "demo_ev_b_chain_rule"
+      ],
+      "role": "SUPPORT"
+    }
+  ],
+  "sections": [
+    {
+      "section_id": "demo_bp_definition",
+      "title": "反向传播计算什么",
+      "question": "反向传播与参数优化分别负责什么？",
+      "scope": {
+        "includes": [
+          "梯度计算与参数更新的分工"
+        ],
+        "excludes": [
+          "优化器细节"
+        ]
+      },
+      "semantic_role": "definition",
+      "markdown": "反向传播沿计算依赖反向计算梯度；优化方法使用梯度更新参数。两者承担不同职责。[^input_a]",
+      "input_ref_ids": [
+        "input_a"
+      ]
+    },
+    {
+      "section_id": "demo_bp_chain_rule",
+      "title": "为什么需要汇总后续路径",
+      "question": "一个变量通过多条路径影响损失时如何处理？",
+      "scope": {
+        "includes": [
+          "多路径的链式法则贡献"
+        ],
+        "excludes": [
+          "具体网络的数值算例"
+        ]
+      },
+      "semantic_role": "mechanism",
+      "markdown": "同一变量通过多条路径影响损失时，需要汇总这些路径的导数贡献，再继续反向计算。[^input_b]",
+      "input_ref_ids": [
+        "input_b"
+      ]
+    }
+  ],
+  "preserve_section_ids": []
+}

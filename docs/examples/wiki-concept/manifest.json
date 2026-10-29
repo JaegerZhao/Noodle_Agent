@@ -1,0 +1,97 @@
+{
+  "artifact_kind": "concept_manifest",
+  "schema_version": "wiki-concept-v1",
+  "concept_id": "demo_concept_backprop",
+  "revision_id": "demo_concept_backprop_r1",
+  "parent_revision_id": null,
+  "publication_status": "PUBLISHED",
+  "title": "反向传播",
+  "domain": "machine-learning",
+  "aliases": [
+    "Backpropagation"
+  ],
+  "scope": {
+    "includes": [
+      "反向传播的用途和链式法则解释"
+    ],
+    "excludes": [
+      "具体优化器的完整更新算法"
+    ],
+    "prerequisites": [
+      "导数与链式法则"
+    ]
+  },
+  "summary": "通过链式法则计算梯度，并与参数优化区分。",
+  "markdown_ref": "concept.md",
+  "markdown_sha256": "30e718bc0bc74b6451dc40cc7908ccdced0a38a8eca0e8f4518f44e1d5a03ac9",
+  "input_manifest_sha256": "0d45983ba957f12e6fb0fc7db2696021bd73f90860cb39b3e212fee65164d8b1",
+  "build_policy_version": "wiki-policy-v1",
+  "inputs": [
+    {
+      "ref_id": "input_a",
+      "note_kind": "ATOMIC",
+      "note_id": "demo_note_a",
+      "note_revision_id": "demo_note_a_r1",
+      "note_section_ids": [
+        "demo_a_definition"
+      ],
+      "evidence_anchor_ids": [
+        "demo_ev_a_definition"
+      ],
+      "role": "SUPPORT"
+    },
+    {
+      "ref_id": "input_b",
+      "note_kind": "ATOMIC",
+      "note_id": "demo_note_b",
+      "note_revision_id": "demo_note_b_r1",
+      "note_section_ids": [
+        "demo_b_chain_rule"
+      ],
+      "evidence_anchor_ids": [
+        "demo_ev_b_chain_rule"
+      ],
+      "role": "SUPPORT"
+    }
+  ],
+  "sections": [
+    {
+      "section_id": "demo_bp_definition",
+      "title": "反向传播计算什么",
+      "question": "反向传播与参数优化分别负责什么？",
+      "scope": {
+        "includes": [
+          "梯度计算与参数更新的分工"
+        ],
+        "excludes": [
+          "优化器细节"
+        ]
+      },
+      "heading": "反向传播计算什么",
+      "content_sha256": "bff24ae213505d07a7ce1c114ba58bcba2fe128734f69094b943c43c6e79072f",
+      "input_ref_ids": [
+        "input_a"
+      ],
+      "origin": "GENERATED"
+    },
+    {
+      "section_id": "demo_bp_chain_rule",
+      "title": "为什么需要汇总后续路径",
+      "question": "一个变量通过多条路径影响损失时如何处理？",
+      "scope": {
+        "includes": [
+          "多路径的链式法则贡献"
+        ],
+        "excludes": [
+          "具体网络的数值算例"
+        ]
+      },
+      "heading": "为什么需要汇总后续路径",
+      "content_sha256": "cdf6b79192a6ec2f91e9f9156022da628e325310034671e332214ef1e400784b",
+      "input_ref_ids": [
+        "input_b"
+      ],
+      "origin": "GENERATED"
+    }
+  ]
+}

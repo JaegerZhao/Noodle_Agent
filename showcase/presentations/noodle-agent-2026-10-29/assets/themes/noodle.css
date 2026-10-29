@@ -1,0 +1,10 @@
+:root{
+ --bg:#ffffff;--bg-soft:#edf0f2;--surface:#f7f8fa;--surface-2:#edf0f3;
+ --border:#e1e5e9;--border-strong:#bec5ce;--text-1:#252b36;--text-2:#525e70;--text-3:#707c8d;
+ --accent:#bf4520;--accent-ink:#ffffff;--accent-2:#bf4520;--accent-3:#bf4520;
+ --accent-bright:#ed6d38;--accent-soft:#fdf3ee;--accent-line:#ecc8b9;--good:#256650;--warn:#8b5a15;--bad:#a13a29;
+ --radius:8px;--radius-sm:6px;--radius-lg:12px;--shadow:none;--shadow-lg:none;
+ --font-sans:'Segoe UI','Microsoft YaHei UI','Microsoft YaHei',sans-serif;
+ --font-display:var(--font-sans);--font-serif:var(--font-sans);--font-mono:'Cascadia Code','Consolas',monospace;
+ --grad:linear-gradient(0deg,var(--accent),var(--accent));--grad-soft:linear-gradient(0deg,var(--accent-soft),var(--accent-soft));
+}

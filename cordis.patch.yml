@@ -5,7 +5,7 @@
       name: '@noodle/agent'
       config:
         baseUrl: !!js process.env.NOODLE_API_BASE_URL || 'http://127.0.0.1:8000'
-        apiPrefix: !!js process.env.NOODLE_API_PREFIX || '/internal/v1'
+        apiPrefix: !!js process.env.NOODLE_API_PREFIX || '/internal/next'
         retrievalMode: !!js process.env.NOODLE_NEXT_RETRIEVAL_MODE || 'HYBRID'
         timeoutMs: !!js Number(process.env.NOODLE_API_TIMEOUT_MS || 120000)
         maxBodyChars: 12000

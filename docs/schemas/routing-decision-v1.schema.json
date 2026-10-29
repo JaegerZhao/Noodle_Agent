@@ -1,0 +1,490 @@
+{
+  "$defs": {
+    "Assignment": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic": {
+          "title": "Atomic",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "action": {
+          "enum": [
+            "REUSE",
+            "CREATE",
+            "DISTRIBUTE",
+            "SOURCE_ONLY",
+            "REVIEW"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "role": {
+          "default": "principles",
+          "enum": [
+            "overview",
+            "principles",
+            "formulas",
+            "procedure",
+            "examples",
+            "comparison",
+            "limitations"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "sections": {
+          "additionalProperties": {
+            "enum": [
+              "overview",
+              "principles",
+              "formulas",
+              "procedure",
+              "examples",
+              "comparison",
+              "limitations"
+            ],
+            "type": "string"
+          },
+          "title": "Sections",
+          "type": "object"
+        },
+        "topic": {
+          "default": "",
+          "title": "Topic",
+          "type": "string"
+        },
+        "topic_key": {
+          "default": "",
+          "title": "Topic Key",
+          "type": "string"
+        },
+        "contribution_mode": {
+          "default": "CORE",
+          "enum": [
+            "CORE",
+            "EVIDENCE"
+          ],
+          "title": "Contribution Mode",
+          "type": "string"
+        },
+        "text_contribution": {
+          "default": "AUTO",
+          "enum": [
+            "AUTO",
+            "CORE_DELTA",
+            "SUPPORT_ONLY",
+            "FURTHER_READING",
+            "CONTEXT_ONLY",
+            "CONFLICT"
+          ],
+          "title": "Text Contribution",
+          "type": "string"
+        },
+        "media_contribution": {
+          "default": "AUTO",
+          "enum": [
+            "AUTO",
+            "NONE",
+            "KEY_FIGURE",
+            "BETTER_FIGURE"
+          ],
+          "title": "Media Contribution",
+          "type": "string"
+        },
+        "object_match": {
+          "anyOf": [
+            {
+              "enum": [
+                "SAME_OBJECT",
+                "INTERNAL_VARIANT",
+                "USES",
+                "DIFFERENT_OBJECT",
+                "UNCERTAIN"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Match"
+        },
+        "outline_action": {
+          "anyOf": [
+            {
+              "enum": [
+                "KEEP",
+                "REVISE"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outline Action"
+        },
+        "outline_revision_reason": {
+          "default": "",
+          "title": "Outline Revision Reason",
+          "type": "string"
+        },
+        "selections": {
+          "items": {
+            "$ref": "#/$defs/Selection"
+          },
+          "title": "Selections",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "atomic",
+        "action",
+        "reason"
+      ],
+      "title": "Assignment",
+      "type": "object"
+    },
+    "IdentityUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "title",
+        "description",
+        "scope",
+        "reason"
+      ],
+      "title": "IdentityUpdate",
+      "type": "object"
+    },
+    "NewEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "pattern": "^N\\d+$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "identity_key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Identity Key",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "scope_includes": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Scope Includes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ref",
+        "title",
+        "domain",
+        "identity_key",
+        "description"
+      ],
+      "title": "NewEntity",
+      "type": "object"
+    },
+    "Relation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Source Key",
+          "type": "string"
+        },
+        "target_key": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+          "title": "Target Key",
+          "type": "string"
+        },
+        "navigation_role": {
+          "anyOf": [
+            {
+              "enum": [
+                "TOPIC_CHILD",
+                "TOPIC_PARENT"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Navigation Role"
+        },
+        "relation": {
+          "default": "LINKS_TO",
+          "enum": [
+            "LINKS_TO",
+            "RELATED_TO",
+            "COMPARES_WITH",
+            "USES",
+            "VARIANT_OF"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "semantic_direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "OUTGOING",
+                "INCOMING"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Semantic Direction"
+        },
+        "support_atomic_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Support Atomic Ids",
+          "type": "array"
+        },
+        "target_support_atomic_ids": {
+          "items": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Target Support Atomic Ids",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "position": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Position",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_key",
+        "target_key",
+        "support_atomic_ids",
+        "reason"
+      ],
+      "title": "Relation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "includes": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Includes",
+          "type": "array"
+        },
+        "excludes": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Excludes",
+          "type": "array"
+        },
+        "prerequisites": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Prerequisites",
+          "type": "array"
+        }
+      },
+      "required": [
+        "includes"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "Selection": {
+      "additionalProperties": false,
+      "description": "Sparse exceptions to the primary assignment; section refs are packet-local.",
+      "properties": {
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "fragments": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fragments",
+          "type": "array"
+        },
+        "purpose": {
+          "enum": [
+            "CORE_DELTA",
+            "SUPPORT_ONLY",
+            "FURTHER_READING",
+            "CONTEXT_ONLY",
+            "CONFLICT"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "purpose",
+        "reason"
+      ],
+      "title": "Selection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "assignments": {
+      "items": {
+        "$ref": "#/$defs/Assignment"
+      },
+      "title": "Assignments",
+      "type": "array"
+    },
+    "new_entities": {
+      "items": {
+        "$ref": "#/$defs/NewEntity"
+      },
+      "title": "New Entities",
+      "type": "array"
+    },
+    "relations": {
+      "items": {
+        "$ref": "#/$defs/Relation"
+      },
+      "title": "Relations",
+      "type": "array"
+    },
+    "identity_updates": {
+      "items": {
+        "$ref": "#/$defs/IdentityUpdate"
+      },
+      "title": "Identity Updates",
+      "type": "array"
+    }
+  },
+  "required": [
+    "assignments"
+  ],
+  "title": "RoutingDecision",
+  "type": "object"
+}

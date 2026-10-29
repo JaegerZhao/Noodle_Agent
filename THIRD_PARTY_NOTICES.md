@@ -10,6 +10,7 @@
 | KaTeX 与字体 | 数学渲染 | MIT，`web/vendor/LICENSE.katex.txt` |
 | Marked | Markdown 解析 | MIT，`web/vendor/LICENSE.marked.txt` |
 | DOMPurify | HTML 清理 | 保留 `web/vendor/LICENSE.dompurify.txt` 的双许可声明 |
+| AntV G6 | 本地图引擎，按需加载的浏览器 bundle | MIT，`web/vendor/LICENSE.g6.txt`；传递组件声明见 `g6.js.LEGAL.txt` |
 
 上述 `web/` 路径相对于 `services/noodle/src/noodle_agent/`。Node 依赖清单位于 `package.json` 与 `package-lock.json`，Python 依赖位于 `services/noodle/pyproject.toml`。其他依赖及传递依赖的许可证以相应发行包为准。
 

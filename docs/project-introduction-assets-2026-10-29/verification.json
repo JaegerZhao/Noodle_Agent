@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-29",
+  "main_sections": 8,
+  "inline_figures": 7,
+  "documented_tools": 17,
+  "broken_local_links": [],
+  "checks": [
+    {
+      "check": "self_check",
+      "exit": 0,
+      "output": "OK D:\\Study\\Computer Science\\AI Learning\\Noodle_Agent\\docs\\project-introduction-assets-2026-10-29\\01-knowledge-evolution.html\nOK D:\\Study\\Computer Science\\AI Learning\\Noodle_Agent\\docs\\project-introduction-assets-2026-10-29\\02-atomic-generation.html\nOK D:\\Study\\Computer Science\\AI Learning\\Noodle_Agent\\docs\\project-introduction-assets-2026-10-29\\03-concept-maintenance.html\nOK D:\\Study\\Computer Science\\AI Learning\\Noodle_Agent\\docs\\project-introduction-assets-2026-10-29\\04-agent-architecture.html\nOK D:\\Study\\Computer Science\\AI Learning\\Noodle_Agent\\docs\\project-introduction-assets-2026-10-29\\05-rag-retrieval.html\nOK D:\\Study\\Computer Science\\AI Learning\\Noodle_Agent\\docs\\project-introduction-assets-2026-10-29\\06-invalidation.html\nOK D:\\Study\\Computer Science\\AI Learning\\Noodle_Agent\\docs\\project-introduction-assets-2026-10-29\\07-index-build.html",
+      "stderr": ""
+    },
+    {
+      "check": "geometry",
+      "exit": 0,
+      "output": "Summary: 7 file(s) checked, 0 finding(s).",
+      "stderr": ""
+    }
+  ],
+  "figures": [
+    {
+      "figure": "01-knowledge-evolution",
+      "nodes": 9,
+      "edges": 8,
+      "svg_xml": "valid",
+      "editable_source": "parsed"
+    },
+    {
+      "figure": "02-atomic-generation",
+      "nodes": 9,
+      "edges": 8,
+      "svg_xml": "valid",
+      "editable_source": "parsed"
+    },
+    {
+      "figure": "03-concept-maintenance",
+      "nodes": 9,
+      "edges": 9,
+      "svg_xml": "valid",
+      "editable_source": "parsed"
+    },
+    {
+      "figure": "04-agent-architecture",
+      "nodes": 12,
+      "edges": 13,
+      "svg_xml": "valid",
+      "editable_source": "parsed"
+    },
+    {
+      "figure": "05-rag-retrieval",
+      "nodes": 9,
+      "edges": 9,
+      "svg_xml": "valid",
+      "editable_source": "parsed"
+    },
+    {
+      "figure": "06-invalidation",
+      "nodes": 7,
+      "edges": 7,
+      "svg_xml": "valid",
+      "editable_source": "parsed"
+    },
+    {
+      "figure": "07-index-build",
+      "nodes": 8,
+      "edges": 8,
+      "svg_xml": "valid",
+      "editable_source": "parsed"
+    }
+  ],
+  "browser_text_bounds": "all seven HTML sources checked; no overflow; no visible header/title/footer",
+  "business_validation": "local code and existing reports only; no paid calls or knowledge mutations"
+}

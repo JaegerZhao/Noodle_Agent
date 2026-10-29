@@ -1,0 +1,10 @@
+import {build} from 'esbuild';
+import {copyFileSync,mkdirSync,statSync} from 'node:fs';
+import {dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const output=resolve(root,'services/noodle/src/noodle_agent/web/vendor');
+mkdirSync(output,{recursive:true});
+await build({stdin:{contents:"export {Graph} from '@antv/g6';",resolveDir:root,sourcefile:'graph-engine.js'},bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true,legalComments:'linked',outfile:resolve(output,'g6.js')});
+copyFileSync(resolve(root,'node_modules/@antv/g6/LICENSE'),resolve(output,'LICENSE.g6.txt'));
+console.log(`G6 browser bundle: ${statSync(resolve(output,'g6.js')).size} bytes (lazy loaded)`);

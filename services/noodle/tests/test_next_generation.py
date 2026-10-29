@@ -117,6 +117,13 @@ class Agent:
                 "supported_units": [u["unit_id"] for u in data["units"]],
                 "reason": "逐项核对来源。",
             }
+        if operation == "next.repair":
+            return {
+                "sections": [
+                    {"key": section["key"], "markdown": section["markdown"]}
+                    for section in data["sections"]
+                ]
+            }
         if operation == "next.write":
             if self.during_write:
                 self.during_write()
@@ -167,6 +174,12 @@ def test_pending_polling_resumes_same_submission_without_spending_retry_budget(s
     consumer = worker(store, parser, agent)
     for _ in range(4):
         assert consumer.run_once()["status"] == "PENDING"
+        from noodle_agent.next.metrics import timeline
+        with store.db.engine.connect() as c:
+            job_id = c.exec_driver_sql("SELECT id FROM jobs WHERE kind='GENERATE_ATOMICS'").scalar_one()
+        clock = timeline(store, job_id)
+        assert clock['summary']['ticking']
+        assert next(s for s in clock['stages'] if s['stage'] == 'parse')['ticking']
     result = consumer.run_once()
     assert result["status"] == "SUCCEEDED" and result["note_count"] == 2
     assert parser.submissions == parser.downloads == 1
@@ -175,7 +188,10 @@ def test_pending_polling_resumes_same_submission_without_spending_retry_budget(s
     assert query(store, "SELECT count(*) FROM note_revisions") == 3
     assert query(store, "SELECT count(*) FROM evidence_anchors") == 2
     assert consumer.run_once() is None
-    assert query(store, "SELECT status FROM events WHERE event_type='SOURCE_ADDED'") == "COMPLETED"
+    assert (
+        query(store, "SELECT status FROM events WHERE event_type='SOURCE_ADDED'")
+        == "COMPLETED"
+    )
 
 
 def test_crash_after_publication_recovers_same_head_without_duplicate_note_or_model_call(
@@ -210,14 +226,18 @@ def test_uncertain_submit_is_not_silently_repeated(store):
     assert consumer.run_once()["status"] == "REVIEW"
     assert parser.submissions == 1
     assert query(store, "SELECT count(*) FROM note_revisions") == 0
-    assert query(store, "SELECT status FROM events WHERE event_type='SOURCE_ADDED'") != "COMPLETED"
+    assert (
+        query(store, "SELECT status FROM events WHERE event_type='SOURCE_ADDED'")
+        != "COMPLETED"
+    )
 
 
 def test_content_judge_repairs_instead_of_publishing_rejected_draft(store):
     agent = Agent(fail_judge=True)
     result = worker(store, agent=agent).run_once()
     assert result["status"] == "SUCCEEDED"
-    assert agent.calls.count("next.write") == 3
+    assert agent.calls.count("next.write") == 2
+    assert agent.calls.count("next.repair") == 1
     assert query(store, "SELECT count(*) FROM note_revisions") == 3
 
 
@@ -249,7 +269,8 @@ def test_note_creation_is_idempotent_under_concurrent_retry(store):
 def test_all_long_source_text_is_accounted_for_without_truncation():
     text = "条件与公式" * 2000
     units = source_units(
-        {"blocks": [{"id": "long", "page": 1, "kind": "TEXT", "text": text}]}, max_chars=800
+        {"blocks": [{"id": "long", "page": 1, "kind": "TEXT", "text": text}]},
+        max_chars=800,
     )
     assert "".join(u.text for u in units) == text
     assert sum(len(window) for window in windows(units, budget=3000)) == len(units)
@@ -257,14 +278,22 @@ def test_all_long_source_text_is_accounted_for_without_truncation():
 
 
 def test_window_and_merge_reject_missing_duplicate_or_unknown_units():
-    unit = Unit(unit_id="u0", block_id="a", page=1, start=0, end=1, text="A", kind="TEXT")
+    unit = Unit(
+        unit_id="u0", block_id="a", page=1, start=0, end=1, text="A", kind="TEXT"
+    )
     with pytest.raises(QualityFailure, match="every unit"):
         validate_window(WindowPlan(topics=[]), [unit])
     plan = MergePlan.model_validate(
         {
             "summary": "x",
             "groups": [
-                {"key": "a", "title": "x", "question": "x", "scope": SCOPE, "topic_keys": ["wrong"]}
+                {
+                    "key": "a",
+                    "title": "x",
+                    "question": "x",
+                    "scope": SCOPE,
+                    "topic_keys": ["wrong"],
+                }
             ],
         }
     )
@@ -361,7 +390,11 @@ def test_asset_escape_is_rejected_before_visual_service(store, tmp_path):
         def download_and_normalize(self, *args):
             doc = super().download_and_normalize(*args)
             return doc.model_copy(
-                update={"blocks": [doc.blocks[0].model_copy(update={"asset_path": str(outside)})]}
+                update={
+                    "blocks": [
+                        doc.blocks[0].model_copy(update={"asset_path": str(outside)})
+                    ]
+                }
             )
 
     result = worker(store, parser=EscapeParser()).run_once()
@@ -372,13 +405,18 @@ def test_asset_escape_is_rejected_before_visual_service(store, tmp_path):
 
 def test_duplicate_parse_and_evidence_writes_are_idempotent(store):
     with store.db.engine.connect() as c:
-        revision = one(c, "SELECT current_revision_id FROM sources")["current_revision_id"]
+        revision = one(c, "SELECT current_revision_id FROM sources")[
+            "current_revision_id"
+        ]
     artifact = {"blocks": [{"id": "a", "page": 1, "text": "原始条件"}]}
     first = store.record_parse(revision, "v1", {}, artifact)
     assert store.record_parse(revision, "v1", {}, artifact) == first
-    evidence = store.add_evidence(revision, "原始条件", page=1, block_id="a", parse_id=first)
+    evidence = store.add_evidence(
+        revision, "原始条件", page=1, block_id="a", parse_id=first
+    )
     assert (
-        store.add_evidence(revision, "原始条件", page=1, block_id="a", parse_id=first) == evidence
+        store.add_evidence(revision, "原始条件", page=1, block_id="a", parse_id=first)
+        == evidence
     )
     assert query(store, "SELECT count(*) FROM parse_runs") == 1
     assert query(store, "SELECT count(*) FROM evidence_anchors") == 1
@@ -395,9 +433,13 @@ def test_repeated_semantic_rejection_leaves_event_incomplete_and_no_publication(
     agent = RejectingAgent()
     result = worker(store, agent=agent).run_once()
     assert result["status"] == "REVIEW"
-    assert agent.calls.count("next.write") == 3
+    assert agent.calls.count("next.write") == 2
+    assert agent.calls.count("next.repair") == 4
     assert query(store, "SELECT count(*) FROM note_revisions") == 0
-    assert query(store, "SELECT status FROM events WHERE event_type='SOURCE_ADDED'") != "COMPLETED"
+    assert (
+        query(store, "SELECT status FROM events WHERE event_type='SOURCE_ADDED'")
+        != "COMPLETED"
+    )
 
 
 def test_malformed_planning_retries_are_bounded_and_cannot_silently_skip_units(store):
@@ -434,7 +476,9 @@ def test_visual_batch_has_persistent_assets_provenance_and_resumes_from_receipts
 
     class ImageParser(Parser):
         def download_and_normalize(self, external_id, result, destination, title):
-            doc = super().download_and_normalize(external_id, result, destination, title)
+            doc = super().download_and_normalize(
+                external_id, result, destination, title
+            )
             destination.mkdir(parents=True, exist_ok=True)
             image = destination / "diagram.png"
             pixmap = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 20, 20), False)
@@ -442,7 +486,10 @@ def test_visual_batch_has_persistent_assets_provenance_and_resumes_from_receipts
             pixmap.save(image)
             return doc.model_copy(
                 update={
-                    "blocks": [b.model_copy(update={"asset_path": str(image)}) for b in doc.blocks]
+                    "blocks": [
+                        b.model_copy(update={"asset_path": str(image)})
+                        for b in doc.blocks
+                    ]
                 }
             )
 
@@ -464,7 +511,9 @@ def test_visual_batch_has_persistent_assets_provenance_and_resumes_from_receipts
             }
 
     vision = Vision()
-    consumer = GenerationWorker(store, parser=ImageParser(), agent=Agent(), vision=vision)
+    consumer = GenerationWorker(
+        store, parser=ImageParser(), agent=Agent(), vision=vision
+    )
     assert consumer.run_once()["status"] == "SUCCEEDED"
     assert vision.calls == 1
     assert len(list((store.root / "assets").glob("*.png"))) == 1
@@ -520,12 +569,21 @@ def test_worker_reports_retry_exhaustion_as_review(store):
             raise ConnectionError("Temporary provider outage")
 
     consumer = worker(store, agent=OfflineAgent())
-    assert [consumer.run_once()["status"] for _ in range(3)] == ["RETRY", "RETRY", "REVIEW"]
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "REVIEW"
+    assert [consumer.run_once()["status"] for _ in range(3)] == [
+        "RETRY",
+        "RETRY",
+        "REVIEW",
+    ]
+    assert (
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "REVIEW"
+    )
     assert query(store, "SELECT attempts FROM jobs WHERE kind='GENERATE_ATOMICS'") == 3
 
 
-def test_failed_semantic_plan_gets_bounded_feedback_repair_before_any_publication(store):
+def test_failed_semantic_plan_gets_bounded_feedback_repair_before_any_publication(
+    store,
+):
     class PlanRepairAgent(Agent):
         def __init__(self):
             super().__init__()
@@ -547,7 +605,7 @@ def test_failed_semantic_plan_gets_bounded_feedback_repair_before_any_publicatio
     assert query(store, "SELECT count(*) FROM note_revisions") == 3
 
 
-def test_operator_resume_preserves_receipts_and_audits_the_reason(store):
+def test_operator_resume_preserves_receipts_and_audits_the_retry(store):
     class RejectingPlan(Agent):
         def structured_json(self, **kwargs):
             result = super().structured_json(**kwargs)
@@ -559,12 +617,20 @@ def test_operator_resume_preserves_receipts_and_audits_the_reason(store):
     result = consumer.run_once()
     assert result["status"] == "REVIEW"
     receipts = query(store, "SELECT count(*) FROM job_checkpoints")
-    store.jobs.retry_review(result["job_id"], reason="Inspected malformed provider output")
+    store.jobs.retry_review(result['job_id'])
     assert query(store, "SELECT count(*) FROM job_checkpoints") == receipts
-    assert query(store, "SELECT count(*) FROM events WHERE event_type='JOB_RETRY_REQUESTED'") == 1
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "PENDING"
+    assert (
+        query(
+            store, "SELECT count(*) FROM events WHERE event_type='JOB_RETRY_REQUESTED'"
+        )
+        == 1
+    )
+    assert (
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "PENDING"
+    )
     with pytest.raises(Conflict):
-        store.jobs.retry_review(result["job_id"], reason="Do not duplicate a running recovery")
+        store.jobs.retry_review(result['job_id'])
 
 
 def test_bounded_parallel_writing_keeps_distinct_notes_and_map_order(store):
@@ -607,7 +673,10 @@ def test_malformed_provider_json_gets_bounded_repair_not_a_published_fallback(st
 
     result = worker(store, agent=BrokenJsonAgent()).run_once()
     assert result["status"] == "SUCCEEDED"
-    assert query(store, "SELECT count(*) FROM job_checkpoints WHERE stage LIKE '%.error'") == 1
+    assert (
+        query(store, "SELECT count(*) FROM job_checkpoints WHERE stage LIKE '%.error'")
+        == 1
+    )
 
 
 def test_dynamic_assignment_schema_prevents_missing_or_double_decisions():
@@ -615,14 +684,21 @@ def test_dynamic_assignment_schema_prevents_missing_or_double_decisions():
 
     from noodle_agent.next.generation_contracts import allocation_contract
 
-    unit = Unit(unit_id="u0", block_id="a", page=1, start=0, end=1, text="A", kind="TEXT")
+    unit = Unit(
+        unit_id="u0", block_id="a", page=1, start=0, end=1, text="A", kind="TEXT"
+    )
     schema = allocation_contract([unit])
     for value in (
         {"topics": [], "assignments": {}},
-        {"topics": [], "assignments": {"u0": {"mode": "DECORATIVE", "reason": "not allowed"}}},
         {
             "topics": [],
-            "assignments": {"u0": {"mode": "TOPIC", "topic_key": "x", "reason": "second decision"}},
+            "assignments": {"u0": {"mode": "DECORATIVE", "reason": "not allowed"}},
+        },
+        {
+            "topics": [],
+            "assignments": {
+                "u0": {"mode": "TOPIC", "topic_key": "x", "reason": "second decision"}
+            },
         },
     ):
         with pytest.raises(ValidationError):
@@ -670,7 +746,9 @@ def test_math_inequalities_are_not_mistaken_for_html():
     broken = draft.model_copy(
         update={
             "sections": [
-                draft.sections[0].model_copy(update={"markdown": "公式 $" + chr(12) + "rac{1}{2}$"})
+                draft.sections[0].model_copy(
+                    update={"markdown": "公式 $" + chr(12) + "rac{1}{2}$"}
+                )
             ]
         }
     )
@@ -683,17 +761,29 @@ def test_required_writer_assignments_reject_missing_evidence_and_unknown_section
 
     from noodle_agent.next.generation_contracts import allocated_draft, writing_contract
 
-    unit = Unit(unit_id="u0", block_id="a", page=1, start=0, end=1, text="A", kind="TEXT")
+    unit = Unit(
+        unit_id="u0", block_id="a", page=1, start=0, end=1, text="A", kind="TEXT"
+    )
     schema = writing_contract([unit])
     base = {
         "title": "A",
         "summary": "A",
-        "sections": [{"key": "s", "title": "A", "question": "A?", "scope": SCOPE, "markdown": "A"}],
+        "sections": [
+            {
+                "key": "s",
+                "title": "A",
+                "question": "A?",
+                "scope": SCOPE,
+                "markdown": "A",
+            }
+        ],
     }
     with pytest.raises(ValidationError):
         schema.model_validate({**base, "assignments": {}})
     with pytest.raises(ValueError, match="Unknown section"):
-        allocated_draft(schema.model_validate({**base, "assignments": {"u0": "missing"}}))
+        allocated_draft(
+            schema.model_validate({**base, "assignments": {"u0": "missing"}})
+        )
 
 
 def test_explicit_retry_returns_previous_semantic_feedback_to_writer(store):
@@ -702,13 +792,20 @@ def test_explicit_retry_returns_previous_semantic_feedback_to_writer(store):
         saw_feedback = False
 
         def structured_json(self, **kwargs):
-            if kwargs["operation"] == "next.write" and kwargs["user"]["content"]["repair_issues"]:
+            if (
+                kwargs["operation"] == "next.write"
+                and kwargs["user"]["content"]["repair_issues"]
+            ):
                 self.saw_feedback = True
             result = super().structured_json(**kwargs)
             if kwargs["operation"] == "next.write" and self.fixed:
-                result["sections"][0]["markdown"] += "\n\n矩阵之间的关系尚未明确，应保留不确定性。"
+                result["sections"][0]["markdown"] += (
+                    "\n\n矩阵之间的关系尚未明确，应保留不确定性。"
+                )
             if kwargs["operation"] == "next.judge" and not self.fixed:
-                result.update(passed=False, issues=["图中矩阵关系没有证据，请保留不确定性"])
+                result.update(
+                    passed=False, issues=["图中矩阵关系没有证据，请保留不确定性"]
+                )
             return result
 
     agent = NeedsRepair()
@@ -717,7 +814,7 @@ def test_explicit_retry_returns_previous_semantic_feedback_to_writer(store):
     assert outcome["status"] == "REVIEW"
     agent.fixed = True
     agent.saw_feedback = False
-    store.jobs.retry_review(outcome["job_id"], reason="Inspected concrete semantic issue")
+    store.jobs.retry_review(outcome['job_id'])
     assert consumer.run_once()["status"] == "SUCCEEDED"
     assert agent.saw_feedback
 
@@ -732,7 +829,9 @@ def test_executable_numeric_check_rejects_the_real_convolution_mismatch():
     assert validate_math(r"计算 $2\times3=6$。")["arithmetic_checks"] == 1
 
 
-def test_failed_published_output_withdraws_immediately_and_repairs_as_new_revision(store):
+def test_failed_published_output_withdraws_immediately_and_repairs_as_new_revision(
+    store,
+):
     import json
 
     from noodle_agent.next.repository import InvalidKnowledge
@@ -741,7 +840,9 @@ def test_failed_published_output_withdraws_immediately_and_repairs_as_new_revisi
     first = consumer.run_once()
     with store.db.engine.connect() as c:
         result = json.loads(
-            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                "result_json"
+            ]
         )
     output = result["notes"][0]
     old = store.get_note(output["note_id"])
@@ -753,16 +854,16 @@ def test_failed_published_output_withdraws_immediately_and_repairs_as_new_revisi
     )
     with pytest.raises(InvalidKnowledge):
         store.get_note(output["note_id"])
-    store.jobs.retry_review(first["job_id"], reason="Correct the checked numeric statement")
+    store.jobs.retry_review(first['job_id'])
     assert consumer.run_once()["status"] == "SUCCEEDED"
     repaired = store.get_note(output["note_id"])
     assert repaired["revision"]["ordinal"] == 2
     assert repaired["revision"]["parent_revision_id"] == old["revision"]["id"]
     assert query(store, "SELECT count(*) FROM notes") == 3
     assert (
-        store.get_note(output["note_id"], revision_id=output["revision_id"], historical=True)[
-            "revision"
-        ]["status"]
+        store.get_note(
+            output["note_id"], revision_id=output["revision_id"], historical=True
+        )["revision"]["status"]
         == "WITHDRAWN"
     )
 
@@ -791,7 +892,9 @@ def test_whole_page_context_is_anchored_and_reused_without_repeated_calls(store)
     lease = store.jobs.claim("test", kind="TEST")
     journal = Checkpoints(store.repository, lease)
     with store.db.engine.connect() as c:
-        revision = one(c, "SELECT current_revision_id FROM sources")["current_revision_id"]
+        revision = one(c, "SELECT current_revision_id FROM sources")[
+            "current_revision_id"
+        ]
     units = [
         Unit(
             unit_id=f"u{i}",
@@ -810,7 +913,9 @@ def test_whole_page_context_is_anchored_and_reused_without_repeated_calls(store)
     assert page_contexts(store, journal, vision, revision, units) == first
     assert vision.calls == 1
     with store.db.engine.connect() as c:
-        anchor = one(c, "SELECT * FROM evidence_anchors WHERE id=:id", id=first[0]["evidence_id"])
+        anchor = one(
+            c, "SELECT * FROM evidence_anchors WHERE id=:id", id=first[0]["evidence_id"]
+        )
     assert anchor["source_revision_id"] == revision and anchor["page_number"] == 1
     assert anchor["quoted_text"] == first[0]["text"]
 
@@ -833,7 +938,9 @@ def test_repeated_quality_repair_keeps_current_unchanged_map_revision(store):
     for _ in range(2):
         with store.db.engine.connect() as c:
             result = json.loads(
-                one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+                one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                    "result_json"
+                ]
             )
         note = result["notes"][0]
         store.jobs.reopen_invalid_output(
@@ -842,11 +949,13 @@ def test_repeated_quality_repair_keeps_current_unchanged_map_revision(store):
             note["revision_id"],
             reason="Inspected quality issue",
         )
-        store.jobs.retry_review(outcome["job_id"], reason="Repair current output")
+        store.jobs.retry_review(outcome['job_id'])
         assert consumer.run_once()["status"] == "SUCCEEDED"
         with store.db.engine.connect() as c:
             result = json.loads(
-                one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+                one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                    "result_json"
+                ]
             )
         map_heads.append(result["source_map"]["revision_id"])
     assert map_heads[0] == map_heads[1]
@@ -863,13 +972,18 @@ def test_recovery_after_corrective_publication_uses_new_head_not_original_receip
     outcome = consumer.run_once()
     with store.db.engine.connect() as c:
         result = json.loads(
-            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                "result_json"
+            ]
         )
     note = result["notes"][0]
     store.jobs.reopen_invalid_output(
-        outcome["job_id"], note["note_id"], note["revision_id"], reason="Inspected quality issue"
+        outcome["job_id"],
+        note["note_id"],
+        note["revision_id"],
+        reason="Inspected quality issue",
     )
-    store.jobs.retry_review(outcome["job_id"], reason="Publish correction")
+    store.jobs.retry_review(outcome['job_id'])
     original = Checkpoints.save
     failed = False
 
@@ -910,7 +1024,8 @@ def test_page_grounded_panels_replace_stale_roles_and_bind_their_own_evidence(st
         def analyze_batch(self, items):
             self.calls += 1
             assert all(
-                item["page_context_path"].read_bytes().startswith(b"\x89PNG") for item in items
+                item["page_context_path"].read_bytes().startswith(b"\x89PNG")
+                for item in items
             )
             return {
                 item["external_block_id"]: VisualUnderstanding(
@@ -927,7 +1042,9 @@ def test_page_grounded_panels_replace_stale_roles_and_bind_their_own_evidence(st
     lease = store.jobs.claim("test", kind="TEST")
     journal = Checkpoints(store.repository, lease)
     with store.db.engine.connect() as c:
-        revision = one(c, "SELECT current_revision_id FROM sources")["current_revision_id"]
+        revision = one(c, "SELECT current_revision_id FROM sources")[
+            "current_revision_id"
+        ]
     store.put("assets/crop.png", b"crop")
     units = [
         Unit(
@@ -945,17 +1062,25 @@ def test_page_grounded_panels_replace_stale_roles_and_bind_their_own_evidence(st
     vision = Vision()
     contexts = page_contexts(store, journal, vision, revision, units)
     panels = contextual_panels(store, journal, vision, revision, units, contexts)
-    assert contextual_panels(store, journal, vision, revision, units, contexts) == panels
+    assert (
+        contextual_panels(store, journal, vision, revision, units, contexts) == panels
+    )
     assert vision.calls == 1 and len(panels) == 3
     for panel in panels:
         assert "STALE" not in panel["text"] and "RGB INPUT" in panel["text"]
         assert panel["text"].startswith("Original caption")
         with store.db.engine.connect() as c:
-            anchor = one(c, "SELECT * FROM evidence_anchors WHERE id=:id", id=panel["evidence_id"])
+            anchor = one(
+                c,
+                "SELECT * FROM evidence_anchors WHERE id=:id",
+                id=panel["evidence_id"],
+            )
         assert anchor["parse_run_id"] == panel["parse_id"]
         assert anchor["source_revision_id"] == revision
         assert anchor["quoted_text"] == panel["text"]
-    assert all("STALE" in u.text for u in units)  # frozen original manifest remains auditable
+    assert all(
+        "STALE" in u.text for u in units
+    )  # frozen original manifest remains auditable
 
 
 def test_shared_checkpoint_computes_once_for_concurrent_writers(store):
@@ -991,24 +1116,36 @@ def test_full_rebuild_withdrawal_is_atomic_and_preserves_all_note_identities(sto
     outcome = consumer.run_once()
     with store.db.engine.connect() as c:
         result = json.loads(
-            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                "result_json"
+            ]
         )
     outputs = [(n["note_id"], n["revision_id"]) for n in result["notes"]]
     with pytest.raises(Conflict):
         store.jobs.reopen_outputs(
             outcome["job_id"], [outputs[0], (outputs[1][0], "stale")], reason="recheck"
         )
-    assert all(store.get_note(n)["revision"]["status"] == "PUBLISHED" for n, _ in outputs)
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "SUCCEEDED"
-    store.jobs.reopen_outputs(outcome["job_id"], outputs, reason="Full final-policy validation")
+    assert all(
+        store.get_note(n)["revision"]["status"] == "PUBLISHED" for n, _ in outputs
+    )
+    assert (
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "SUCCEEDED"
+    )
+    store.jobs.reopen_outputs(
+        outcome["job_id"], outputs, reason="Full final-policy validation"
+    )
     for note_id, _ in outputs:
         with pytest.raises(InvalidKnowledge):
             store.get_note(note_id)
-    store.jobs.retry_review(outcome["job_id"], reason="Full final-policy validation")
+    store.jobs.retry_review(outcome['job_id'])
     calls_before = consumer.agent.calls.count("next.write")
     assert consumer.run_once()["status"] == "SUCCEEDED"
     assert consumer.agent.calls.count("next.write") - calls_before == len(outputs)
-    assert query(store, "SELECT error_json FROM jobs WHERE kind='GENERATE_ATOMICS'") == "{}"
+    assert (
+        query(store, "SELECT error_json FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "{}"
+    )
     for note_id, previous in outputs:
         current = store.get_note(note_id)
         assert current["revision"]["ordinal"] == 2
@@ -1022,7 +1159,9 @@ def test_rebuild_cli_uses_completed_manifest_without_loading_legacy_service(
     from noodle_agent import cli
 
     result = worker(store).run_once()
-    monkeypatch.setattr(cli, "_service", lambda: pytest.fail("Legacy composition is forbidden"))
+    import sys
+
+    assert "noodle_agent.services" not in sys.modules
     cli.main(
         [
             "next-rebuild",
@@ -1035,8 +1174,14 @@ def test_rebuild_cli_uses_completed_manifest_without_loading_legacy_service(
         ]
     )
     assert '"rebuild_notes": 2' in capsys.readouterr().out
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "PENDING"
-    assert query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'") == 2
+    assert (
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "PENDING"
+    )
+    assert (
+        query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'")
+        == 2
+    )
     cli.main(
         [
             "next-cancel-rebuild",
@@ -1049,7 +1194,10 @@ def test_rebuild_cli_uses_completed_manifest_without_loading_legacy_service(
         ]
     )
     assert '"restored_notes": 2' in capsys.readouterr().out
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "SUCCEEDED"
+    assert (
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "SUCCEEDED"
+    )
 
 
 def test_recovery_rejects_old_head_if_writing_policy_changed(store, monkeypatch):
@@ -1075,7 +1223,9 @@ def test_recovery_rejects_old_head_if_writing_policy_changed(store, monkeypatch)
     assert query(store, "SELECT count(*) FROM note_revisions") == 1
 
 
-def test_cancel_partial_rebuild_restores_original_heads_and_fences_late_worker(store, monkeypatch):
+def test_cancel_partial_rebuild_restores_original_heads_and_fences_late_worker(
+    store, monkeypatch
+):
     import json
 
     from noodle_agent.next.jobs import Lease
@@ -1085,11 +1235,15 @@ def test_cancel_partial_rebuild_restores_original_heads_and_fences_late_worker(s
     result = consumer.run_once()
     with store.db.engine.connect() as c:
         baseline = json.loads(
-            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                "result_json"
+            ]
         )
     pairs = [(o["note_id"], o["revision_id"]) for o in baseline["notes"]]
-    store.jobs.reopen_outputs(result["job_id"], pairs, reason="Final policy trial", rebuild=True)
-    store.jobs.retry_review(result["job_id"], reason="Final policy trial")
+    store.jobs.reopen_outputs(
+        result["job_id"], pairs, reason="Final policy trial", rebuild=True
+    )
+    store.jobs.retry_review(result['job_id'])
     original = Generation.generate_note
 
     def interrupt_after_publish(self, *args, **kwargs):
@@ -1107,13 +1261,21 @@ def test_cancel_partial_rebuild_restores_original_heads_and_fences_late_worker(s
     assert all(store.get_note(n)["revision"]["id"] == r for n, r in pairs)
     with pytest.raises(Conflict):
         store.jobs.finish(Lease(late.job_id, late.token, late.input), {})
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "SUCCEEDED"
     assert (
-        query(store, "SELECT count(*) FROM events WHERE event_type='GENERATION_REBUILD_CANCELLED'")
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "SUCCEEDED"
+    )
+    assert (
+        query(
+            store,
+            "SELECT count(*) FROM events WHERE event_type='GENERATION_REBUILD_CANCELLED'",
+        )
         == 1
     )
     # Re-withdrawing a restored head emits a new event instead of losing the transition.
-    before_events = query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_INVALIDATED'")
+    before_events = query(
+        store, "SELECT count(*) FROM events WHERE event_type='NOTE_INVALIDATED'"
+    )
     store.jobs.reopen_outputs(result["job_id"], pairs, reason="Another explicit trial")
     assert (
         query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_INVALIDATED'")
@@ -1129,7 +1291,9 @@ def test_cancel_rebuild_does_not_restore_a_deleted_source(store):
     outcome = worker(store).run_once()
     with store.db.engine.connect() as c:
         baseline = json.loads(
-            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                "result_json"
+            ]
         )
         source_id = one(c, "SELECT id FROM sources")["id"]
     pairs = [(o["note_id"], o["revision_id"]) for o in baseline["notes"]]
@@ -1137,9 +1301,18 @@ def test_cancel_rebuild_does_not_restore_a_deleted_source(store):
     store.set_source_deleted(source_id, True)
     with pytest.raises(Conflict, match="source or policy changed"):
         cancel_rebuild(store, outcome["job_id"], reason="Cancel trial")
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "REVIEW"
-    assert query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'") == 2
-    assert query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_RESTORED'") == 0
+    assert (
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "REVIEW"
+    )
+    assert (
+        query(store, "SELECT count(*) FROM note_revisions WHERE status='WITHDRAWN'")
+        == 2
+    )
+    assert (
+        query(store, "SELECT count(*) FROM events WHERE event_type='NOTE_RESTORED'")
+        == 0
+    )
 
 
 def test_cancel_rebuild_cannot_reverse_an_unrelated_quality_withdrawal(store):
@@ -1150,7 +1323,9 @@ def test_cancel_rebuild_cannot_reverse_an_unrelated_quality_withdrawal(store):
     result = worker(store).run_once()
     with store.db.engine.connect() as c:
         output = json.loads(
-            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")["result_json"]
+            one(c, "SELECT result_json FROM jobs WHERE kind='GENERATE_ATOMICS'")[
+                "result_json"
+            ]
         )["notes"][0]
     store.jobs.reopen_invalid_output(
         result["job_id"],
@@ -1160,6 +1335,143 @@ def test_cancel_rebuild_cannot_reverse_an_unrelated_quality_withdrawal(store):
     )
     with pytest.raises(Conflict, match="explicit full-rebuild cycle"):
         cancel_rebuild(
-            store, result["job_id"], reason="Cancellation must not resurrect known errors"
+            store,
+            result["job_id"],
+            reason="Cancellation must not resurrect known errors",
         )
-    assert query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'") == "REVIEW"
+    assert (
+        query(store, "SELECT status FROM jobs WHERE kind='GENERATE_ATOMICS'")
+        == "REVIEW"
+    )
+
+
+def test_math_check_does_not_cross_between_distinct_inline_code_spans():
+    from noodle_agent.next.generation_contracts import DraftSection
+
+    scope = Scope(includes=["数值稳定性"])
+
+    def draft(body):
+        return Draft(
+            title="LogSumExp",
+            summary="数值稳定性",
+            sections=[
+                DraftSection(
+                    key="s",
+                    title="数值范围",
+                    question="如何避免溢出？",
+                    scope=scope,
+                    markdown=body,
+                    units=["u"],
+                )
+            ],
+        )
+
+    Generation.checked_draft(
+        draft(
+            "指数 $e^x$ 可能溢出。例如 `np.exp(1000)` 返回 `inf`，而 `np.exp(-1000)` 下溢到零。"
+        ),
+        {"u"},
+        set(),
+    )
+    compiled = Generation.checked_draft(draft(r"错误格式：`$\alpha$`。"), {"u"}, set())
+    assert compiled.sections[0].markdown == r"错误格式：$\alpha$。"
+
+
+@pytest.mark.parametrize("broken_operation", ["next.plan", "next.merge", "next.write"])
+def test_operator_retry_refreshes_only_exhausted_calls_and_preserves_receipts(
+    store, broken_operation
+):
+    import json
+
+    class BrokenAgent(Agent):
+        broken = True
+
+        def structured_json(self, **kwargs):
+            if self.broken and kwargs["operation"] == broken_operation:
+                self.calls.append(kwargs["operation"])
+                raise json.JSONDecodeError("Invalid object", "{,}", 1)
+            return super().structured_json(**kwargs)
+
+    parser, agent = Parser(), BrokenAgent()
+    consumer = worker(store, parser=parser, agent=agent)
+    first = consumer.run_once()
+    assert first["status"] == "REVIEW"
+    assert agent.calls.count(broken_operation) == (
+        6 if broken_operation == "next.write" else 3
+    )
+    with store.db.engine.connect() as c:
+        receipts = {
+            r[0]: r[1:]
+            for r in c.exec_driver_sql(
+                "SELECT stage,input_sha256,artifact_sha256 FROM job_checkpoints"
+            ).all()
+        }
+    before = list(agent.calls)
+    store.jobs.retry_review(first['job_id'])
+    agent.broken = False
+    resumed = consumer.run_once()
+    assert resumed["status"] == "SUCCEEDED"
+    assert parser.submissions == 1 and parser.downloads == 1
+    assert agent.calls.count(broken_operation) == before.count(broken_operation) + (
+        2 if broken_operation == "next.write" else 1
+    )
+    if broken_operation != "next.plan":
+        assert agent.calls.count("next.plan") == before.count("next.plan")
+    with store.db.engine.connect() as c:
+        current = {
+            r[0]: r[1:]
+            for r in c.exec_driver_sql(
+                "SELECT stage,input_sha256,artifact_sha256 FROM job_checkpoints"
+            ).all()
+        }
+    assert all(current[key] == value for key, value in receipts.items())
+
+
+def test_operator_recovery_is_bounded_and_does_not_extend_new_failed_stages(store):
+    import json
+
+    class BrokenAgent(Agent):
+        broken_operation = "next.plan"
+
+        def structured_json(self, **kwargs):
+            if kwargs["operation"] == self.broken_operation:
+                self.calls.append(kwargs["operation"])
+                raise json.JSONDecodeError("Invalid object", "{,}", 1)
+            return super().structured_json(**kwargs)
+
+    agent = BrokenAgent()
+    consumer = worker(store, agent=agent)
+    first = consumer.run_once()
+    assert first["status"] == "REVIEW"
+    store.jobs.retry_review(first['job_id'])
+    second = consumer.run_once()
+    assert second["status"] == "REVIEW"
+    assert agent.calls.count("next.plan") == 6
+    assert query(store, "SELECT count(*) FROM note_revisions") == 0
+    store.jobs.retry_review(first['job_id'])
+    agent.broken_operation = "next.merge"
+    third = consumer.run_once()
+    assert third["status"] == "REVIEW"
+    # The new merge failure happened after the retry request, so it gets three,
+    # not six, calls. Earlier retry authorization cannot silently extend it.
+    assert agent.calls.count("next.merge") == 3
+    assert query(store, "SELECT count(*) FROM note_revisions") == 0
+
+
+def test_scoped_journal_recovers_only_its_failed_stage(store):
+    from noodle_agent.next.chapter_generation import ScopedJournal
+    from noodle_agent.next.events import dispatch
+
+    dispatch(store)
+    lease = store.jobs.claim("initial", kind="GENERATE_ATOMICS")
+    scoped = ScopedJournal(Checkpoints(store.repository, lease), "chapter.2.")
+    scoped.save("merge.failed", {}, {"detail": "Malformed response"})
+    assert scoped.operator_recovery(["merge.failed"]) is None
+    store.jobs.fail(lease, {"detail": "Inspected failure"}, retry=False)
+    store.jobs.retry_review(lease.job_id)
+    fresh = store.jobs.claim("recovery", kind="GENERATE_ATOMICS")
+    scoped = ScopedJournal(Checkpoints(store.repository, fresh), "chapter.2.")
+    recovery = scoped.operator_recovery(["merge.failed"])
+    assert recovery["event_id"]
+    assert "reason" not in recovery
+    assert scoped.operator_recovery(["other.failed"]) is None

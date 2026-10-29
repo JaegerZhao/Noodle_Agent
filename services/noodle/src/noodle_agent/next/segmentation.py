@@ -67,3 +67,22 @@ def ranges(text, target=400, maximum=8000):
     if current:
         result.append(current)
     return result
+
+
+def retrieval_ranges(text, target=400, soft_limit=600, minimum=100):
+    """Keep short sections whole and merge small tails; never duplicate source ranges."""
+    spans = ranges(text, target=target)
+    if not spans:
+        return []
+    if tokens(text) <= soft_limit:
+        return [(0, len(text))]
+    result = []
+    for a, b in spans:
+        if result:
+            left, right = result[-1]
+            small = min(tokens(text[left:right]), tokens(text[a:b])) < minimum
+            if small and tokens(text[left:b]) <= soft_limit:
+                result[-1] = (left, b)
+                continue
+        result.append((a, b))
+    return result

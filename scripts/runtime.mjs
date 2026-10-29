@@ -32,13 +32,17 @@ export function environment() {
   const api = port(process.env.NOODLE_API_PORT, new URL(process.env.NOODLE_API_BASE_URL || 'http://127.0.0.1:8000').port || 8000)
   const harness = port(process.env.NOODLE_DSH_WEB_PORT || process.env.DSH_WEB_PORT,
     new URL(process.env.NOODLE_HARNESS_WEB_URL || 'http://127.0.0.1:3080').port || 3080)
-  const data = resolve(cwd, process.env.NOODLE_DATA_DIR || join(root, 'data/noodle'))
+  const mode = process.env.NOODLE_APP_MODE || 'next'
+  if (mode !== 'next') throw new Error('Only the current next workspace is supported; historical runs retain their frozen code.')
+  const data = resolve(cwd, process.env.NOODLE_NEXT_DATA_DIR || process.env.NOODLE_DATA_DIR || join(root, 'data/knowledge'))
   return { ...process.env,
+    NOODLE_CONFIG_DIR: process.env.NOODLE_CONFIG_DIR || root,
     PYTHONPATH: [join(root, 'services/noodle/src'), process.env.PYTHONPATH].filter(Boolean).join(process.platform === 'win32' ? ';' : ':'),
     NOODLE_DATA_DIR: data,
     NOODLE_EXPORT_DIR: resolve(cwd, process.env.NOODLE_EXPORT_DIR || join(data, 'exports')),
     NOODLE_API_BASE_URL: `http://127.0.0.1:${api}`,
-    NOODLE_API_PREFIX: '/internal/v1',
+    NOODLE_APP_MODE: mode,
+    NOODLE_API_PREFIX: '/internal/next',
     NOODLE_HARNESS_WEB_URL: `http://127.0.0.1:${harness}`,
     DSH_WEB_PORT: String(harness),
     NOODLE_RUNTIME_DIR: runtime,

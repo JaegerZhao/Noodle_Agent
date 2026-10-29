@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "AtomicFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "CANDIDATE_ERROR",
+            "SOURCE_ISSUE",
+            "ADVISORY"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "kind": {
+          "default": "ASSERTION",
+          "enum": [
+            "ASSERTION",
+            "OMISSION"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "issue": {
+          "minLength": 1,
+          "title": "Issue",
+          "type": "string"
+        },
+        "candidate_quote": {
+          "default": "",
+          "title": "Candidate Quote",
+          "type": "string"
+        },
+        "source_quote": {
+          "default": "",
+          "title": "Source Quote",
+          "type": "string"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "severity": {
+          "default": "REPAIRABLE",
+          "enum": [
+            "REPAIRABLE",
+            "SEVERE"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "plan_key": {
+          "title": "Plan Key",
+          "type": "string"
+        },
+        "section_key": {
+          "default": "",
+          "title": "Section Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "issue",
+        "plan_key"
+      ],
+      "title": "AtomicFinding",
+      "type": "object"
+    },
+    "DataCheck": {
+      "additionalProperties": false,
+      "description": "Concise recomputation from actual data, rather than a fidelity verdict.",
+      "properties": {
+        "plan_key": {
+          "default": "",
+          "title": "Plan Key",
+          "type": "string"
+        },
+        "section_key": {
+          "default": "",
+          "title": "Section Key",
+          "type": "string"
+        },
+        "candidate_quote": {
+          "default": "",
+          "title": "Candidate Quote",
+          "type": "string"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "recomputation": {
+          "minLength": 1,
+          "title": "Recomputation",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "recomputation",
+        "passed"
+      ],
+      "title": "DataCheck",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "checked_plans": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Checked Plans",
+      "type": "array"
+    },
+    "checked_omissions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Checked Omissions",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/AtomicFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "data_checks": {
+      "items": {
+        "$ref": "#/$defs/DataCheck"
+      },
+      "title": "Data Checks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "checked_plans",
+    "checked_omissions"
+  ],
+  "title": "AssemblyAssessment",
+  "type": "object"
+}

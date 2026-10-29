@@ -1,103 +1,97 @@
-# 架构与数据流
+# 当前系统架构
 
-Noodle Agent 将 PDF 整理成有页码证据的笔记，再把相关笔记归并为可复用的 Concept，供知识体系编排和问答使用。会话交互由 DeepSeek Harness 管理，耗时的资料生成与知识维护由 Python Worker 执行。
+更新：2026-10-29。唯一生产业务入口为 `next-v1`；旧 `/internal/v1`、Synthesis 和旧工作台已退出当前路径。历史演进见[更新日志](DEVELOPMENT-LOG.md)。
 
-## 进程与代码边界
+## 进程与职责
 
-| 部分 | 职责 | 代码入口 |
+| 层次 | 职责 | 主要入口 |
 | --- | --- | --- |
-| 工作台 | 上传、任务进度、笔记/PDF 阅读、知识体系和聊天 | `services/noodle/src/noodle_agent/web/workbench.*` |
-| Harness | 会话、模型交互、上下文、工具执行与审批 | DeepSeek Harness 依赖及 `scripts/start-harness.mjs` |
-| TypeScript 桥接 | 工具 Schema、能力契约和 HTTP 请求 | `src/contracts.ts`、`http-provider.ts`、`read-tools.ts`、`write-tools.ts` |
-| 精简 API | 接收文件、查询与编辑知识、代理 Harness 会话 | `services/noodle/src/noodle_agent/internal_api.py` |
-| Worker | 领取持久化任务，执行生成、模块更新和知识同步 | `services/noodle/src/noodle_agent/worker.py` |
-| 领域服务 | 笔记、版本、证据、检索与知识维护 | `services.py` 门面、`application/`、`synthesis/` |
-| 存储 | 关系数据、全文索引、向量和文件产物 | `storage/`、`db.py` 导出、`adapters/blob.py` |
-
-```mermaid
-flowchart LR
-    UI[工作台] --> API[Python API]
-    UI --> Proxy[同源会话代理]
-    Proxy --> H[DeepSeek Harness]
-    H --> Tools[TypeScript 工具与 HTTP Provider]
-    Tools --> API
-    API --> DB[(SQLite)]
-    W[Worker] --> DB
-    W --> Providers[解析 / 生成 / 向量 / 视觉服务]
-    W --> Files[原文与阶段产物]
-```
-
-当前前端使用原生 JavaScript、HTML 和 CSS。Marked、DOMPurify、KaTeX、PDF.js 分别用于 Markdown、安全清理、公式和 PDF 渲染。默认启动使用 `serve-internal` 和 `/app/`。历史 Python Agent、旧 API、旧 Web UI 及其专用依赖已移除。工作台按 ES Module 拆分，入口负责初始化，阅读器、聊天、知识体系、导航和 PDF 等能力分别放在 `web/workbench/`。
-
-## 模块组织
-
-`NoodleService` 保留领域服务的公共接口和共享资源，具体能力委托给 `application/` 中的组件。上传与来源、任务恢复、规划、生成、发布、编辑、导出和检索分别实现，组件通过显式 `owner` 访问同一个服务上下文。现有调用者不需要随文件拆分修改接口。
-
-LLM 门面位于 `adapters/llm.py`，传输与重试、提取、规划、写作分别放在 `adapters/knowledge/`。语义知识构建门面位于 `synthesis/semantic_builder.py`，输入选择、贡献、写作、审核、编译和发布分别放在 `synthesis/semantic/`。同步事件和知识体系编排仍由 `synthesis/` 的相应领域组件负责。
-
-`internal_api.py` 创建应用、装配共享上下文、健康检查和静态资源服务。`http/` 按领域拆分路由，并将请求模型、Harness 网关与领域业务分开。路由调用服务，不直接维护第二套笔记或知识状态。
-
-`storage/models/` 按来源、笔记、知识与任务等职责组织模型。`db.py` 只作为稳定导出入口；数据库升级由 `storage/runner.py` 和包内版本迁移执行。
-
-## PDF 生成
+| 工作台 | 资料、阅读、PDF、知识树和图、任务、右侧聊天 | `services/noodle/src/noodle_agent/web/next/app.js` |
+| DSH | 会话、Agent Loop、工具运行、审批、压缩与历史 | `scripts/start-harness.mjs` 与 DSH 依赖 |
+| TypeScript 插件 | 领域工具、Scope、HTTP Provider 和结果展示 | `src/index.ts`、`read-tools.ts`、`next-tools.ts` |
+| FastAPI | 领域接口、阅读投影、DSH 同源 RPC 和事件转发 | `next/api.py`、`workbench_api.py`、`agent_api.py` |
+| 生成 Worker | 解析、规划、Atomic 写作与发布、检查点恢复 | `next/worker.py`、`generation.py`、`assembly_generation.py` |
+| 维护消费者 | Concept、索引、依赖和导航更新 | `next/workspace_worker.py`、`maintenance_pool.py`、`runtime.py` |
+| 存储 | 来源、修订、证据、事件、租约、索引与不可变资产 | `next/store.py`、`repository.py`、`storage/` |
 
 ```mermaid
 flowchart TD
-    A[接收 PDF] --> B[保存 Blob / SourceVersion / Job]
-    B --> C[Worker 领取任务并维持租约]
-    C --> D[解析缓存或解析器]
-    D --> E[资料画像与知识规划]
-    E --> F[资料目录与笔记计划]
-    F --> G[视觉处理与正文生成]
-    G --> H[质量评估与必要的修复]
-    H --> I[保存笔记版本 / 发布 SourceNote / 建立索引]
-    I --> J[尝试导出 Markdown]
-    I --> K[按配置入队知识同步事件]
+    PDF[PDF导入] --> API[FastAPI]
+    API --> DB[(SQLite与不可变文件)]
+    DB --> Worker[生成Worker]
+    Worker --> Parse[MinerU与来源规划]
+    Parse --> Atomic[Atomic发布]
+    Atomic --> Index[Atomic索引与阅读]
+    Atomic --> Concept[Concept归属与核心维护]
+    Concept --> Graph[Concept索引、树与图]
+    User[右侧聊天或DSH工作台] --> DSH[Harness Agent Loop]
+    DSH --> Tools[TypeScript领域工具]
+    Tools --> API
+    API --> RAG[RAG与引用回答]
+    Index --> RAG
+    Graph --> RAG
 ```
 
-上传快速返回 Job。Worker 保存阶段状态与产物，支持恢复和指定阶段重启；并非每次重试都从原 PDF 重新解析。解析缓存复用规范化解析结果，后续知识生成仍需要运行。真实 PDF 由 MinerU 处理，fixture 解析器需要合成 sidecar。
+耗时生成不依赖浏览器持续打开；DSH 决定调用什么工具，Python 负责业务执行，没有第二个 Python Agent Loop。
 
-原子笔记的内容检查与 SourceNote 发布包含多阶段校验，失败候选、跳过内容和导出异常会形成错误或覆盖警告。`COMPLETED_WITH_WARNINGS` 表示仍需查看警告，不能当作内容完整且正确的保证。资料 Job 完成后，跨文档同步是另一项持久化工作。
+## PDF 到 Atomic
 
-笔记由内容块、Claim、页码证据和图片关联构成。编辑创建新 NoteVersion 与资料发布快照。导航锚点帮助阅读器在笔记和原 PDF 之间定位。
+1. 保存原始文件、SourceRevision 和任务。文件身份由哈希与版本决定，同名文件不直接等同。
+2. 读取经核验的兼容 MinerU 缓存，或执行新解析；解析结果保留文本、图片、公式、页码和资产定位。
+3. 按资料类型规划。教材按可信目录分章，课件聚合主题，论文保留核心方法和图表。
+4. 构造必要证据；按需建立视觉证据，整页上下文与可发布配图分开。
+5. 生成草稿，按小节执行一次审查、一次必要修复和结构验收。
+6. 发布不可变修订、证据和事件。Atomic 可读，索引与 Concept 消费者分别推进。
 
-## 数据模型与存储
+新生产任务固定走 `source-sections-v1`。`generation.py` 仍含历史配置恢复能力，不能仅按文件长度删除；部分共享调用底座也由新路径使用。
 
-| 实体 | 用途 |
-| --- | --- |
-| Source / SourceVersion / BlobObject | 来源身份、上传版本和原文件定位 |
-| AtomicNote / NoteVersion / NoteBlock | 原子笔记身份、版本和正文块 |
-| Claim / ClaimEvidence / EvidenceSpan | 正文论断与原文证据 |
-| SourceNote / SourceNoteVersion | 一份资料的目录与笔记发布快照 |
-| Concept / ConceptModule | 共享知识点及其语义模块 |
-| ConceptVersion / ConceptModuleVersion / ConceptReleaseModule | 知识发布与固定模块版本 |
-| ConceptContribution / KnowledgeContributionSelection | 原子笔记贡献及选中的正文块 |
-| Synthesis / SynthesisVersion / SynthesisNode | 知识体系与树形编排快照 |
-| KnowledgeSyncEvent / KnowledgeSyncProposal / KnowledgeModuleState | 同步任务、候选与模块失效状态 |
-| NoteEmbedding / ConceptEmbedding / FTS5 | 向量与全文检索 |
+## Atomic 到 Concept
 
-SQLite 保存正文、身份、关系、向量、任务和版本，本地文件保存 PDF、图片和解析产物。当前没有独立图数据库或向量数据库。
+归属流程：当前有效 Atomic → 候选对象目录 → 身份匹配与内部主题 → 正文、支持或媒体贡献 → 所需构建代次 → 核心编译与发布。
 
-一个知识体系用父子节点表达一棵目录树。Concept 身份独立于目录位置，可以被多棵树引用；多个体系通过共享 Concept 形成逻辑图。每次发布的节点固定 `concept_version_id`，Concept 更新后再生成引用它的新体系快照。
+- FOUNDATION 建立稳定核心；SUPPLEMENT 判断净新增、支持证据和深入阅读去向。
+- 相同对象复用身份，普通提及或使用关系不强行创建父子层级。
+- 未变化的安全小节可复用，纯证据增量不要求全文重写。
+- 媒体是独立贡献，选用、沿用和撤回都要匹配仍有效的来源。
+- 构建以输入哈希、所需代次、当前修订和租约为前置条件，旧 Worker 不能覆盖新结果。
+- 删除或撤回从历史贡献定位受影响 Concept，重算有效输入，必要时撤回失去支持的内容。
 
-## RAG 问答
+## 图、树与 Markdown
 
-`noodle_search_knowledge` 返回候选，`noodle_answer_knowledge` 调用领域问答服务。后者根据问题重新检索，并不直接消费上一次搜索工具的结果列表。
+数据库当前关系是共同来源。知识体系树选择阅读路径，其余父级显示引用；主题层级、语义链接、正文双链和来源关系用不同投影表达。
 
-1. 解析问题与可选 `source_version_id`。指定资料版本时只检索该资料的 AtomicNote；全局问题同时检索 AtomicNote 和 Concept。
-2. 使用 FTS5/BM25、标题与摘要相似度、向量信息生成候选分数。
-3. AtomicNote 当前使用 `0.55 × 非负余弦相似度 + 0.45 × 词法得分`；Concept 使用 `0.58 / 0.42` 权重。两类分数不是统一校准的概率。
-4. 分别排序、过滤相关性阈值。两类都有结果时，按名额交错返回 Concept 和 AtomicNote，保留综合解释与原文证据；原子笔记得分另乘 `0.97`。
-5. 生成带引用的回答，再检查来源和知识发布是否发生变化。若发现失效，返回 `SOURCE_CHANGED` 提示并清除命中列表。
+G6 延迟加载，负责布局和交互；身份、有效性和关系支持由服务端提供。MOC、卡片和 Vault 不成为第二份知识事实库。
 
-当前没有独立 cross-encoder 重排模型。向量保存在 SQLite 中并由应用代码计算相似度；未配置真实向量服务时使用确定性 HashEmbedding，主要用于离线验证。
+Markdown 与 Obsidian 导出保留相对图片和稳定身份。Vault 编辑通过受保护的版本入口回流，不能直接修改不可变快照绕过发布。
 
-页面上下文传递有界的实体、版本和导航信息，正文由工具读取。Python 代理限制上下文长度，HTTP Provider 限制正文输出长度；会话压缩由 Harness 负责。这些措施减少上下文增长，但不等于完整的知识摘要记忆系统。
+## DSH 与 RAG
 
-## 一致性与当前边界
+右侧聊天和独立 DSH 工作台共享会话。领域插件注册 17 个工具，其中 13 个只读、4 个需要审批；工具执行通过 Provider 调用 `/internal/next`。
 
-手动 Harness 写工具使用一次性审批；领域写入通过预期版本检查限制陈旧更新。资料事件驱动的自动维护使用独立的来源、质量和发布规则，详见 [跨文档归并](./KNOWLEDGE-SYNC.md)。
+RAG 对有效 Atomic、Concept 建立 Chunk。检索先约束来源与版本，再执行 FTS5/BM25、向量召回、RRF、可选重排和上下文合并。回答包含可回到小节与 PDF 页码的引用，来源变化时不得继续发布旧证据答案。
 
-Worker 使用持久化租约和心跳，模块发布检查租约、来源快照、revision 与 Concept 活动版本。模型生成在发布事务外执行。失效活动模块会使相应 Concept 暂停正常读取与检索；历史版本仍用于追踪。
+普通聊天消费 `assistant/chunk`。后端将 DSH mux、host 两路 WebSocket 合并为一条浏览器 SSE，提供真实上游就绪和心跳；隐藏页释放连接，恢复后补齐历史。RAG 工具内部仍先生成、检查，再返回正式结果。
 
-数据库结构变更统一通过 Alembic。API、Worker、CLI 共用同一入口，迁移使用冻结结构与显式变更，不再以当前 ORM 模型重写历史迁移。SQLite 写锁协调进程，旧库升级前自动备份；异常时回滚事务。API 也未实现完整多用户认证与隔离。文件规模、迁移和扩展性限制见 [测试与限制](./TESTING.md)。
+完整工具、记忆和调用过程见 [Agent 与 RAG](AGENT-AND-RAG.md)。
+
+## 任务恢复与计量
+
+任务、outbox、幂等键、租约令牌、心跳和检查点共同控制恢复。成功模型响应按当前输入指纹复用；重试不是重新执行整条流水线。
+
+生成、归属、Concept、索引和投影使用独立消费者。并发有界；SQLite 写事务应只提交必要变更，重计算和外部调用应在事务外完成。
+
+用量来自供应商回执，区分 Agent、文本生成、视觉、嵌入及重排。排队、执行、暂停和后台维护分别呈现；并行阶段用时不可直接相加。
+
+## 必须保留的约束
+
+- 当前政策、来源和输入版本一致性。
+- CAS 发布、租约 fencing、检查点哈希和幂等。
+- 来源页码、资产哈希、引用身份、必要正文结构。
+- 作者保护、历史修订与可恢复删除。
+- 树与图的关系语义区分，层级提案的环检查。
+
+不要按“静态未导入”删除迁移资源、CLI 动态入口或维护脚本；也不要通过清除历史记录掩盖失败。
+
+## 当前维护重点
+
+完整发布门禁尚未全绿；后台消费通道失效检测、结构覆盖状态、归属事务内目录读取、重复进度计算和历史索引回收仍待优化。当前已知问题以[验证说明](TESTING.md)为准。

@@ -2,9 +2,11 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, statSync, lstatSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 
 const root = resolve(import.meta.dirname, '..')
-const paths = [...new Set(execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root }).toString().split('\0').filter(Boolean))]
+const deleted = new Set(execFileSync('git',['ls-files','-z','--deleted'],{cwd:root}).toString().split('\0').filter(Boolean))
+const paths = [...new Set(execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root }).toString().split('\0').filter(path=>path&&!deleted.has(path)))]
 const issues = []
 const secretPatterns = [
   /\bsk-[A-Za-z0-9_-]{24,}\b/,
@@ -33,7 +35,7 @@ for (const path of paths) {
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
 const lock = JSON.parse(readFileSync(resolve(root, 'package-lock.json'), 'utf8')).packages['']
 for (const section of ['dependencies', 'devDependencies']) {
-  if (JSON.stringify(pkg[section]) !== JSON.stringify(lock[section])) issues.push(`package-lock.json: ${section} differs from package.json`)
+  if (!isDeepStrictEqual(pkg[section] || {}, lock[section] || {})) issues.push(`package-lock.json: ${section} differs from package.json`)
 }
 console.log(JSON.stringify({ ok: issues.length === 0, files: paths.length, issues, scope: 'working source snapshot; heuristic scan, not a full Git-history security audit' }, null, 2))
 process.exitCode = issues.length ? 1 : 0

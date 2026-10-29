@@ -1,0 +1,995 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:noodle:wiki-contracts:1",
+  "title": "Noodle Wiki Concept Design Contracts v1",
+  "description": "Design-time contracts; structural validation does not establish source validity or publication approval.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ConceptCandidate"
+    },
+    {
+      "$ref": "#/$defs/ConceptUpdatePlan"
+    },
+    {
+      "$ref": "#/$defs/ConceptManifest"
+    },
+    {
+      "$ref": "#/$defs/RetrievalEntry"
+    }
+  ],
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "Hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "includes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "excludes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "includes",
+        "excludes"
+      ]
+    },
+    "InputRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ref_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "note_kind": {
+          "const": "ATOMIC"
+        },
+        "note_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "note_revision_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "note_section_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "evidence_anchor_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "role": {
+          "enum": [
+            "SUPPORT",
+            "EXAMPLE",
+            "CONTRAST",
+            "CONFLICT"
+          ]
+        }
+      },
+      "required": [
+        "ref_id",
+        "note_kind",
+        "note_id",
+        "note_revision_id",
+        "note_section_ids",
+        "evidence_anchor_ids",
+        "role"
+      ]
+    },
+    "SectionPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "semantic_role": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "title",
+        "question",
+        "scope"
+      ]
+    },
+    "CandidateSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "section_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "semantic_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markdown": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_ref_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "question",
+        "scope",
+        "markdown",
+        "input_ref_ids"
+      ]
+    },
+    "ConceptCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_kind": {
+          "const": "concept_candidate"
+        },
+        "schema_version": {
+          "const": "wiki-concept-v1"
+        },
+        "candidate_kind": {
+          "enum": [
+            "FULL",
+            "SECTION_PATCH"
+          ]
+        },
+        "concept_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "base_revision_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CandidateSection"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "preserve_section_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "artifact_kind",
+        "schema_version",
+        "candidate_kind",
+        "concept_id",
+        "base_revision_id",
+        "title",
+        "domain",
+        "aliases",
+        "scope",
+        "summary",
+        "inputs",
+        "sections",
+        "preserve_section_ids"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "candidate_kind": {
+                "const": "SECTION_PATCH"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "base_revision_id": {
+                "$ref": "#/$defs/Id"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "candidate_kind": {
+                "const": "FULL"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "preserve_section_ids": {
+                "maxItems": 0,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "ConflictPosition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_ref_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "claim",
+        "input_ref_ids"
+      ]
+    },
+    "UpdateOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "action": {
+          "enum": [
+            "NO_CHANGE",
+            "ADD_EVIDENCE",
+            "UPDATE_SECTION",
+            "CREATE_SECTION",
+            "LINK_ONLY",
+            "CREATE_CONCEPT",
+            "CONFLICT",
+            "INSUFFICIENT"
+          ]
+        },
+        "section_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_ref_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "new_knowledge": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "must_preserve": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "proposed_section": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SectionPlan"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "link_target_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conflict_positions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConflictPosition"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "operation_id",
+        "action",
+        "section_id",
+        "reason",
+        "input_ref_ids",
+        "new_knowledge",
+        "must_preserve",
+        "proposed_section",
+        "link_target_id",
+        "conflict_positions"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "enum": [
+                  "ADD_EVIDENCE",
+                  "UPDATE_SECTION"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "section_id": {
+                "$ref": "#/$defs/Id"
+              },
+              "input_ref_ids": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "UPDATE_SECTION"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "new_knowledge": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "enum": [
+                  "CREATE_SECTION",
+                  "CREATE_CONCEPT"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "section_id": {
+                "type": "null"
+              },
+              "proposed_section": {
+                "$ref": "#/$defs/SectionPlan"
+              },
+              "input_ref_ids": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "new_knowledge": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "LINK_ONLY"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "link_target_id": {
+                "$ref": "#/$defs/Id"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "CONFLICT"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "conflict_positions": {
+                "minItems": 2,
+                "type": "array"
+              },
+              "input_ref_ids": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "ProposedConcept": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        }
+      },
+      "required": [
+        "title",
+        "domain",
+        "aliases",
+        "scope"
+      ]
+    },
+    "ConceptUpdatePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_kind": {
+          "const": "concept_update_plan"
+        },
+        "schema_version": {
+          "const": "wiki-concept-v1"
+        },
+        "plan_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "target_concept_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "base_revision_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposed_concept": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProposedConcept"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputRef"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UpdateOperation"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "artifact_kind",
+        "schema_version",
+        "plan_id",
+        "target_concept_id",
+        "base_revision_id",
+        "proposed_concept",
+        "inputs",
+        "operations"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operations": {
+                "contains": {
+                  "properties": {
+                    "action": {
+                      "const": "CREATE_CONCEPT"
+                    }
+                  },
+                  "required": [
+                    "action"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "target_concept_id": {
+                "type": "null"
+              },
+              "base_revision_id": {
+                "type": "null"
+              },
+              "proposed_concept": {
+                "$ref": "#/$defs/ProposedConcept"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "PublishedSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "section_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "heading": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/Hash"
+        },
+        "input_ref_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "origin": {
+          "enum": [
+            "GENERATED",
+            "HUMAN"
+          ]
+        },
+        "author_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "question",
+        "scope",
+        "heading",
+        "content_sha256",
+        "input_ref_ids",
+        "origin"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "GENERATED"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "input_ref_ids": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "HUMAN"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "required": [
+              "author_ref"
+            ],
+            "type": "object",
+            "properties": {
+              "author_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ConceptManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_kind": {
+          "const": "concept_manifest"
+        },
+        "schema_version": {
+          "const": "wiki-concept-v1"
+        },
+        "concept_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "revision_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "parent_revision_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "publication_status": {
+          "enum": [
+            "READY",
+            "PUBLISHED",
+            "WITHDRAWN"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markdown_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markdown_sha256": {
+          "$ref": "#/$defs/Hash"
+        },
+        "input_manifest_sha256": {
+          "$ref": "#/$defs/Hash"
+        },
+        "build_policy_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputRef"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PublishedSection"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "artifact_kind",
+        "schema_version",
+        "concept_id",
+        "revision_id",
+        "parent_revision_id",
+        "publication_status",
+        "title",
+        "domain",
+        "aliases",
+        "scope",
+        "summary",
+        "markdown_ref",
+        "markdown_sha256",
+        "input_manifest_sha256",
+        "build_policy_version",
+        "inputs",
+        "sections"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "publication_status": {
+                "enum": [
+                  "READY",
+                  "PUBLISHED"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "sections": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "RetrievalEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_kind": {
+          "const": "retrieval_entry"
+        },
+        "schema_version": {
+          "const": "wiki-concept-v1"
+        },
+        "entity_kind": {
+          "enum": [
+            "ATOMIC",
+            "CONCEPT"
+          ]
+        },
+        "note_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "note_revision_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "section_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "chunk_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/Hash"
+        },
+        "embedding_profile_id": {
+          "$ref": "#/$defs/Id"
+        },
+        "index_generation": {
+          "$ref": "#/$defs/Id"
+        },
+        "source_scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "artifact_kind",
+        "schema_version",
+        "entity_kind",
+        "note_id",
+        "note_revision_id",
+        "section_id",
+        "chunk_id",
+        "content_sha256",
+        "embedding_profile_id",
+        "index_generation",
+        "source_scope_ids"
+      ]
+    }
+  }
+}

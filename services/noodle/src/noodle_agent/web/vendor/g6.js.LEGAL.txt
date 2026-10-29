@@ -1,0 +1,82 @@
+Bundled license information:
+
+html2canvas/dist/html2canvas.js:
+  /*!
+   * html2canvas 1.4.1 <https://html2canvas.hertzen.com>
+   * Copyright (c) 2022 Niklas von Hertzen <https://hertzen.com>
+   * Released under MIT License
+   */
+  /*! *****************************************************************************
+      Copyright (c) Microsoft Corporation.
+  
+      Permission to use, copy, modify, and/or distribute this software for any
+      purpose with or without fee is hereby granted.
+  
+      THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+      REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+      AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+      INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+      LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+      OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+      PERFORMANCE OF THIS SOFTWARE.
+      ***************************************************************************** */
+
+@antv/g-math/dist/index.esm.js:
+  /*!
+   * @antv/g-math
+   * @description Geometry util
+   * @version 3.1.0
+   * @date 12/22/2025, 3:02:36 AM
+   * @author AntVis
+   * @docs https://g.antv.antgroup.com/
+   */
+
+@babel/runtime/helpers/esm/regenerator.js:
+  /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
+
+@antv/g-lite/dist/index.esm.js:
+  /*!
+   * @antv/g-lite
+   * @description A core module for rendering engine implements DOM API.
+   * @version 2.7.2
+   * @date 10/16/2026, 2:34:22 AM
+   * @author AntVis
+   * @docs https://g.antv.antgroup.com/
+   */
+
+@antv/g/dist/index.esm.js:
+  /*!
+   * @antv/g
+   * @description A core module for rendering engine implements DOM API.
+   * @version 6.3.3
+   * @date 10/16/2026, 2:34:40 AM
+   * @author AntVis
+   * @docs https://g.antv.antgroup.com/
+   */
+
+@antv/g-canvas/dist/index.esm.js:
+  /*!
+   * @antv/g-canvas
+   * @description A renderer implemented by Canvas 2D API
+   * @version 2.2.2
+   * @date 10/16/2026, 2:34:54 AM
+   * @author AntVis
+   * @docs https://g.antv.antgroup.com/
+   */
+
+comlink/dist/esm/comlink.js:
+  /**
+   * @license
+   * Copyright 2019 Google LLC
+   * SPDX-License-Identifier: Apache-2.0
+   */
+
+@antv/g-plugin-dragndrop/dist/index.esm.js:
+  /*!
+   * @antv/g-plugin-dragndrop
+   * @description A G plugin for Drag n Drop implemented with PointerEvents
+   * @version 2.1.3
+   * @date 10/16/2026, 2:35:41 AM
+   * @author AntVis
+   * @docs https://g.antv.antgroup.com/
+   */

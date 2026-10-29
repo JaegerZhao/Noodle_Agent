@@ -117,8 +117,10 @@ class AllocationPlan(Contract):
     assignments: dict[Id, Decision]
 
 
-def allocation_contract(units: list[Unit]):
+def allocation_contract(units: list[Unit], *, compact=False):
     """Every input unit is a required JSON property with one legal decision."""
+    if compact:
+        return AllocationPlan
     fields = {}
     for unit in units:
         routes = (
@@ -188,7 +190,9 @@ class WritingPlan(Contract):
     assignments: dict[Id, Id]
 
 
-def writing_contract(units):
+def writing_contract(units, *, compact=False):
+    if compact:
+        return WritingPlan
     assignments = create_model(
         "RequiredEvidenceAssignments",
         __base__=Contract,
@@ -228,3 +232,49 @@ def allocated_draft(value) -> Draft:
             for section in value.sections
         ],
     )
+
+
+def canonical_writing_response(raw):
+    """Normalize redundant evidence only when it agrees with required assignments.
+
+    Empty nested assignments carry no evidence. Nonempty nested mappings and units
+    must exactly match the required top-level mapping; conflicts are never dropped.
+    """
+    if not isinstance(raw, dict) or not isinstance(raw.get("assignments"), dict):
+        return raw
+    sections = raw.get("sections")
+    if not isinstance(sections, list):
+        return raw
+    normalized = []
+    for section in sections:
+        if not isinstance(section, dict):
+            normalized.append(section)
+            continue
+        expected = {
+            uid: key for uid, key in raw["assignments"].items() if key == section.get("key")
+        }
+        if "units" in section:
+            ids = section["units"]
+            if (
+                not isinstance(ids, list)
+                or any(not isinstance(uid, str) for uid in ids)
+                or len(ids) != len(set(ids))
+                or set(ids) != set(expected)
+            ):
+                raise ValueError("Redundant section units conflict with required assignments")
+        if "assignments" in section and section["assignments"] not in ({}, expected):
+            raise ValueError("Nested section assignments conflict with required assignments")
+        normalized.append(
+            {key: value for key, value in section.items() if key not in {"units", "assignments"}}
+        )
+    return {**raw, "sections": normalized}
+
+
+class SectionPatch(Contract):
+    key: Id
+    markdown: Text
+
+
+class NoteRepair(Contract):
+    sections: list[SectionPatch] = Field(min_length=1)
+    summary: str | None = None

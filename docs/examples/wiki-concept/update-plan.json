@@ -1,0 +1,41 @@
+{
+  "artifact_kind": "concept_update_plan",
+  "schema_version": "wiki-concept-v1",
+  "plan_id": "demo_plan_add_evidence",
+  "target_concept_id": "demo_concept_backprop",
+  "base_revision_id": "demo_concept_backprop_r1",
+  "proposed_concept": null,
+  "inputs": [
+    {
+      "ref_id": "input_c",
+      "note_kind": "ATOMIC",
+      "note_id": "demo_note_c",
+      "note_revision_id": "demo_note_c_r1",
+      "note_section_ids": [
+        "demo_c_definition"
+      ],
+      "evidence_anchor_ids": [
+        "demo_ev_c_definition"
+      ],
+      "role": "SUPPORT"
+    }
+  ],
+  "operations": [
+    {
+      "operation_id": "demo_op_1",
+      "action": "ADD_EVIDENCE",
+      "section_id": "demo_bp_definition",
+      "reason": "演示来源支持已有定义，没有实质知识增量；不调用正文 Writer。",
+      "input_ref_ids": [
+        "input_c"
+      ],
+      "new_knowledge": [],
+      "must_preserve": [
+        "已有定义和分工"
+      ],
+      "proposed_section": null,
+      "link_target_id": null,
+      "conflict_positions": []
+    }
+  ]
+}

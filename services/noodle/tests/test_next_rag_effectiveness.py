@@ -218,11 +218,11 @@ def test_real_reranker_adapter_repairs_incomplete_and_duplicate_permutations(sto
             self.requests.append(user)
             return {
                 "ordered_chunk_ids": (
-                    ["a"]
+                    ["0"]
                     if len(self.requests) == 1
-                    else ["a", "a"]
+                    else ["0", "0"]
                     if len(self.requests) == 2
-                    else ["b", "a"]
+                    else ["1", "0"]
                 )
             }
 
@@ -294,3 +294,112 @@ def test_evaluation_metrics_deduplicate_notes_and_distinguish_primary_targets():
     assert ranked == ["alternative", "primary"]
     assert measured["hit@1"] == 1 and measured["primary_hit@1"] == 0
     assert measured["recall@3"] == 1 and 0 < measured["ndcg@5"] < 1
+
+
+def test_keyword_mode_reuses_hybrid_fts_without_reading_vectors_or_embedding(store, monkeypatch):
+    from noodle_agent.next.retrieval import indexing
+
+    identity, source, _revision = note(
+        store, "Design matrix", "Design matrix has N samples and D features."
+    )
+    indexer = Indexer(store, Embedding(), allow_test_embeddings=True)
+    indexer.build("HYBRID")
+    generation, _, _ = indexer.snapshot("HYBRID")
+    # Query process can use FTS even if no embedding provider is configured.
+    keyword = Indexer(store)
+    monkeypatch.setattr(
+        indexing,
+        "load_matrix",
+        lambda *args: (_ for _ in ()).throw(AssertionError("keyword search must not read vectors")),
+    )
+    snapshot, manifest, matrix = keyword.snapshot("KEYWORD_ONLY")
+    assert snapshot["id"] == generation["id"] and matrix is None and manifest
+    search = Searcher(keyword).search(
+        Query(query="Design matrix", retrieval_mode="KEYWORD_ONLY", rerank="OFF")
+    )
+    assert search["status"] == "READY" and search["hits"][0]["note_id"] == identity
+    assert "vector" not in search["diagnostics"]["lanes"]
+    store.sources.set_source_deleted(source["source_id"], True)
+    assert not Searcher(keyword).search(
+        Query(query="Design matrix", retrieval_mode="KEYWORD_ONLY")
+    )["hits"]
+
+
+def test_answer_semantic_correction_is_bounded_and_reuses_frozen_search(store):
+    note(store, "Gradient", "The chain rule composes derivatives.")
+    indexer = Indexer(store)
+    indexer.build("KEYWORD_ONLY")
+    search = Searcher(indexer)
+    original = search.search
+    searches = []
+
+    def counted(query):
+        searches.append(query)
+        return original(query)
+
+    search.search = counted
+
+    class CorrectionAgent:
+        name = "explicit-answer-correction"
+
+        def __init__(self):
+            self.writes = 0
+            self.reviews = 0
+
+        def structured_json(self, operation, user, **kwargs):
+            if operation == "next.answer":
+                self.writes += 1
+                if self.writes == 2:
+                    assert user["content"]["corrections"] == ["Unsupported operation"]
+                return {
+                    "claims": [
+                        {
+                            "text": "Correct composition"
+                            if self.writes == 2
+                            else "Wrong operation",
+                            "citation_ids": ["K1"],
+                        }
+                    ]
+                }
+            assert operation == "next.answer_review" and not kwargs.get("use_pro_model")
+            self.reviews += 1
+            return {
+                "passed": self.reviews == 2,
+                "issues": [] if self.reviews == 2 else ["Unsupported operation"],
+                "supported_claim_indexes": [0] if self.reviews == 2 else [],
+            }
+
+    agent = CorrectionAgent()
+    result = Answerer(search, Calls(store, agent)).answer(
+        {"query": "Gradient", "retrieval_mode": "KEYWORD_ONLY", "rerank": "OFF"}
+    )
+    assert result["status"] == "READY"
+    assert result["answer_markdown"].startswith("Correct composition")
+    assert agent.writes == agent.reviews == 2 and len(searches) == 1
+    assert result["diagnostics"]["answer_revisions"] == 1
+
+
+def test_rejected_answer_triage_uses_full_stable_atomic_section(store, monkeypatch):
+    from noodle_agent.next import quality_repair
+
+    identity, _, _ = note(store, "Gradient", "The chain rule composes derivatives.")
+    indexer = Indexer(store)
+    indexer.build("KEYWORD_ONLY")
+    result = Searcher(indexer).search(
+        {"query": "Gradient", "retrieval_mode": "KEYWORD_ONLY", "rerank": "OFF"}
+    )
+    seen = []
+
+    def adjudicate(actual_store, calls, fragments, issues):
+        assert actual_store is store and issues == ["Inconsistent interpretation"]
+        seen.extend(fragments)
+        return True
+
+    monkeypatch.setattr(quality_repair, "request_upstream_repair", adjudicate)
+    assert quality_repair.request_retrieval_repair(
+        store, object(), result["hits"] * 2, ["Inconsistent interpretation"]
+    )
+    assert len(seen) == 1
+    assert seen[0]["atomic_revision_id"] == store.get_note(identity)["revision"]["id"]
+    assert seen[0]["text"] == "The chain rule composes derivatives."
+    assert seen[0]["evidence_ids"]

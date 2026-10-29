@@ -29,7 +29,7 @@ class Query(Contract):
     )
     retrieval_mode: Literal["HYBRID", "KEYWORD_ONLY"] = "HYBRID"
     rerank: Literal["AUTO", "OFF", "REQUIRED"] = "AUTO"
-    top_k: int = Field(default=8, ge=1, le=20)
+    top_k: int = Field(default=6, ge=1, le=20)
     entity_note_ids: list[Id] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -61,6 +61,7 @@ class AnswerCheck(Contract):
     passed: bool
     issues: list[str] = Field(default_factory=list)
     supported_claim_indexes: list[int]
+    severity: Literal["REPAIRABLE", "SEVERE"] = "REPAIRABLE"
 
 
 class Ranking(Contract):
@@ -71,6 +72,14 @@ class Provenance(Contract):
     source_revision_id: Id
     source_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     page: int | None = Field(default=None, ge=1)
+    source_families: list[str] = Field(default_factory=list)
+
+
+class MatchedRange(Contract):
+    chunk_id: Id
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(gt=0)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class Citation(Contract):
@@ -86,6 +95,8 @@ class Citation(Contract):
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     evidence_ids: list[Id]
     provenance: list[Provenance]
+    matched_ranges: list[MatchedRange] = Field(default_factory=list)
+    expansion_reason: str = "MATCH_ONLY"
 
 
 class Hit(Citation):
@@ -93,6 +104,7 @@ class Hit(Citation):
     body: Text
     score: float
     ranks: dict[str, int]
+    rerank_score: float | None = None
 
 
 class Counts(Contract):
@@ -115,6 +127,14 @@ class Diagnostics(Contract):
     eligible_chunks: int
     context_tokens: int
     coverage_pending_revisions: list[Id]
+    candidate_count: int = 0
+    rerank: dict = Field(default_factory=dict)
+    context_artifact_tokens: int = 0
+    answer_input_tokens_estimate: int = 0
+    review_input_tokens_estimate: int = 0
+    answer_revisions: int = Field(default=0, ge=0, le=2)
+    knowledge_repair_requested: bool = False
+    post_repair_semantic_review: bool | None = None
 
 
 class SearchResponse(Contract):
@@ -142,3 +162,5 @@ class SearchResponse(Contract):
 class AnswerResponse(SearchResponse):
     answer_markdown: str
     citations: list[Citation]
+    source_titles: dict[str, str] = Field(default_factory=dict)
+    usage_summary: dict = Field(default_factory=dict)

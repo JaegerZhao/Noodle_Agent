@@ -12,19 +12,29 @@ import math
 import re
 import statistics
 import sys
+from dataclasses import asdict, replace
 from pathlib import Path
 from time import perf_counter
 
 from noodle_agent.adapters.llm import OpenAIEmbedding
 from noodle_agent.config import Settings
-from noodle_agent.next import model_calls
+from noodle_agent.next import model_calls, segmentation
 from noodle_agent.next.contracts import canonical, sha
 from noodle_agent.next.eligibility import eligible
 from noodle_agent.next.model_calls import Calls
-from noodle_agent.next.retrieval import answering, search, vectors
+from noodle_agent.next.retrieval import (
+    answering,
+    chunks,
+    context,
+    reranking,
+    search,
+    vectors,
+)
 from noodle_agent.next.retrieval.answering import Answerer, ModelReranker
 from noodle_agent.next.retrieval.contracts import Query
 from noodle_agent.next.retrieval.indexing import Indexer
+from noodle_agent.next.retrieval.options import RetrievalOptions
+from noodle_agent.next.retrieval.reranking import reranker_from_env
 from noodle_agent.next.retrieval.search import Searcher
 from noodle_agent.next.retrieval.vectors import ChromaVectors, normalize
 from noodle_agent.next.runtime import real_agent
@@ -127,7 +137,16 @@ def evaluate(args):
         canonical(
             {
                 m.__name__: sha(Path(m.__file__).read_bytes())
-                for m in (model_calls, answering, search, vectors)
+                for m in (
+                    model_calls,
+                    answering,
+                    search,
+                    vectors,
+                    chunks,
+                    context,
+                    reranking,
+                    segmentation,
+                )
             }
         )
     )
@@ -173,8 +192,22 @@ def evaluate(args):
     exact.embedding = provider
     if chroma:
         chroma.embedding = provider
-    calls = Calls(store, real_agent(settings)) if args.rerank or args.qa else None
-    reranker = ModelReranker(calls) if args.rerank else None
+    provider_name = getattr(args, "rerank_provider", "llm")
+    needs_llm = args.qa or (args.rerank and provider_name in {"llm", "both"})
+    calls = Calls(store, real_agent(settings)) if needs_llm else None
+    reranker = (
+        ModelReranker(calls)
+        if args.rerank and provider_name in {"llm", "both"}
+        else None
+    )
+    dashscope = (
+        reranker_from_env(store=store, provider="dashscope")
+        if args.rerank and provider_name in {"dashscope", "both"}
+        else None
+    )
+    options = RetrievalOptions.from_env()
+    if getattr(args, "rerank_candidates", None):
+        options = replace(options, rerank_candidates=args.rerank_candidates)
     variants = [
         ("keyword", exact, "KEYWORD_ONLY", None, "OFF"),
         ("hybrid_exact", exact, "HYBRID", None, "OFF"),
@@ -187,15 +220,23 @@ def evaluate(args):
             variants.append(
                 ("hybrid_chroma_rerank", chroma, "HYBRID", reranker, "REQUIRED")
             )
+    if dashscope:
+        variants.append(
+            ("hybrid_exact_dashscope", exact, "HYBRID", dashscope, "REQUIRED")
+        )
+        if chroma and args.rerank_both:
+            variants.append(
+                ("hybrid_chroma_dashscope", chroma, "HYBRID", dashscope, "REQUIRED")
+            )
     all_results = []
     aggregates = {}
     for name, indexer, mode, ranker, policy in variants:
-        searcher = Searcher(indexer, ranker)
+        searcher = Searcher(indexer, ranker, options=options)
         results = []
         for case in cases:
             request = Query(
                 query=case["query"],
-                top_k=20,
+                top_k=getattr(args, "top_k", 6),
                 retrieval_mode=mode,
                 rerank=policy,
                 **case.get("filters", {}),
@@ -209,7 +250,10 @@ def evaluate(args):
                         builds["exact"]["generation"],
                         name,
                         implementation,
-                        settings.llm_fast_model if ranker else None,
+                        getattr(ranker, "model", settings.llm_fast_model)
+                        if ranker
+                        else None,
+                        asdict(options),
                     ]
                 )
             )
@@ -254,6 +298,25 @@ def evaluate(args):
                 "ready": sum(r["response"]["status"] == "READY" for r in results),
                 "p50_ms": statistics.median(r["elapsed_ms"] for r in results),
                 "p95_ms": percentile([r["elapsed_ms"] for r in results], 0.95),
+                "context_tokens_p50": statistics.median(
+                    r["response"].get("diagnostics", {}).get("context_tokens", 0)
+                    for r in results
+                ),
+                "rerank_tokens_reported_total": sum(
+                    r["response"]
+                    .get("diagnostics", {})
+                    .get("rerank", {})
+                    .get("usage", {})
+                    .get("total_tokens", 0)
+                    for r in results
+                ),
+                "rerank_input_estimate_p50": statistics.median(
+                    r["response"]
+                    .get("diagnostics", {})
+                    .get("rerank", {})
+                    .get("request_tokens_estimate", 0)
+                    for r in results
+                ),
             }
         )
         all_results.extend(results)
@@ -281,7 +344,9 @@ def evaluate(args):
             )
     answers = []
     if args.qa:
-        answerer = Answerer(Searcher(exact, reranker), calls)
+        answerer = Answerer(
+            Searcher(exact, dashscope or reranker, options=options), calls
+        )
         for case in raw_cases.get("answers", []):
             response = answerer.answer(
                 Query(
@@ -313,6 +378,8 @@ def evaluate(args):
         "contract": "next-v1-rag-evaluation",
         "implementation_sha256": implementation,
         "reranking_model_request": settings.llm_fast_model if args.rerank else None,
+        "rerank_provider": provider_name if args.rerank else None,
+        "retrieval_options": asdict(options),
         "cases_sha256": sha(args.cases.read_bytes()),
         "builds": builds,
         "embedding_profile": exact.profile,
@@ -341,6 +408,11 @@ def main():
     parser.add_argument("--chroma-port", type=int, default=8001)
     parser.add_argument("--rerank", action="store_true")
     parser.add_argument("--rerank-both", action="store_true")
+    parser.add_argument(
+        "--rerank-provider", choices=["llm", "dashscope", "both"], default="llm"
+    )
+    parser.add_argument("--rerank-candidates", type=int)
+    parser.add_argument("--top-k", type=int, default=6)
     parser.add_argument("--qa", action="store_true")
     parser.add_argument(
         "--rebuild",

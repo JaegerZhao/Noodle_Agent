@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 import fitz
+import httpx
+from openai import APIConnectionError, APIStatusError
 
 from .contracts import canonical, sha
+from .large_documents import chapter_ranges, parse_parts
+from .parallel import checked_parallel
 from .planning import QualityFailure
 from .repository import one
 
@@ -62,39 +66,53 @@ class PdfParsing:
         cached = self.journal.load("parse.normalized", inputs)
         if cached is not None:
             return cached
-        submission = self.journal.load("parse.submit", inputs)
-        if submission is None:
-            self.journal.intent("parse.submit", inputs)
-            submission = self.parser.submit(self.store.path(source["blob_ref"]), revision_id)
-            submission["submitted_at"] = datetime.now(UTC).isoformat()
-            self.journal.save("parse.submit", inputs, submission)
-        elapsed = (
-            datetime.now(UTC) - datetime.fromisoformat(submission["submitted_at"])
-        ).total_seconds()
-        if elapsed > 3600:
-            raise QualityFailure(
-                "PDF parsing exceeded one hour; inspect the existing provider task"
-            )
-        raw = self.journal.load("parse.download", inputs)
-        destination = self.store.path(f"artifacts/parser/{self.journal.lease.job_id}")
+        from .source_cache import reuse_parse
+        reused = reuse_parse(self.store, self.journal, source, self.profile, inputs)
+        if reused is not None:
+            self.progress('parse-reused', {'pages': physical_pages, 'source_sha256': source['sha256']})
+            return reused
+        import os
+        if os.getenv('NOODLE_NEXT_REQUIRE_PARSE_REUSE') == '1':
+            raise QualityFailure('A verified MinerU cache is required for this run; fresh parsing is disabled')
+        if physical_pages > 180:
+            raw = parse_parts(self, source, original)
+            destination = self.store.path(f"artifacts/parser/{self.journal.lease.job_id}")
+        else:
+            raw = None
+        submission = self.journal.load("parse.submit", inputs) if raw is None else {}
         if raw is None:
-            result = (
-                submission
-                if submission.get("state") == "done"
-                else self.parser.poll(submission["external_id"])
-            )
-            state = str(result.get("state", "pending")).lower()
-            if state in {"failed", "error"}:
+            if submission is None:
+                self.journal.intent("parse.submit", inputs)
+                submission = self.parser.submit(self.store.path(source["blob_ref"]), revision_id)
+                submission["submitted_at"] = datetime.now(UTC).isoformat()
+                self.journal.save("parse.submit", inputs, submission)
+            elapsed = (
+                datetime.now(UTC) - datetime.fromisoformat(submission["submitted_at"])
+            ).total_seconds()
+            if elapsed > 3600:
                 raise QualityFailure(
-                    "PDF provider reported a failed parse; inspect private task receipt"
+                    "PDF parsing exceeded one hour; inspect the existing provider task"
                 )
-            if state != "done":
-                raise ParsePending(state)
-            payload = result.get("result") or result
-            document = self.parser.download_and_normalize(
-                submission["external_id"], payload, destination, source["title"]
-            )
-            raw = self.journal.save("parse.download", inputs, document.model_dump(mode="json"))
+            raw = self.journal.load("parse.download", inputs)
+            destination = self.store.path(f"artifacts/parser/{self.journal.lease.job_id}")
+            if raw is None:
+                result = (
+                    submission
+                    if submission.get("state") == "done"
+                    else self.parser.poll(submission["external_id"])
+                )
+                state = str(result.get("state", "pending")).lower()
+                if state in {"failed", "error"}:
+                    raise QualityFailure(
+                        "PDF provider reported a failed parse; inspect private task receipt"
+                    )
+                if state != "done":
+                    raise ParsePending(state)
+                payload = result.get("result") or result
+                document = self.parser.download_and_normalize(
+                    submission["external_id"], payload, destination, source["title"]
+                )
+                raw = self.journal.save("parse.download", inputs, document.model_dump(mode="json"))
         blocks, seen = [], set()
         for block in raw["blocks"]:
             key = block["block_id"]
@@ -136,12 +154,17 @@ class PdfParsing:
         missing = substantive_pages - represented
         if missing:
             raise QualityFailure(f"Parser omitted nonblank PDF pages: {sorted(missing)}")
-        self.enrich_visuals(blocks, source)
+        if self.profile.get("generation_layout") != "source-sections-v1":
+            self.enrich_visuals(blocks, source)
         if not blocks:
             raise QualityFailure("Parser returned no usable blocks")
+        from .document_outline import build_outline
+
         artifact = {
+            "outline": build_outline(original, blocks).model_dump(),
             "title": source["title"],
             "page_count": physical_pages,
+            "chapters": chapter_ranges(original),
             "page_coverage": {
                 "represented": sorted(represented),
                 "blank": sorted(set(range(1, physical_pages + 1)) - substantive_pages),
@@ -209,7 +232,27 @@ class PdfParsing:
 
         def analyze(batch):
             try:
-                result = self.vision.analyze_batch(batch)
+                for attempt in range(4):
+                    try:
+                        result = self.vision.analyze_batch(batch)
+                        break
+                    except (httpx.TransportError, APIConnectionError, APIStatusError) as exc:
+                        retryable = (
+                            not isinstance(exc, APIStatusError)
+                            or exc.status_code == 429
+                            or exc.status_code >= 500
+                        )
+                        if not retryable or attempt == 3:
+                            raise
+                        self.progress(
+                            "visual-retry",
+                            {
+                                "attempt": attempt + 1,
+                                "assets": len(batch),
+                                "reason": type(exc).__name__,
+                            },
+                        )
+                        time.sleep((2, 8, 20)[attempt])
             except (ValueError, TypeError) as exc:
                 if len(batch) == 1:
                     raise QualityFailure(
@@ -226,11 +269,9 @@ class PdfParsing:
                 saved[key] = self.journal.save(f"visual.v2.{sha(key)[:20]}", inputs[key], value)
             return saved
 
-        with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
-            futures = [pool.submit(analyze, batch) for batch in batches]
-            for future in as_completed(futures):
-                values.update(future.result())
-                self.progress("visual", {"completed": len(values), "total": len(assets)})
+        for _, result in checked_parallel(analyze, batches, self.concurrency):
+            values.update(result)
+            self.progress("visual", {"completed": len(values), "total": len(assets)})
         for block in assets:
             visual = values[block["id"]]
             if not 0 <= visual["confidence"] <= 1 or visual["image_sha256"] != sha(

@@ -11,8 +11,10 @@ from ..eligibility import eligible
 from ..planning import QualityFailure
 from ..repository import identifier
 from ..segmentation import tokens
+from .context import answer_knowledge, expanded_range, ranking_document
 from .contracts import Query
 from .lexical import match_query
+from .options import RetrievalOptions
 from .vectors import normalize
 
 
@@ -22,22 +24,32 @@ def summary(hits):
         "concept_notes": len({h["note_id"] for h in hits if h["kind"] == "CONCEPT"}),
         "chunks": len(hits),
         "independent_source_families": len(
-            {p["source_sha256"] for h in hits for p in h["provenance"]}
+            {
+                family
+                for h in hits
+                for p in h["provenance"]
+                for family in (p.get("source_families") or [p["source_sha256"]])
+            }
         ),
     }
 
 
 class Searcher:
-    def __init__(self, indexer, reranker=None, context_budget=6000, min_cosine=0.2):
+    def __init__(
+        self, indexer, reranker=None, context_budget=None, min_cosine=0.2, *, options=None
+    ):
         self.indexer = indexer
         self.store = indexer.store
         self.reranker = reranker
-        self.context_budget = context_budget
+        self.options = options or RetrievalOptions()
+        self.context_budget = (
+            self.options.context_tokens if context_budget is None else context_budget
+        )
         self.min_cosine = min_cosine
 
     def empty(self, status, message, query):
         return {
-            "request_id": identifier(),
+            "request_id": getattr(self,'request_id',None) or identifier(),
             "status": status,
             "message": message,
             "hits": [],
@@ -63,6 +75,8 @@ class Searcher:
             return self.empty("PROFILE_MISMATCH", str(exc), query)
         if generation is None:
             return self.empty("INDEX_PENDING", "所选模式与模型尚未建立索引。", query)
+        timings['snapshot'] = (perf_counter() - started) * 1000
+        validity_started = perf_counter()
         with self.store.db.engine.connect() as c:
             c.exec_driver_sql("BEGIN")
             valid = {n["revision_id"]: n for n in eligible(c)}
@@ -70,7 +84,7 @@ class Searcher:
             if query.scope.mode == "SOURCE":
                 for row in c.execute(
                     text(
-                        "SELECT DISTINCT se.revision_id,sr.source_id FROM section_evidence se JOIN evidence_anchors e ON e.id=se.evidence_id JOIN source_revisions sr ON sr.id=e.source_revision_id"
+                        "SELECT DISTINCT se.revision_id,sr.source_id FROM section_evidence se JOIN evidence_anchors e ON e.id=se.evidence_id JOIN source_revisions sr ON sr.id=e.source_revision_id WHERE NOT EXISTS(SELECT 1 FROM author_origin_sources ao WHERE ao.revision_id=se.revision_id) UNION SELECT ao.revision_id,sr.source_id FROM author_origin_sources ao JOIN source_revisions sr ON sr.id=ao.source_revision_id"
                     )
                 ):
                     source_revisions.setdefault(row[0], set()).add(row[1])
@@ -102,11 +116,13 @@ class Searcher:
                 and (
                     chunk["kind"] != "ATOMIC"
                     or not chunk["evidence"]
-                    or any(e["source_id"] not in query.scope.source_ids for e in chunk["evidence"])
+                    or not source_revisions.get(chunk["revision_id"], set())
+                    <= set(query.scope.source_ids)
                 )
             )
 
         admitted = {m["id"]: m for m in manifest if allowed(m)}
+        timings['eligibility'] = (perf_counter() - validity_started) * 1000
         if not admitted:
             return self.empty(
                 "NO_EVIDENCE" if not valid else "INDEX_PENDING",
@@ -145,43 +161,108 @@ class Searcher:
                 ranks.setdefault(key, {})[lane] = rank
         ordered = sorted(scores, key=lambda key: (-scores[key], key))
         degraded = None
+        notes = {}
+        rerank_stats = {"documents": 0, "skipped_budget": 0}
+        rerank_scores = {}
         if query.rerank == "REQUIRED" and self.reranker is None:
             return self.empty("PROVIDER_ERROR", "重排服务尚未配置。", query)
         if query.rerank != "OFF" and self.reranker and ordered:
             stage = perf_counter()
-            subset = ordered[:30]
+            texts, subset = [], []
+            estimated = tokens(routed)
+            for passage in self.iter_passages([admitted[k] for k in ordered], False, notes):
+                cost = tokens(ranking_document(passage))
+                trial_tokens = (
+                    self.reranker.estimate_request_tokens(routed, texts + [passage])
+                    if hasattr(self.reranker, "estimate_request_tokens")
+                    else estimated + cost + tokens(routed)
+                )
+                if (
+                    cost > self.options.rerank_document_tokens
+                    or trial_tokens > self.options.rerank_tokens
+                ):
+                    rerank_stats["skipped_budget"] += 1
+                    continue
+                texts.append(passage)
+                subset.append(passage["chunk_id"])
+                estimated = trial_tokens
+                if len(subset) >= self.options.rerank_candidates:
+                    break
+            rerank_stats.update(documents=len(subset), input_tokens_estimate=estimated)
             try:
-                texts = self.read_passages([admitted[k] for k in subset], expand=False)
-                reranked = self.reranker.rank(routed, texts)
+                if not subset:
+                    raise QualityFailure("No candidate fits the rerank input budget")
+                if hasattr(self.reranker, "rank_with_details"):
+                    detail = self.reranker.rank_with_details(routed, texts)
+                    reranked = detail.ordered_ids
+                    rerank_scores = detail.scores
+                    rerank_stats.update(detail.diagnostics)
+                else:
+                    reranked = self.reranker.rank(routed, texts)
                 if len(reranked) != len(subset) or set(reranked) != set(subset):
                     raise QualityFailure("Reranker must return a complete unique permutation")
-                ordered = reranked + ordered[30:]
-            except Exception as exc:  # noqa: BLE001 - explicit AUTO rerank degradation retains same candidate set
+                rerank_stats["status"] = "READY"
+                ordered = reranked + [k for k in ordered if k not in set(subset)]
+            except Exception as exc:  # noqa: BLE001 - explicit AUTO degradation
                 if query.rerank == "REQUIRED":
                     return self.empty("PROVIDER_ERROR", f"重排失败：{type(exc).__name__}", query)
+                rerank_stats["status"] = "FAILED"
                 degraded = "RERANK_UNAVAILABLE_USING_SAME_RRF_CANDIDATES"
             timings["rerank"] = (perf_counter() - stage) * 1000
-        passages = self.read_passages([admitted[k] for k in ordered], expand=True)
+        stage = perf_counter()
         selected = []
         per_note = Counter()
         used = 0
-        seen = set()
-        for passage in passages:
-            key = (passage["revision_id"], passage["start_offset"], passage["end_offset"])
-            if key in seen or per_note[passage["note_id"]] >= 3:
+        for passage in self.iter_passages([admitted[k] for k in ordered], True, notes):
+            overlap = next(
+                (
+                    i
+                    for i, previous in enumerate(selected)
+                    if previous["revision_id"] == passage["revision_id"]
+                    and previous["section_id"] == passage["section_id"]
+                    and max(previous["start_offset"], passage["start_offset"])
+                    <= min(previous["end_offset"], passage["end_offset"])
+                ),
+                None,
+            )
+            trial = list(selected)
+            if overlap is not None:
+                previous = selected[overlap]
+                left = min(previous["start_offset"], passage["start_offset"])
+                right = max(previous["end_offset"], passage["end_offset"])
+                body = notes[passage["note_id"]]["markdown"][left:right]
+                matches = {
+                    r["chunk_id"]: r for r in previous["matched_ranges"] + passage["matched_ranges"]
+                }
+                passage = {
+                    **previous,
+                    "start_offset": left,
+                    "end_offset": right,
+                    "body": body,
+                    "sha256": sha(body),
+                    "matched_ranges": list(matches.values()),
+                    "expansion_reason": "MERGED_RANGES",
+                }
+                trial[overlap] = passage
+            else:
+                if per_note[passage["note_id"]] >= self.options.per_note:
+                    continue
+                passage["citation_id"] = f"K{len(selected) + 1}"
+                trial.append(passage)
+            cost = tokens(canonical(answer_knowledge(trial)))
+            if cost > self.context_budget:
                 continue
-            cost = tokens(canonical(passage)) + 32
-            if used + cost > self.context_budget:
-                continue
-            selected.append(passage)
-            seen.add(key)
-            used += cost
-            per_note[passage["note_id"]] += 1
+            selected, used = trial, cost
+            if overlap is None:
+                per_note[passage["note_id"]] += 1
             if len(selected) >= query.top_k:
                 break
-        for i, hit in enumerate(selected, 1):
+        timings["context"] = (perf_counter() - stage) * 1000
+        for hit in selected:
             hit.update(
-                citation_id=f"K{i}", score=scores[hit["chunk_id"]], ranks=ranks[hit["chunk_id"]]
+                score=scores[hit["chunk_id"]],
+                ranks=ranks[hit["chunk_id"]],
+                rerank_score=rerank_scores.get(hit["chunk_id"]),
             )
         status = "READY" if selected else "NO_EVIDENCE"
         if selected and not self.current(selected):
@@ -189,7 +270,7 @@ class Searcher:
         timings["total"] = (perf_counter() - started) * 1000
         pending_revisions = sorted(set(valid) - {m["revision_id"] for m in manifest})
         result = {
-            "request_id": identifier(),
+            "request_id": getattr(self,'request_id',None) or identifier(),
             "status": status,
             "message": (
                 "部分当前知识尚未进入本代索引，结果可能不完整。" if pending_revisions else ""
@@ -212,6 +293,9 @@ class Searcher:
                 "eligible_chunks": len(admitted),
                 "context_tokens": used,
                 "coverage_pending_revisions": pending_revisions,
+                "candidate_count": len(ordered),
+                "rerank": rerank_stats,
+                "context_artifact_tokens": tokens(canonical(selected)),
             },
         }
         data = canonical({"query": query.model_dump(), "result": result}).encode()
@@ -223,13 +307,21 @@ class Searcher:
         lexical = match_query(routed)
         result = []
         if lexical:
+            bounds = generation.get('fts_rowid_bounds')
+            bounded = ' AND rowid>=:low AND rowid<=:high ' if bounds else ''
             with self.store.db.engine.connect() as c:
                 rows = (
                     c.execute(
                         text(
-                            "SELECT chunk_id,bm25(knowledge_fts,0,0,1.5,1.0) score FROM knowledge_fts WHERE knowledge_fts MATCH :q AND generation=:g AND chunk_id IN (SELECT value FROM json_each(:ids)) ORDER BY score,chunk_id LIMIT 50"
+                            "SELECT chunk_id,bm25(knowledge_fts,0,0,1.5,1.0) score FROM knowledge_fts WHERE knowledge_fts MATCH :q AND generation=:g AND chunk_id IN (SELECT value FROM json_each(:ids)) " + bounded + " ORDER BY score,chunk_id LIMIT :limit"
                         ),
-                        {"q": lexical, "g": generation["id"], "ids": canonical(sorted(admitted))},
+                        {
+                            "q": lexical,
+                            "g": generation["id"],
+                            "ids": canonical(sorted(admitted)),
+                            "limit": self.options.recall_k,
+                            **({'low': bounds[0], 'high': bounds[1]} if bounds else {}),
+                        },
                     )
                     .mappings()
                     .all()
@@ -246,7 +338,12 @@ class Searcher:
         timings = {"embedding": (perf_counter() - started) * 1000}
         started = perf_counter()
         found = self.indexer.backend.search(
-            generation["id"], [m["id"] for m in manifest], matrix, vector, set(admitted), 50
+            generation["id"],
+            [m["id"] for m in manifest],
+            matrix,
+            vector,
+            set(admitted),
+            self.options.recall_k,
         )
         timings["vector"] = (perf_counter() - started) * 1000
         return [
@@ -254,8 +351,10 @@ class Searcher:
         ], timings
 
     def read_passages(self, chunks, expand):
-        notes = {}
-        result = []
+        return list(self.iter_passages(chunks, expand))
+
+    def iter_passages(self, chunks, expand, notes=None):
+        notes = {} if notes is None else notes
         for chunk in chunks:
             if chunk["note_id"] not in notes:
                 try:
@@ -270,40 +369,48 @@ class Searcher:
             if sha(body) != chunk["sha256"]:
                 raise QualityFailure("Indexed chunk range/hash differs")
             section = next(s for s in note["sections"] if s["section_id"] == chunk["section_id"])
-            if (
-                expand
-                and tokens(note["markdown"][section["start_offset"] : section["end_offset"]]) <= 800
-            ):
-                a, b = section["start_offset"], section["end_offset"]
+            matches = [
+                {
+                    "chunk_id": chunk["id"],
+                    "start_offset": a,
+                    "end_offset": b,
+                    "sha256": chunk["sha256"],
+                }
+            ]
+            reason = "MATCH_ONLY"
+            if expand:
+                a, b, reason = expanded_range(
+                    note["markdown"], section, chunk, self.options.expansion_tokens
+                )
                 body = note["markdown"][a:b]
             provenance = list(
                 {
                     (e["source_revision_id"], e["source_sha256"], e["page_number"]): {
                         "source_revision_id": e["source_revision_id"],
                         "source_sha256": e["source_sha256"],
+                        "source_families": e.get("source_families", []),
                         "page": e["page_number"],
                     }
                     for e in chunk["evidence"]
                 }.values()
             )
-            result.append(
-                {
-                    "chunk_id": chunk["id"],
-                    "note_id": chunk["note_id"],
-                    "revision_id": chunk["revision_id"],
-                    "kind": chunk["kind"],
-                    "title": chunk["title"],
-                    "section_id": chunk["section_id"],
-                    "section_title": chunk["section_title"],
-                    "start_offset": a,
-                    "end_offset": b,
-                    "sha256": sha(body),
-                    "body": body,
-                    "evidence_ids": sorted({e["evidence_id"] for e in chunk["evidence"]}),
-                    "provenance": provenance,
-                }
-            )
-        return result
+            yield {
+                "chunk_id": chunk["id"],
+                "note_id": chunk["note_id"],
+                "revision_id": chunk["revision_id"],
+                "kind": chunk["kind"],
+                "title": chunk["title"],
+                "section_id": chunk["section_id"],
+                "section_title": chunk["section_title"],
+                "start_offset": a,
+                "end_offset": b,
+                "sha256": sha(body),
+                "body": body,
+                "evidence_ids": sorted({e["evidence_id"] for e in chunk["evidence"]}),
+                "provenance": provenance,
+                "matched_ranges": matches,
+                "expansion_reason": reason,
+            }
 
     def current(self, passages):
         with self.store.db.engine.connect() as c:

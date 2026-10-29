@@ -7,6 +7,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./package.json": "./package.json",
+    "./client": "./dist/client.js",
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
@@ -15,23 +17,27 @@
   "files": [
     "dist",
     "cordis.patch.yml",
+    "config",
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
   ],
   "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-ui-tool"],
+      "external": ["react"]
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/build-plugin.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke:real": "tsx scripts/real-api-smoke.ts",
-    "smoke:web": "node scripts/workbench-smoke.mjs",
-    "smoke:synthesis": "node scripts/synthesis-editor-smoke.mjs",
+    "smoke:workflow": "node scripts/run-python.mjs delivery",
     "harness": "npm run build && node --env-file-if-exists=.env scripts/start-harness.mjs",
     "setup:python": "node --env-file-if-exists=.env scripts/run-python.mjs setup",
     "api": "node --env-file-if-exists=.env scripts/run-python.mjs api",
@@ -45,21 +51,23 @@
     "test:all": "npm run check:release && npm run typecheck && npm test && npm run lint:python && npm run test:python && npm run test:delivery",
     "db:upgrade": "node --env-file-if-exists=.env scripts/run-python.mjs upgrade",
     "db:status": "node --env-file-if-exists=.env scripts/run-python.mjs status",
-    "test:launcher": "node scripts/launcher-check.mjs"
+    "test:launcher": "node scripts/launcher-check.mjs",
+    "dev:next": "node --env-file-if-exists=.env scripts/start-local.mjs"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },
   "dependencies": {
+    "@deepseek-ai/dsh": "0.1.1-rc.2",
+    "@antv/g6": "5.1.1",
     "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-app-boot": "0.1.1-rc.2",
     "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
     "@deepseek-ai/dsh-workspace": "0.1.1-rc.2",
     "@deepseek-ai/schemastery": "3.18.1",
-    "pdfjs-dist": "4.10.38",
-    "@deepseek-ai/dsh-app-boot": "0.1.1-rc.2"
+    "pdfjs-dist": "4.10.38"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh": "0.1.1-rc.2",
     "@deepseek-ai/dsh-code-runtime": "0.1.1-rc.2",
     "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
     "@deepseek-ai/dsh-llm": "0.1.1-rc.2",
@@ -67,6 +75,7 @@
     "@deepseek-ai/dsh-system-prompt": "0.1.1-rc.2",
     "@deepseek-ai/dsh-timeout": "0.1.1-rc.2",
     "@types/node": "22.19.15",
+    "esbuild": "0.28.2",
     "playwright-core": "^1.62.1",
     "tsx": "4.22.4",
     "typescript": "6.0.3",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import posixpath
+from contextlib import nullcontext
 from urllib.parse import quote
 
 from sqlalchemy import text
@@ -24,6 +25,15 @@ class Publisher:
 
     def validate_inputs(self, connection, note, candidate: Candidate) -> list:
         manifest = []
+        if candidate.origin_source_revisions and note["kind"] != "ATOMIC":
+            raise InvalidKnowledge(
+                "Only authored atomic notes can retain original source dependencies"
+            )
+        for origin in candidate.origin_source_revisions:
+            row = one(connection, "SELECT sha256 FROM source_revisions WHERE id=:id", id=origin)
+            if not row or not self.sources.source_valid(connection, origin):
+                raise InvalidKnowledge("Original source dependency is no longer current")
+            manifest.append({"origin_source_revision": origin, "sha256": row["sha256"]})
         atomic_sources = set()
         for section in candidate.sections:
             if note["kind"] != "MOC" and not section.evidence_ids:
@@ -170,6 +180,85 @@ class Publisher:
                 s=link.target_section_id,
             ):
                 raise InvalidKnowledge("Unknown target section")
+        input_revisions = {i.atomic_revision_id for s in candidate.sections for i in s.inputs}
+        for link in candidate.links:
+            if link.navigation_role:
+                target = one(
+                    connection, "SELECT kind FROM notes WHERE id=:id", id=link.target_note_id
+                )
+                if (
+                    note["kind"] != "CONCEPT"
+                    or target["kind"] != "CONCEPT"
+                    or candidate.note_id == link.target_note_id
+                ):
+                    raise InvalidKnowledge(
+                        "Organization links require different Concept identities"
+                    )
+                if (
+                    not link.support_revision_ids
+                    or not set(link.support_revision_ids) <= input_revisions
+                ):
+                    raise InvalidKnowledge(
+                        "Organization link requires support from this Concept's effective inputs"
+                    )
+        structural = {}
+        for row in rows(
+            connection,
+            "SELECT n.id AS source_id,l.target_note_id,json_extract(l.basis_json,'$.navigation_role') AS nav_role FROM links l JOIN notes n ON n.current_revision_id=l.from_revision_id WHERE n.id!=:id AND l.status='CONFIRMED' AND json_extract(l.basis_json,'$.navigation_role') IN ('TOPIC_CHILD','TOPIC_PARENT')",
+            id=note["id"],
+        ):
+            if self.content.valid_revision(
+                connection,
+                one(
+                    connection,
+                    "SELECT current_revision_id FROM notes WHERE id=:id",
+                    id=row["source_id"],
+                )["current_revision_id"],
+            ):
+                parent, child = (
+                    (row["source_id"], row["target_note_id"])
+                    if row["nav_role"] == "TOPIC_CHILD"
+                    else (row["target_note_id"], row["source_id"])
+                )
+                structural.setdefault(parent, set()).add(child)
+        for link in candidate.links:
+            if link.navigation_role and link.status == "CONFIRMED":
+                parent, child = (
+                    (note["id"], link.target_note_id)
+                    if link.navigation_role == "TOPIC_CHILD"
+                    else (link.target_note_id, note["id"])
+                )
+                structural.setdefault(parent, set()).add(child)
+                stack, seen = [child], set()
+                while stack:
+                    target = stack.pop()
+                    if target == parent:
+                        raise InvalidKnowledge("Confirmed organization links cannot form a cycle")
+                    if target not in seen:
+                        seen.add(target)
+                        stack.extend(structural.get(target, ()))
+        adjacency = {}
+        for edge in rows(
+            connection,
+            "SELECT n.id source_id,l.target_note_id,json_extract(l.basis_json,'$.semantic_direction') semantic_direction FROM links l JOIN notes n ON n.current_revision_id=l.from_revision_id JOIN notes t ON t.id=l.target_note_id WHERE n.id!=:id AND n.visibility='ACTIVE' AND t.visibility='ACTIVE' AND l.relation='PREREQUISITE_OF' AND l.status='CONFIRMED'",
+            id=note["id"],
+        ):
+            source, target = (edge['target_note_id'], edge['source_id']) if edge['semantic_direction'] == 'INCOMING' else (edge['source_id'], edge['target_note_id'])
+            adjacency.setdefault(source, set()).add(target)
+        for link in candidate.links:
+            if link.relation == "PREREQUISITE_OF" and link.status == "CONFIRMED":
+                source, target = (link.target_note_id, note['id']) if link.semantic_direction == 'INCOMING' else (note['id'], link.target_note_id)
+                adjacency.setdefault(source, set()).add(target)
+                stack, seen = [target], set()
+                while stack:
+                    identity = stack.pop()
+                    if identity == source:
+                        raise InvalidKnowledge(
+                            "Confirmed prerequisite relations cannot form a cycle"
+                        )
+                    if identity not in seen:
+                        seen.add(identity)
+                        stack.extend(adjacency.get(identity, ()))
         return manifest
 
     def publish(
@@ -182,6 +271,8 @@ class Publisher:
         lease: Lease | None = None,
         guard=None,
         accepted=None,
+        routing_batch=None,
+        _connection=None,
     ) -> dict:
         candidate = Candidate.model_validate(candidate.model_dump())
         if candidate.policy_version != self.repository.policy_version:
@@ -206,7 +297,7 @@ class Publisher:
             section_rows.append((section, start, start + len(body), sha(body)))
         if candidate.map_entries:
             entries = {entry.entry_id: entry for entry in candidate.map_entries}
-            with self.repository.db.engine.connect() as connection:
+            with self.repository.db.engine.connect() if _connection is None else nullcontext(_connection) as connection:
                 owner = one(
                     connection, "SELECT stable_path FROM notes WHERE id=:id", id=candidate.note_id
                 )
@@ -260,7 +351,9 @@ class Publisher:
         # File creation precedes DB publication. A failed CAS may leave an
         # unreferenced immutable file, but never a head pointing at missing data.
         self.repository.put(ref, markdown.encode("utf-8"))
-        with self.repository.transaction() as connection:
+        with (
+            self.repository.transaction() if _connection is None else nullcontext(_connection)
+        ) as connection:
             active_policy = one(
                 connection, "SELECT active_policy FROM storage_contract WHERE id=1"
             )["active_policy"]
@@ -312,6 +405,13 @@ class Publisher:
                 status="PUBLISHED",
                 created_at=now(),
             )
+            for origin in candidate.origin_source_revisions:
+                insert(
+                    connection,
+                    "author_origin_sources",
+                    revision_id=revision_id,
+                    source_revision_id=origin,
+                )
             for section, start, end, digest in section_rows:
                 insert(
                     connection,
@@ -382,7 +482,22 @@ class Publisher:
                     target_section_id=link.target_section_id,
                     relation=link.relation,
                     status=link.status,
-                    basis_json=canonical({"basis": link.basis}),
+                    basis_json=canonical(
+                        {
+                            "basis": link.basis,
+                            **({"origin": link.origin} if link.origin else {}),
+                            **({'semantic_direction': link.semantic_direction} if link.semantic_direction else {}),
+                            **(
+                                {
+                                    "navigation_role": link.navigation_role,
+                                    "position": link.position,
+                                    "support_revision_ids": link.support_revision_ids,
+                                }
+                                if link.navigation_role or link.support_revision_ids
+                                else {}
+                            ),
+                        }
+                    ),
                 )
             changed = connection.execute(
                 text("""UPDATE notes SET current_revision_id=:revision,title=:title
@@ -396,13 +511,19 @@ class Publisher:
             )
             if changed.rowcount != 1:
                 raise Conflict("Note head changed")
-            self.repository.advance_epoch(connection)
+            if note["kind"] != "MOC":
+                self.repository.advance_epoch(connection)
             self.repository.event(
                 connection,
                 "NOTE_PUBLISHED",
                 note["id"],
                 revision_id,
-                {"previous_revision_id": expected_revision, "kind": note["kind"]},
+                {
+                    "previous_revision_id": expected_revision,
+                    "kind": note["kind"],
+                    "job_id": lease.job_id if lease else None,
+                    "routing_batch": routing_batch,
+                },
                 key=f"publish:{revision_id}",
             )
             # Full, immutable build contract makes projections reproducible.
@@ -438,3 +559,29 @@ class Publisher:
             "markdown_sha256": sha(markdown),
             "input_sha256": input_hash,
         }
+
+    def publish_batch(self, items, *, lease=None, routing_batch=None):
+        """All checked chapter notes become visible in one SQL transaction."""
+        with self.repository.transaction() as connection:
+            outputs = [
+                self.publish(
+                    candidate,
+                    expected_revision=None,
+                    review=review,
+                    lease=lease,
+                    _connection=connection,
+                    routing_batch=routing_batch,
+                )
+                for candidate, review in items
+            ]
+            if routing_batch and outputs:
+                manifest = [{"note_id": o["note_id"], "revision_id": o["revision_id"]} for o in outputs]
+                closed = {**routing_batch, "atomics": manifest, "state": "CLOSED"}
+                closed["input_hash"] = sha(canonical(closed))
+                self.repository.event(
+                    connection, "ATOMIC_BATCH_CLOSED", routing_batch["source_revision_id"],
+                    routing_batch["source_revision_id"],
+                    {"routing_batch": closed, "job_id": lease.job_id if lease else routing_batch.get("job_id")},
+                    key="atomic-batch:" + closed["input_hash"],
+                )
+            return outputs

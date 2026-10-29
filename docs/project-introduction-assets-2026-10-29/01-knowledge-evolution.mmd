@@ -1,0 +1,18 @@
+flowchart LR
+    A["PDF 上传与来源版本"]
+    B["MinerU 解析（或复用兼容缓存）"]
+    C["类型识别与目录规划"]
+    D["必要视觉证据"]
+    E["Atomic 写作（逐节有限审查）"]
+    F["发布 Atomic"]
+    G["Atomic 索引与浏览"]
+    H["Concept 归属与构建"]
+    I["Concept 索引（结构维护）"]
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    F --> H
+    H --> I

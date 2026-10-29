@@ -5,7 +5,15 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from pydantic import ValidationError
 
-from noodle_agent.next.contracts import Candidate, Input, MapEntry, Review, Scope, Section, sha
+from noodle_agent.next.contracts import (
+    Candidate,
+    Input,
+    MapEntry,
+    Review,
+    Scope,
+    Section,
+    sha,
+)
 from noodle_agent.next.store import Conflict, InvalidKnowledge, Store, one
 from noodle_agent.storage.database import Database
 
@@ -27,7 +35,9 @@ def evidence(store, title="A", quote="链式法则用于计算梯度"):
         {},
         {"blocks": [{"id": "b1", "page": 1, "text": quote}]},
     )
-    anchor = store.add_evidence(source["revision_id"], quote, page=1, block_id="b1", parse_id=parse)
+    anchor = store.add_evidence(
+        source["revision_id"], quote, page=1, block_id="b1", parse_id=parse
+    )
     return source, anchor
 
 
@@ -98,21 +108,31 @@ def test_next_fresh_migration_is_serialized_and_has_no_legacy_tables(tmp_path):
         list(executor.map(initialize, range(3)))
     with sqlite3.connect(tmp_path / "shared/noodle.db") as connection:
         tables = {
-            r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            r[0]
+            for r in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
         }
         assert {
             "notes",
             "note_revisions",
             "sections",
             "concept_inputs",
+            "concept_entity_plans",
+            "atomic_entity_routes",
             "events",
             "chunks",
         } <= tables
-        assert not {"atomic_notes", "concept_modules", "syntheses", "note_versions"} & tables
-        assert connection.execute("SELECT name FROM storage_contract").fetchone() == ("next-v1",)
-        assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "next_0005",
+        assert (
+            not {"atomic_notes", "concept_modules", "syntheses", "note_versions"}
+            & tables
         )
+        assert connection.execute("SELECT name FROM storage_contract").fetchone() == (
+            "next-v1",
+        )
+        assert connection.execute(
+            "SELECT version_num FROM alembic_version"
+        ).fetchone() == ("next_0011",)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
@@ -125,7 +145,9 @@ def test_next_refuses_legacy_database_without_ddl(tmp_path):
     with pytest.raises(ValueError, match="Legacy or unknown"):
         Store(root)
     with sqlite3.connect(root / "noodle.db") as connection:
-        assert connection.execute("SELECT * FROM old_notes").fetchall() == [("preserve",)]
+        assert connection.execute("SELECT * FROM old_notes").fetchall() == [
+            ("preserve",)
+        ]
         assert connection.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall() == [("old_notes",)]
@@ -147,7 +169,9 @@ def test_identical_pdf_is_not_an_independent_source(store):
     assert second["duplicate"]
     assert first["source_id"] == second["source_id"]
     with store.db.engine.connect() as connection:
-        assert connection.exec_driver_sql("SELECT count(*) FROM sources").scalar_one() == 1
+        assert (
+            connection.exec_driver_sql("SELECT count(*) FROM sources").scalar_one() == 1
+        )
 
 
 def test_pdf_evidence_is_bound_to_its_parse_and_page(store):
@@ -155,10 +179,15 @@ def test_pdf_evidence_is_bound_to_its_parse_and_page(store):
     with pytest.raises(InvalidKnowledge, match="parse and page"):
         store.add_evidence(source["revision_id"], "invented", page=1)
     parse = store.record_parse(
-        source["revision_id"], "fixture", {}, {"blocks": [{"id": "b", "page": 2, "text": "known"}]}
+        source["revision_id"],
+        "fixture",
+        {},
+        {"blocks": [{"id": "b", "page": 2, "text": "known"}]},
     )
     with pytest.raises(InvalidKnowledge, match="parsed block"):
-        store.add_evidence(source["revision_id"], "invented", page=2, block_id="b", parse_id=parse)
+        store.add_evidence(
+            source["revision_id"], "invented", page=2, block_id="b", parse_id=parse
+        )
 
 
 def test_author_content_has_explicit_source_and_cannot_fake_pdf_location(store):
@@ -174,7 +203,9 @@ def test_candidate_rejects_unknown_fields_and_duplicate_sections(store):
     note = store.create_note("ATOMIC", "测试")
     value = candidate(note, anchor)
     with pytest.raises(ValidationError):
-        Candidate.model_validate({**value.model_dump(), "publication_status": "PUBLISHED"})
+        Candidate.model_validate(
+            {**value.model_dump(), "publication_status": "PUBLISHED"}
+        )
     with pytest.raises(ValidationError):
         Candidate.model_validate(
             {**value.model_dump(), "sections": value.model_dump()["sections"] * 2}
@@ -191,7 +222,9 @@ def test_semantic_review_is_required_and_bound_to_candidate(store):
         store.publish(changed, expected_revision=None, review=receipt)
     with pytest.raises(InvalidKnowledge, match="semantic review"):
         store.publish(
-            value, expected_revision=None, review=receipt.model_copy(update={"passed": False})
+            value,
+            expected_revision=None,
+            review=receipt.model_copy(update={"passed": False}),
         )
 
 
@@ -201,14 +234,23 @@ def test_markdown_is_immutable_with_frozen_provenance_and_event(store):
     assert saved["revision"]["markdown_sha256"] == sha(saved["markdown"])
     section = saved["sections"][0]
     assert (
-        sha(saved["markdown"][section["start_offset"] : section["end_offset"]]) == section["sha256"]
+        sha(saved["markdown"][section["start_offset"] : section["end_offset"]])
+        == section["sha256"]
     )
     with store.db.engine.connect() as connection:
-        assert one(connection, "SELECT * FROM section_evidence WHERE evidence_id=:id", id=anchor)
         assert one(
-            connection, "SELECT * FROM events WHERE revision_id=:id", id=result["revision_id"]
+            connection,
+            "SELECT * FROM section_evidence WHERE evidence_id=:id",
+            id=anchor,
         )
-        artifact = one(connection, "SELECT * FROM build_artifacts WHERE kind='PUBLICATION'")
+        assert one(
+            connection,
+            "SELECT * FROM events WHERE revision_id=:id",
+            id=result["revision_id"],
+        )
+        artifact = one(
+            connection, "SELECT * FROM build_artifacts WHERE kind='PUBLICATION'"
+        )
         frozen = json.loads(store.read(artifact["storage_ref"], artifact["sha256"]))
         assert frozen["candidate"]["note_id"] == note
     with pytest.raises(InvalidKnowledge, match="Immutable file"):
@@ -221,29 +263,45 @@ def test_structurally_valid_missing_evidence_cannot_publish(store):
         publish(store, candidate(note, "missing-evidence"))
     with store.db.engine.connect() as connection:
         assert (
-            one(connection, "SELECT current_revision_id FROM notes WHERE id=:id", id=note)[
-                "current_revision_id"
-            ]
+            one(
+                connection,
+                "SELECT current_revision_id FROM notes WHERE id=:id",
+                id=note,
+            )["current_revision_id"]
             is None
         )
-        assert connection.exec_driver_sql("SELECT count(*) FROM note_revisions").scalar_one() == 0
+        assert (
+            connection.exec_driver_sql(
+                "SELECT count(*) FROM note_revisions"
+            ).scalar_one()
+            == 0
+        )
 
 
 def test_concept_requires_valid_atomic_selection(store):
     _, anchor, _, source_revision = atomic(store)
     note, value, result = concept(store, source_revision["revision_id"], anchor)
     assert store.get_note(note)["eligible"]
-    wrong_input = value.sections[0].inputs[0].model_copy(update={"section_ids": ["unknown"]})
+    wrong_input = (
+        value.sections[0].inputs[0].model_copy(update={"section_ids": ["unknown"]})
+    )
     changed = value.model_copy(
-        update={"sections": [value.sections[0].model_copy(update={"inputs": [wrong_input]})]}
+        update={
+            "sections": [value.sections[0].model_copy(update={"inputs": [wrong_input]})]
+        }
     )
     with pytest.raises(InvalidKnowledge, match="Unknown selected section"):
         publish(store, changed, result["revision_id"])
     recursive = wrong_input.model_copy(
-        update={"atomic_revision_id": result["revision_id"], "section_ids": ["definition"]}
+        update={
+            "atomic_revision_id": result["revision_id"],
+            "section_ids": ["definition"],
+        }
     )
     changed = value.model_copy(
-        update={"sections": [value.sections[0].model_copy(update={"inputs": [recursive]})]}
+        update={
+            "sections": [value.sections[0].model_copy(update={"inputs": [recursive]})]
+        }
     )
     with pytest.raises(InvalidKnowledge, match="ATOMIC revision"):
         publish(store, changed, result["revision_id"])
@@ -256,7 +314,9 @@ def test_source_deletion_immediately_blocks_atomic_and_concept(store):
     for note in (atomic_id, concept_id):
         with pytest.raises(InvalidKnowledge, match="no longer current"):
             store.get_note(note)
-    historical = store.get_note(concept_id, revision_id=result["revision_id"], historical=True)
+    historical = store.get_note(
+        concept_id, revision_id=result["revision_id"], historical=True
+    )
     assert not historical["eligible"]
     store.set_source_deleted(source["source_id"], False)
     assert store.get_note(atomic_id)["eligible"]
@@ -265,7 +325,11 @@ def test_source_deletion_immediately_blocks_atomic_and_concept(store):
 def test_atomic_edit_invalidates_old_concept_input(store):
     _, anchor, note, revision = atomic(store)
     concept_id, _, _ = concept(store, revision["revision_id"], anchor)
-    publish(store, candidate(note, anchor, content="新的有效解释。"), revision["revision_id"])
+    publish(
+        store,
+        candidate(note, anchor, content="新的有效解释。"),
+        revision["revision_id"],
+    )
     with pytest.raises(InvalidKnowledge):
         store.get_note(concept_id)
 
@@ -275,7 +339,11 @@ def test_concurrent_publication_uses_expected_head(store):
 
     def edit(i):
         try:
-            publish(store, candidate(note, anchor, content=f"解释 {i}"), revision["revision_id"])
+            publish(
+                store,
+                candidate(note, anchor, content=f"解释 {i}"),
+                revision["revision_id"],
+            )
             return "published"
         except Conflict:
             return "conflict"
@@ -295,11 +363,18 @@ def test_event_failure_rolls_back_head_and_revision(store, monkeypatch):
     with pytest.raises(RuntimeError, match="outbox"):
         publish(store, candidate(note, anchor))
     with store.db.engine.connect() as connection:
-        assert connection.exec_driver_sql("SELECT count(*) FROM note_revisions").scalar_one() == 0
         assert (
-            one(connection, "SELECT current_revision_id FROM notes WHERE id=:id", id=note)[
-                "current_revision_id"
-            ]
+            connection.exec_driver_sql(
+                "SELECT count(*) FROM note_revisions"
+            ).scalar_one()
+            == 0
+        )
+        assert (
+            one(
+                connection,
+                "SELECT current_revision_id FROM notes WHERE id=:id",
+                id=note,
+            )["current_revision_id"]
             is None
         )
 
@@ -336,7 +411,10 @@ def test_moc_reuses_identity_and_rejects_cyclic_structure(store):
         map_entries=[
             MapEntry(entry_id="group", title="基础"),
             MapEntry(
-                entry_id="item", parent_entry_id="group", title="链式法则", target_note_id=target
+                entry_id="item",
+                parent_entry_id="group",
+                title="链式法则",
+                target_note_id=target,
             ),
         ],
     )
@@ -359,7 +437,9 @@ def test_moc_reuses_identity_and_rejects_cyclic_structure(store):
 def test_corrupt_markdown_is_not_served(store):
     _, _, note, _ = atomic(store)
     value = store.get_note(note)
-    store.path(value["revision"]["markdown_ref"]).write_text("corrupt", encoding="utf-8")
+    store.path(value["revision"]["markdown_ref"]).write_text(
+        "corrupt", encoding="utf-8"
+    )
     with pytest.raises(InvalidKnowledge, match="hash differs"):
         store.get_note(note)
 
@@ -385,14 +465,13 @@ def test_source_replacement_invalidates_old_support_and_keeps_history(store):
 
 
 def test_next_cli_does_not_load_legacy_service(tmp_path, monkeypatch, capsys):
+    import sys
+
     from noodle_agent import cli
 
-    def fail():
-        raise AssertionError("Legacy service must not be initialized")
-
-    monkeypatch.setattr(cli, "_service", fail)
+    assert "noodle_agent.services" not in sys.modules
     cli.main(["next-init", "--data-dir", str(tmp_path / "new-cli")])
-    assert json.loads(capsys.readouterr().out)["current"] == "next_0005"
+    assert json.loads(capsys.readouterr().out)["current"] == "next_0011"
     cli.main(["next-schema"])
     schema = json.loads(capsys.readouterr().out)
     assert schema["contract"] == "next-v1"
@@ -401,7 +480,9 @@ def test_next_cli_does_not_load_legacy_service(tmp_path, monkeypatch, capsys):
 
 def test_policy_upgrade_does_not_reuse_unreviewed_history(store):
     _, _, note, _ = atomic(store)
-    store.repository.activate_policy("writing-next-v2", expected_policy="writing-next-v1")
+    store.repository.activate_policy(
+        "writing-next-v2", expected_policy="writing-next-v1"
+    )
     stricter = Store(store.root, policy_version="writing-next-v2")
     try:
         with pytest.raises(InvalidKnowledge, match="no longer current"):
@@ -457,7 +538,10 @@ def test_map_markdown_orders_parents_before_children_and_escapes_labels(store):
         ],
         map_entries=[
             MapEntry(
-                entry_id="child", parent_entry_id="parent", title="[子项]", target_note_id=target
+                entry_id="child",
+                parent_entry_id="parent",
+                title="[子项]",
+                target_note_id=target,
             ),
             MapEntry(entry_id="parent", title="基础分组"),
         ],
@@ -483,10 +567,13 @@ def test_next_incremental_migration_preserves_rows_and_creates_backup(tmp_path):
             )
             connection.commit()
         database.init()
-        assert database.last_migration["current"] == "next_0005"
+        assert database.last_migration["current"] == "next_0011"
         assert database.last_migration["backup"]
         with database.engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT id FROM sources").scalar_one() == "preserve"
+            assert (
+                connection.exec_driver_sql("SELECT id FROM sources").scalar_one()
+                == "preserve"
+            )
             assert any(
                 row[1] == "ux_next_event_job_kind"
                 for row in connection.exec_driver_sql("PRAGMA index_list(jobs)")
@@ -501,9 +588,13 @@ def test_policy_change_fences_existing_other_process_publisher(store):
     value = candidate(note, anchor)
     receipt = approve(value)
     try:
-        store.repository.activate_policy("writing-next-v2", expected_policy="writing-next-v1")
+        store.repository.activate_policy(
+            "writing-next-v2", expected_policy="writing-next-v1"
+        )
         with pytest.raises(Conflict, match="policy changed"):
-            stale.publish(value, expected_revision=revision["revision_id"], review=receipt)
+            stale.publish(
+                value, expected_revision=revision["revision_id"], review=receipt
+            )
         with pytest.raises(InvalidKnowledge):
             stale.get_note(note)
         with pytest.raises(Conflict, match="policy mismatch"):

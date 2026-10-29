@@ -21,6 +21,7 @@ const apiPort = await freePort(), harnessPort = await freePort()
 Object.assign(env, { NOODLE_PYTHON: python, NOODLE_RUNTIME_DIR: runRuntime, NOODLE_LAUNCH_CWD: location,
   NOODLE_HARNESS_WORKSPACE: location, NOODLE_DATA_DIR: join(location, 'data'), NOODLE_EXPORT_DIR: join(location, 'exports'),
   NOODLE_API_PORT: String(apiPort), NOODLE_DSH_WEB_PORT: String(harnessPort), NOODLE_LLM: 'fixture', NOODLE_PARSER: 'fixture' })
+Object.assign(env, { NOODLE_APP_MODE: 'next', NOODLE_NEXT_DATA_DIR: join(location, 'knowledge') })
 const child = spawn(process.execPath, [join(root, 'scripts/start-local.mjs')], { cwd: root, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
 let log = ''; child.stdout.on('data', chunk => { log += chunk }); child.stderr.on('data', chunk => { log += chunk })
 async function waitFor(check, seconds = 75) {
@@ -41,7 +42,13 @@ async function stop() {
 try {
   const base = `http://127.0.0.1:${apiPort}`
   await waitFor(async () => (await fetch(`${base}/health`, { signal: AbortSignal.timeout(2000) })).ok)
-  await waitFor(async () => (await fetch(`${base}/internal/v1/harness/sessions`, { signal: AbortSignal.timeout(2000) })).ok)
+  {
+    const health = await (await fetch(`${base}/health`)).json()
+    if (health.contract !== 'next-v1' || health.legacy_loaded !== false) throw new Error('Wrong next API contract')
+    await waitFor(async () => (await fetch(`http://127.0.0.1:${harnessPort}/`, { signal: AbortSignal.timeout(2000) })).ok)
+    const response = await fetch(`${base}/app/`)
+    if (!response.ok || !(await response.text()).includes('/app/static/next/app.js')) throw new Error('Next workbench missing')
+  }
   const state = JSON.parse(await readFile(join(runRuntime, 'local/services.json'), 'utf8'))
   if (!state.api || !state.worker || !state.launcher) throw new Error('Missing managed process identity')
   await stop()
@@ -51,6 +58,6 @@ try {
   let alive = false
   try { alive = (await fetch(`${base}/health`, { signal: AbortSignal.timeout(1000) })).ok } catch { /* stopped */ }
   if (alive) throw new Error('API still running after stop')
-  const report = { ok: true, platform: process.platform, isolated: true, apiWorkerHarness: true, stopped: true, artifacts: location }
+  const report = { ok: true, mode: 'next', platform: process.platform, isolated: true, apiWorkerHarness: true, stopped: true, artifacts: location }
   await writeFile(join(location, 'report.json'), JSON.stringify(report, null, 2)); console.log(JSON.stringify(report))
 } finally { await stop(); if (child.exitCode === null) child.kill('SIGTERM') }

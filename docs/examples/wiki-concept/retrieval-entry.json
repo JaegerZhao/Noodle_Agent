@@ -1,0 +1,16 @@
+{
+  "artifact_kind": "retrieval_entry",
+  "schema_version": "wiki-concept-v1",
+  "entity_kind": "CONCEPT",
+  "note_id": "demo_concept_backprop",
+  "note_revision_id": "demo_concept_backprop_r1",
+  "section_id": "demo_bp_chain_rule",
+  "chunk_id": "demo_bp_chain_rule_chunk1",
+  "content_sha256": "cdf6b79192a6ec2f91e9f9156022da628e325310034671e332214ef1e400784b",
+  "embedding_profile_id": "demo_embedding_profile",
+  "index_generation": "demo_generation_1",
+  "source_scope_ids": [
+    "demo_source_a",
+    "demo_source_b"
+  ]
+}

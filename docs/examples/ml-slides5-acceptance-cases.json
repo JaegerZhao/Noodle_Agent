@@ -1,0 +1,14 @@
+{
+  "policy": "Frozen from original PDF before generation. Source-faithful summaries and equivalent notation are accepted; no extra textbook completeness requirement. Never fed to generation.",
+  "cases": [
+    {"id":"Q1","query":"按这份课件的SVM归一化约定，支持向量到超平面的距离与两类之间完整间隔分别是多少？最大化间隔等价于什么？","pages":[13,14],"expected":["支持向量的有符号距离为正负1/||w||，几何距离为1/||w||","两边界之间完整间隔rho=2/||w||，最大化它等价于最小化||w||或平方范数"]},
+    {"id":"Q2","query":"线性可分SVM的原始优化问题是什么，目标函数和每个训练样本的约束如何写？","pages":[14,15,16],"expected":["最小化J(w)=1/2 w^T w","对所有样本d_i(w^T x_i+b)>=1，d_i为正负1标签"]},
+    {"id":"Q3","query":"硬间隔SVM的拉格朗日驻点条件如何表达最优w，乘子和标签满足什么等式？KKT条件如何关联支持向量？","pages":[17,18],"expected":["w=sum_i alpha_i d_i x_i","sum_i alpha_i d_i=0","alpha_i>=0且alpha_i[d_i(w^T x_i+b)-1]=0，非零乘子对应约束取等号的样本"]},
+    {"id":"Q4","query":"课件的硬间隔SVM对偶问题对alpha有哪些约束？它如何转化为求解哪些变量的QP问题？","pages":[22,23],"expected":["alpha_i>=0以及sum_i alpha_i d_i=0","使用二次规划求alpha_i，再由乘子计算w和b；不要求扩展课件以外的求解算法"]},
+    {"id":"Q5","query":"线性可分SVM中哪些样本决定最优超平面？已求得w后如何用支持向量计算偏置，实际为何取平均？","pages":[23,24],"expected":["非零alpha对应支持向量，最优超平面由支持向量决定","b=d_s-w^T x_s，实际对多个支持向量得到的b取平均以减小计算误差"]},
+    {"id":"Q6","query":"课件如何用松弛变量xi表示软间隔约束，xi在0到1之间以及大于1时分别如何理解？","pages":[32,33,34],"expected":["d_i(w^T x_i+b)>=1-xi_i，xi_i>=0","课件将0<=xi<=1说明为落入间隔区域但在正确侧，大于1为落在错误侧；接受忠实概括，也接受对边界的明确限定，不要求额外推导"]},
+    {"id":"Q7","query":"软间隔SVM的对偶乘子范围与硬间隔有什么区别？为什么计算偏置时使用0<alpha<C的支持向量？","pages":[37,38,39,40],"expected":["硬间隔alpha>=0，软间隔0<=alpha<=C，同时都满足sum alpha_i d_i=0","0<alpha<C的支持向量松弛为0且位于间隔边界，可由d_i(w^T x_i+b)=1计算b；实际可平均"]},
+    {"id":"Q8","query":"这份课件对Kernel Support Vector Machines讲到了什么范围？是否给出了完整的核SVM训练推导？","pages":[50,51,52],"expected":["仅在末尾用非线性可分图示引出核SVM作为解决方向","完整内容转到EE7207 Neural Networks and Deep Learning，本课件未提供完整核训练推导，不应补造"]},
+    {"id":"Q9","query":"这份课件中随机森林设置了多少棵树，max_depth通过什么实验确定？","pages":[],"negative":true,"expected":["来源没有随机森林实验或这些参数，明确说明资料不足并拒绝编造"]}
+  ]
+}

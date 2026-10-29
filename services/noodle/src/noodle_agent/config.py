@@ -84,7 +84,9 @@ class Settings:
 
     @classmethod
     def from_env(cls, cwd: Path | None = None) -> Settings:
-        base = (cwd or Path.cwd()).resolve()
+        # Frozen code may run with a different cwd from the user's configuration.
+        # An explicit config directory keeps API, Worker and Harness on one profile.
+        base = (cwd or Path(os.getenv("NOODLE_CONFIG_DIR") or Path.cwd())).resolve()
         _load_dotenv(base / ".env")
         raw_data = Path(os.getenv("NOODLE_DATA_DIR", "./.noodle"))
         data_dir = raw_data if raw_data.is_absolute() else (base / raw_data)

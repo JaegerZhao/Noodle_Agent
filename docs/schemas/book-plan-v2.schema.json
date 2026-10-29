@@ -1,0 +1,289 @@
+{
+  "$defs": {
+    "DocumentOutline": {
+      "additionalProperties": false,
+      "properties": {
+        "policy": {
+          "default": "document-outline-v2",
+          "title": "Policy",
+          "type": "string"
+        },
+        "source_sha256": {
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "page_count": {
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/OutlineNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "segments": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Segments",
+          "type": "array"
+        },
+        "issues": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Issues",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_sha256",
+        "page_count",
+        "nodes",
+        "segments",
+        "issues"
+      ],
+      "title": "DocumentOutline",
+      "type": "object"
+    },
+    "OutlineNode": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "level": {
+          "title": "Level",
+          "type": "integer"
+        },
+        "position": {
+          "title": "Position",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "basis": {
+          "default": "PDF_BOOKMARK",
+          "title": "Basis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "title",
+        "kind",
+        "level",
+        "position",
+        "start",
+        "end"
+      ],
+      "title": "OutlineNode",
+      "type": "object"
+    },
+    "PlannedChapter": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "namespace": {
+          "title": "Namespace",
+          "type": "string"
+        },
+        "plan": {
+          "additionalProperties": true,
+          "title": "Plan",
+          "type": "object"
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "start",
+        "end",
+        "namespace",
+        "plan"
+      ],
+      "title": "PlannedChapter",
+      "type": "object"
+    },
+    "PlannedNote": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "creation_key": {
+          "title": "Creation Key",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "chapter_key": {
+          "title": "Chapter Key",
+          "type": "string"
+        },
+        "primary_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Primary Node Id"
+        },
+        "context_node_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Context Node Ids",
+          "type": "array"
+        },
+        "unit_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unit Ids",
+          "type": "array"
+        },
+        "pages": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Pages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "creation_key",
+        "title",
+        "question",
+        "scope",
+        "chapter_key",
+        "primary_node_id",
+        "context_node_ids",
+        "unit_ids",
+        "pages"
+      ],
+      "title": "PlannedNote",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "policy": {
+      "default": "book-plan-v2",
+      "title": "Policy",
+      "type": "string"
+    },
+    "source_revision_id": {
+      "title": "Source Revision Id",
+      "type": "string"
+    },
+    "parse_id": {
+      "title": "Parse Id",
+      "type": "string"
+    },
+    "profile_sha256": {
+      "title": "Profile Sha256",
+      "type": "string"
+    },
+    "outline": {
+      "$ref": "#/$defs/DocumentOutline"
+    },
+    "layout_mode": {
+      "title": "Layout Mode",
+      "type": "string"
+    },
+    "chapters": {
+      "items": {
+        "$ref": "#/$defs/PlannedChapter"
+      },
+      "title": "Chapters",
+      "type": "array"
+    },
+    "notes": {
+      "items": {
+        "$ref": "#/$defs/PlannedNote"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "coverage": {
+      "additionalProperties": true,
+      "title": "Coverage",
+      "type": "object"
+    }
+  },
+  "required": [
+    "source_revision_id",
+    "parse_id",
+    "profile_sha256",
+    "outline",
+    "layout_mode",
+    "chapters",
+    "notes",
+    "coverage"
+  ],
+  "title": "BookPlan",
+  "type": "object"
+}

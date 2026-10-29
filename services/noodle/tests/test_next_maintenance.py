@@ -254,7 +254,7 @@ def test_router_fans_out_both_consumers_and_ignores_author_source_generation(sto
     dispatch(store)
     with store.db.engine.connect() as c:
         kinds = [r[0] for r in c.exec_driver_sql("SELECT kind FROM jobs")]
-    assert set(kinds) == {"ANALYZE_ATOMIC", "INDEX_NOTE"}
+    assert set(kinds) == {"ANALYZE_ATOMIC", "INDEX_NOTE", "UPDATE_MAPS"}
 
 
 def test_bootstrap_and_repeated_dispatch_are_idempotent(store):
@@ -388,7 +388,7 @@ def test_conflict_resolution_blocks_old_head_until_rebuilt(store):
     resolve(store, item["id"], value)
     with pytest.raises(InvalidKnowledge):
         store.get_note(before["id"])
-    store.jobs.retry_review(stopped["job_id"], reason="人工已解决条件差异")
+    store.jobs.retry_review(stopped['job_id'])
     drain(app)
     after = current_concept(store)
     assert after["revision"]["id"] != before["revision"]["id"]
@@ -753,4 +753,29 @@ def test_provider_error_response_does_not_leak_details_or_use_keyword_fallback(s
     with TestClient(create_app(application=app)) as client:
         response = client.post("/internal/next/search", json={"query": "梯度"})
         assert response.status_code == 503
-        assert response.json() == {"status": "PROVIDER_ERROR", "detail": "ConnectionError"}
+        from noodle_agent.next.retrieval.contracts import SearchResponse
+        result = SearchResponse.model_validate(response.json())
+        assert result.status == "PROVIDER_ERROR" and not result.hits
+        assert "private service configuration" not in response.text
+
+
+def test_concept_proposal_section_fields_are_canonicalized_without_discarding_conflicts():
+    from noodle_agent.next.concepts.contracts import Decision
+
+    proposal = {
+        "title": "数值稳定性",
+        "domain": "数学",
+        "identity_key": "numerical-stability",
+        "question": "如何保持数值稳定？",
+        "scope": {"includes": ["稳定计算"]},
+        "section_title": "LogSumExp",
+        "section_question": "如何稳定计算指数和？",
+    }
+    raw = {"action": "CREATE_CONCEPT", "proposal": proposal, "reason": "独立主题"}
+    parsed = Decision.model_validate(raw)
+    assert parsed.section_title == "LogSumExp"
+    assert parsed.section_question == "如何稳定计算指数和？"
+    assert parsed.proposal.identity_key == "numerical-stability"
+    assert raw["proposal"]["section_title"] == "LogSumExp"
+    with pytest.raises(ValueError, match="Conflicting"):
+        Decision.model_validate({**raw, "section_title": "另一章"})

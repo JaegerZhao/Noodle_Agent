@@ -45,7 +45,7 @@ noodle = "noodle_agent.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-noodle_agent = ["web/*", "web/workbench/*.js", "web/vendor/*", "web/vendor/fonts/*", "web/vendor/pdfjs/*.mjs", "prompts/*.md", "storage/migrations/*.json", "storage/migrations/next_versions/*.json", "storage/migrations/script.py.mako"]
+noodle_agent = ["web/*", "web/next/*", "web/vendor/*", "web/vendor/fonts/*", "web/vendor/pdfjs/*.mjs", "prompts/*.md", "storage/migrations/*.json", "storage/migrations/next_versions/*.json", "storage/migrations/script.py.mako"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

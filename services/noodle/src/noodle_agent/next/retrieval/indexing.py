@@ -1,6 +1,9 @@
 """Atomic generation activation over disposable lexical/vector projections."""
 
 import json
+import sqlite3
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 from sqlalchemy import text
@@ -15,8 +18,42 @@ from .lexical import searchable
 from .vectors import ExactVectors, load_matrix, matrix_bytes, normalize, profile_for
 
 
+@lru_cache(maxsize=128)
+def lexical_bounds(database: str, generation: str, chunk_ids: tuple[str, ...]):
+    """Bound FTS postings to an immutable generation without dropping old indexes.
+
+    A generation is inserted in one transaction. Validate the fast contiguous
+    range, and fall back to exact bounds for imported/interleaved generations.
+    Original generation and scope predicates remain mandatory in the query.
+    """
+    if not chunk_ids:
+        return (0, -1)
+    with sqlite3.connect(Path(database).as_uri() + '?mode=ro', uri=True) as c:
+        last = c.execute('SELECT rowid FROM knowledge_fts WHERE generation=? ORDER BY rowid DESC LIMIT 1', (generation,)).fetchone()
+        if last is None:
+            return None
+        high = last[0]
+        low = high - len(chunk_ids) + 1
+        found = c.execute('SELECT generation,chunk_id FROM knowledge_fts WHERE rowid BETWEEN ? AND ?', (low, high)).fetchall()
+        if len(found) == len(chunk_ids) and all(g == generation for g, _ in found) and {key for _, key in found} == set(chunk_ids):
+            return (low, high)
+        return c.execute('SELECT min(rowid),max(rowid) FROM knowledge_fts WHERE generation=?', (generation,)).fetchone()
+
+
 def request_index(store, cause=None):
     with store.repository.transaction() as c:
+        pending = one(
+            c, "SELECT desired_generation,completed_generation FROM index_work_state WHERE id=1"
+        )
+        queued = one(
+            c,
+            "SELECT id FROM events WHERE event_type='INDEX_BUILD_REQUESTED' AND status='QUEUED' LIMIT 1",
+        )
+        if (
+            pending["desired_generation"] > pending["completed_generation"]
+            and queued
+        ):
+            return {"requested_generation": pending["desired_generation"], "coalesced": True}
         c.exec_driver_sql(
             "UPDATE index_work_state SET desired_generation=desired_generation+1 WHERE id=1"
         )
@@ -69,8 +106,25 @@ class Indexer:
         if demand is not None and state["desired_generation"] != demand:
             return {"status": "SUPERSEDED"}
         chunks = []
+        compiled, reused = 0, 0
         for note in notes:
-            chunks.extend(compile_chunks(store, store.get_note(note["id"])))
+            binding = {"revision": note["revision_id"], "title": note["title"],
+                       "markdown": note["markdown_sha256"], "policy": CHUNK_POLICY}
+            ref = f"indexes/compiled/{sha(canonical(binding))}.json"
+            digest_ref = ref + ".sha256"
+            if store.path(ref).exists() and store.path(digest_ref).exists():
+                value = json.loads(store.read(ref, store.path(digest_ref).read_text(encoding="utf-8")))
+                if value["binding"] != binding:
+                    raise QualityFailure("Chunk compilation cache binding differs")
+                chunks.extend(value["chunks"])
+                reused += 1
+            else:
+                values = compile_chunks(store, store.get_note(note["id"]))
+                content = canonical({"binding": binding, "chunks": values}).encode()
+                store.put(ref, content)
+                store.put(digest_ref, sha(content).encode())
+                chunks.extend(values)
+                compiled += 1
         generation = identifier()
         ids = [c["id"] for c in chunks]
         matrix = np.empty(
@@ -118,6 +172,14 @@ class Indexer:
             matrix_ref = f"indexes/{generation}/vectors.npy"
             store.put(matrix_ref, content)
             self.backend.build(generation, ids, matrix)
+        chunk_rows = [{k: chunk[k] for k in ('id', 'revision_id', 'section_id', 'start_offset', 'end_offset', 'sha256')} for chunk in chunks]
+        metadata_rows = [{"id": chunk["id"], "position": chunk["position"], "tokens": chunk["tokens"],
+            "meta": canonical({k: v for k, v in chunk.items() if k not in {"text", "embedding_text"}})} for chunk in chunks]
+        fts_rows = [{"g": generation, "id": chunk["id"],
+            "title": searchable(chunk["title"] + " " + chunk["section_title"]),
+            "body": searchable(chunk["text"])} for chunk in chunks]
+        entry_rows = [{"chunk_id": chunk["id"], "profile_id": self.profile["id"],
+            "generation": generation, "status": "READY", "vector_ref": chunk["vector_ref"]} for chunk in chunks] if mode == "HYBRID" else []
         with store.repository.transaction() as c:
             if lease:
                 require_lease(c, lease)
@@ -130,16 +192,9 @@ class Indexer:
                 m=key,
                 b=self.backend.name,
             )
-            if actual != epoch or (current["generation"] if current else None) != old_head:
+            valid = {n["revision_id"] for n in eligible(c, [n["revision_id"] for n in notes])}
+            if valid != {n["revision_id"] for n in notes} or (current["generation"] if current else None) != old_head:
                 raise Conflict("Content or active index changed before activation")
-            if (
-                demand is not None
-                and c.exec_driver_sql(
-                    "SELECT desired_generation FROM index_work_state WHERE id=1"
-                ).scalar_one()
-                != demand
-            ):
-                raise Conflict("A newer index demand exists")
             if mode == "HYBRID":
                 profile = self.profile
                 c.execute(
@@ -162,45 +217,27 @@ class Indexer:
                 status="READY",
                 created_at=now(),
             )
-            for chunk in chunks:
+            if chunks:
                 c.execute(
                     text(
                         "INSERT OR IGNORE INTO chunks(id,revision_id,section_id,start_offset,end_offset,sha256) VALUES(:id,:revision_id,:section_id,:start_offset,:end_offset,:sha256)"
                     ),
-                    chunk,
+                    chunk_rows,
                 )
                 c.execute(
                     text(
                         "INSERT OR IGNORE INTO chunk_metadata(chunk_id,position,tokens,metadata_json) VALUES(:id,:position,:tokens,:meta)"
                     ),
-                    {
-                        **chunk,
-                        "meta": canonical(
-                            {k: v for k, v in chunk.items() if k not in {"text", "embedding_text"}}
-                        ),
-                    },
+                    metadata_rows,
                 )
                 c.execute(
                     text(
                         "INSERT INTO knowledge_fts(generation,chunk_id,title,body) VALUES(:g,:id,:title,:body)"
                     ),
-                    {
-                        "g": generation,
-                        "id": chunk["id"],
-                        "title": searchable(chunk["title"] + " " + chunk["section_title"]),
-                        "body": searchable(chunk["text"]),
-                    },
+                    fts_rows,
                 )
                 if mode == "HYBRID":
-                    insert(
-                        c,
-                        "index_entries",
-                        chunk_id=chunk["id"],
-                        profile_id=self.profile["id"],
-                        generation=generation,
-                        status="READY",
-                        vector_ref=chunk["vector_ref"],
-                    )
+                    c.execute(text("INSERT INTO index_entries(chunk_id,profile_id,generation,status,vector_ref) VALUES(:chunk_id,:profile_id,:generation,:status,:vector_ref)"), entry_rows)
             c.execute(
                 text(
                     "INSERT INTO index_heads(mode_key,backend,generation) VALUES(:m,:b,:g) ON CONFLICT(mode_key,backend) DO UPDATE SET generation=:g"
@@ -209,9 +246,12 @@ class Indexer:
             )
             if demand is not None:
                 c.execute(
-                    text("UPDATE index_work_state SET completed_generation=:g WHERE id=1"),
+                    text("UPDATE index_work_state SET completed_generation=max(completed_generation,:g) WHERE id=1"),
                     {"g": demand},
                 )
+        if mode == 'HYBRID':
+            from ..pipeline_state import record_index_milestones
+            record_index_milestones(store, self.profile['id'])
         return {
             "status": "READY",
             "generation": generation,
@@ -219,9 +259,14 @@ class Indexer:
             "notes": len(notes),
             "backend": self.backend.name,
             "profile_id": self.profile["id"] if mode == "HYBRID" else None,
+            "revision_ids": sorted(valid),
+            "compiled_revisions": compiled,
+            "reused_compiled_revisions": reused,
+            "snapshot_epoch": epoch,
+            "activated_epoch": actual,
         }
 
-    def snapshot(self, mode):
+    def head(self, mode):
         key = self.mode_key(mode)
         with self.store.db.engine.connect() as c:
             row = one(
@@ -230,12 +275,31 @@ class Indexer:
                 m=key,
                 b=self.backend.name,
             )
+        if not row and mode == "KEYWORD_ONLY":
+            # Hybrid generations already publish the same FTS rows and unit manifest.
+            # Keyword search does not depend on an embedding model or vector matrix.
+            with self.store.db.engine.connect() as c:
+                row = one(
+                    c,
+                    "SELECT g.* FROM index_heads h JOIN index_generations g ON g.id=h.generation "
+                    "WHERE h.backend=:backend AND h.mode_key LIKE 'HYBRID:%' "
+                    "AND substr(h.mode_key,-length(:policy))=:policy ORDER BY g.created_at DESC LIMIT 1",
+                    backend=self.backend.name,
+                    policy=CHUNK_POLICY,
+                )
+        return dict(row) if row else None
+
+    def snapshot(self, mode):
+        row = self.head(mode)
         if not row:
             return None, None, None
         manifest = json.loads(self.store.read(row["manifest_ref"], row["manifest_sha256"]))
+        row['fts_rowid_bounds'] = lexical_bounds(
+            str((self.store.root / 'noodle.db').resolve()), row['id'], tuple(m['id'] for m in manifest)
+        )
         matrix = (
             load_matrix(str(self.store.path(row["matrix_ref"])), row["matrix_sha256"])
-            if row["matrix_ref"]
+            if mode == "HYBRID" and row["matrix_ref"]
             else None
         )
         if matrix is not None and (

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Noodle Agent · 知识工作台</title>
+<link rel="stylesheet" href="/app/static/vendor/katex.min.css">
+<link rel="stylesheet" href="/app/static/base.css">
+<link rel="stylesheet" href="/app/static/next/style.css?v=20261022-generation-cost">
+<link rel="stylesheet" href="/app/static/next/workspace.css?v=20261028-workspace">
+<link rel="stylesheet" href="/app/static/next/workbench-theme.css?v=20261028-unified">
+<link rel="stylesheet" href="/app/static/next/agent.css?v=20261028-dsh">
+<script src="/app/static/vendor/marked.umd.js" defer></script><script src="/app/static/vendor/purify.min.js" defer></script><script src="/app/static/vendor/katex.min.js" defer></script>
+<script type="module" src="/app/static/next/app.js?v=20261028-workspace"></script></head>
+<body>
+<a class="skip-link" href="#content">跳到主内容</a>
+<div id="app" class="app-shell next-workbench">
+<aside class="library-panel" aria-label="Noodle 知识库">
+<header class="brand-header"><button id="browse" class="brand-button" type="button" aria-label="返回工作台"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span class="brand-copy"><strong>Noodle Agent</strong><small>可溯源知识工作台</small></span></button><button id="collapseLibrary" class="icon-button" type="button" aria-label="收起知识库">‹</button></header>
+<div class="library-navigation">
+<form id="filter"><label class="search-field"><span aria-hidden="true">⌕</span><input id="find" type="search" aria-label="搜索笔记" placeholder="搜索笔记或别名"></label><button class="sr-only" type="submit">查找</button></form>
+<nav class="smart-nav" aria-label="工作区">
+<button id="files" class="nav-row active" type="button"><span>全部资料</span><b id="sourceCount">—</b></button>
+<button id="maps" class="nav-row" type="button"><span>知识体系</span><b id="mapCount">—</b></button>
+<button id="concepts" class="nav-row" type="button"><span>知识点</span><b id="conceptCount">—</b></button>
+</nav>
+<div class="reader-mode-switch" aria-label="阅读导航"><button id="listTab" class="active" type="button" aria-pressed="true">笔记列表</button><button id="outlineTab" type="button" aria-pressed="false">文章目录</button></div>
+<section id="noteLibrary"><div id="count" class="muted"></div><div id="list" class="note-list"></div></section>
+<aside id="context" class="context" aria-label="文章目录" hidden><h2>阅读导航</h2><p class="muted">打开笔记，查看章节、来源与反向链接。</p></aside>
+</div><footer class="library-footer"><span id="connection"><i></i>连接知识服务</span><button id="refreshLibrary" type="button">刷新</button></footer></aside>
+<button id="expandLibrary" class="edge-expander left-expander" type="button" aria-label="展开知识库">›</button>
+<main class="main-panel" tabindex="-1"><div class="app-menu-bar"><button id="openData" type="button">数据与同步</button><details><summary>高级工具</summary><a id="advancedHarness" target="_blank" rel="noopener noreferrer">Agent 工作台</a></details></div><div id="notice" role="status" aria-live="polite"></div><section id="content" class="reader-view" tabindex="-1"><section class="workbench-view"><header class="view-header"><div><h1>全部资料</h1><p class="view-summary">管理来源文件、生成任务和学习笔记。</p></div><button id="uploadButton" class="primary-button" type="button">上传 PDF</button></header><p class="empty">正在读取知识库…</p><button id="welcomeTasks" type="button">查看生成进度</button></section></section>
+<section id="job-drawer" class="job-drawer collapsed" aria-label="生成任务摘要"><button id="drawerToggle" class="job-drawer-summary" type="button" aria-expanded="false"><span><i id="jobPulse"></i><strong>生成任务</strong><small id="drawerSummary">正在读取任务…</small></span><b id="drawerArrow">⌃</b></button><div id="drawerBody" class="next-drawer-body"></div></section></main>
+<aside class="agent-panel" aria-label="Noodle 助手"><header class="agent-header"><div><p class="eyebrow">NOODLE ASSISTANT</p><strong>Noodle 助手</strong></div><div class="agent-header-actions"><a id="agentWorkspace" href="http://127.0.0.1:3080" target="_blank" rel="noopener noreferrer" aria-label="打开 Agent 工作台" title="打开 Agent 工作台">↗</a><button id="collapseAgent" class="icon-button" type="button" aria-label="收起助手">›</button></div></header><div class="agent-context"><span>上下文</span><b id="assistantContext">整个知识库</b></div><div id="assistantBody" class="assistant-body"></div></aside>
+<button id="expandAgent" class="edge-expander right-expander" type="button" aria-label="展开助手">‹</button>
+</div>
+<nav class="mobile-nav" aria-label="移动端导航"><button data-panel="library" type="button">知识库</button><button data-panel="reader" class="active" type="button">笔记</button><button data-panel="agent" type="button">助手</button></nav>
+<input id="upload" type="file" accept="application/pdf,.pdf" hidden>
+<dialog id="editor" aria-labelledby="editorHeading"><form id="editform"><h2 id="editorHeading">编辑章节</h2><p class="muted">保存作者修订，保留来源与历史版本。</p><label for="editTitle">笔记名称</label><input id="editTitle" required><label for="editBody">Markdown 正文</label><textarea id="editBody" rows="16" required></textarea><p id="editError" role="alert"></p><div class="actions"><button type="button" id="cancelEdit">取消</button><button class="primary" id="saveEdit">保存修订</button></div></form></dialog>
+<dialog id="dataDialog" aria-label="数据与同步"><div class="data-dialog-heading"><h2>数据与同步</h2><button id="closeData" type="button">关闭</button></div><section id="dataBody"></section></dialog></body></html>

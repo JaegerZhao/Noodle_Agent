@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import text
 
 from .contracts import canonical, sha
-from .repository import Conflict, Repository, identifier, now, one, rows
+from .repository import Conflict, Repository, identifier, insert, now, one, rows
 
 
 @dataclass(frozen=True)
@@ -117,7 +117,8 @@ class JobQueue:
         return dispatched
 
     def claim(
-        self, worker: str, *, kind: str, lease_seconds: int = 180, max_attempts: int = 3
+        self, worker: str, *, kind: str, lease_seconds: int = 180, max_attempts: int = 3,
+        ready=None,
     ) -> Lease | None:
         if not worker or not kind or lease_seconds < 1 or max_attempts < 1:
             raise ValueError("Worker, kind and positive lease are required")
@@ -136,15 +137,44 @@ class JobQueue:
                     "now": timestamp,
                 },
             )
-            job = one(
+            candidates = rows(
                 connection,
                 """SELECT * FROM jobs WHERE kind=:kind AND attempts<:maximum AND
                 (status IN ('PENDING','RETRY') OR (status='RUNNING' AND lease_until<=:now))
-                ORDER BY created_at LIMIT 1""",
+                ORDER BY created_at""",
                 kind=kind,
                 maximum=max_attempts,
                 now=timestamp,
             )
+            job = None
+            from .metrics import root_for
+
+            for candidate in candidates:
+                if kind in {"BUILD_CONCEPT", "BUILD_INDEX", "REVIEW_ORGANIZATION"}:
+                    busy = one(connection, """SELECT id FROM jobs WHERE kind=:kind AND id!=:id
+                        AND status='RUNNING' AND lease_until>:n AND
+                        (:kind IN ('BUILD_INDEX','REVIEW_ORGANIZATION') OR json_extract(input_json,'$.entity_id')=:entity) LIMIT 1""",
+                        kind=kind, id=candidate["id"], n=timestamp,
+                        entity=json.loads(candidate["input_json"])["entity_id"])
+                    if busy:
+                        continue
+                if ready is not None and not ready(connection, candidate):
+                    continue
+                root = root_for(connection, candidate["id"])
+                control = (
+                    one(connection, "SELECT state FROM job_controls WHERE job_id=:j", j=root)
+                    if root
+                    else None
+                )
+                if (
+                    control
+                    and control["state"] != "RUN"
+                    and kind
+                    in {"ANALYZE_ATOMIC", "BUILD_CONCEPT", "BUILD_INDEX", "GENERATE_ATOMICS"}
+                ):
+                    continue
+                job = candidate
+                break
             if not job:
                 return None
             connection.execute(
@@ -152,6 +182,8 @@ class JobQueue:
                 lease_until=:expires,attempts=attempts+1 WHERE id=:id"""),
                 {"id": job["id"], "token": token, "expires": expires},
             )
+            insert(connection, 'job_stage_events', id=identifier(), job_id=job['id'], stage='execution.attempt-start',
+                   detail_json=canonical({'attempt_id':token,'kind':kind,'attempt':job['attempts']+1}), created_at=timestamp)
             return Lease(job["id"], token, json.loads(job["input_json"]))
 
     def heartbeat(self, lease: Lease, *, lease_seconds: int = 180):
@@ -168,6 +200,8 @@ class JobQueue:
     def finish(self, lease: Lease, result: dict):
         with self.repository.transaction() as connection:
             job = require_lease(connection, lease)
+            insert(connection, 'job_stage_events', id=identifier(), job_id=lease.job_id, stage='execution.attempt-end',
+                   detail_json=canonical({'attempt_id':lease.token,'status':'SUCCEEDED'}), created_at=now())
             connection.execute(
                 text("""UPDATE jobs SET status='SUCCEEDED',result_json=:result,error_json='{}',
                 lease_owner=NULL,lease_until=NULL WHERE id=:id"""),
@@ -185,11 +219,32 @@ class JobQueue:
                 )
 
     def fail(self, lease: Lease, error: dict, *, retry: bool, max_attempts: int = 3):
+        from .provider_errors import provider_issue
+        issue = provider_issue(error)
+        if issue:
+            error = {**error, 'provider_issue': issue}
+            retry = False
         if max_attempts < 1:
             raise ValueError("Attempt limit must be positive")
         with self.repository.transaction() as connection:
             job = require_lease(connection, lease)
             status = "RETRY" if retry and job["attempts"] < max_attempts else "REVIEW"
+            insert(connection, 'job_stage_events', id=identifier(), job_id=lease.job_id, stage='execution.attempt-end',
+                   detail_json=canonical({'attempt_id':lease.token,'status':status}), created_at=now())
+            control = one(
+                connection, "SELECT state FROM job_controls WHERE job_id=:j", j=lease.job_id
+            )
+            if (
+                job["kind"] == "GENERATE_ATOMICS"
+                and control
+                and control["state"] == "PAUSE_REQUESTED"
+            ):
+                connection.execute(
+                    text("UPDATE job_controls SET state='PAUSED',updated_at=:t WHERE job_id=:j"),
+                    {"j": lease.job_id, "t": now()},
+                )
+                if retry:
+                    status = "PAUSED"
             connection.execute(
                 text("""UPDATE jobs SET status=:status,error_json=:error,
                 lease_owner=NULL,lease_until=NULL WHERE id=:id"""),
@@ -199,44 +254,67 @@ class JobQueue:
                     "error": canonical(error),
                 },
             )
+            if status == 'REVIEW' and job['kind'] == 'GENERATE_ATOMICS':
+                insert(connection, 'job_stage_events', id=identifier(), job_id=lease.job_id,
+                    stage='execution.blocked', detail_json=canonical({'category': issue['category'] if issue else 'REVIEW',
+                        'code':error.get('code')}), created_at=now())
             return status
 
     def defer(self, lease: Lease, progress: dict):
         """Polling is progress, not a failed attempt; retain the same durable job."""
         with self.repository.transaction() as c:
             require_lease(c, lease)
+            insert(c, 'job_stage_events', id=identifier(), job_id=lease.job_id, stage='execution.attempt-end',
+                   detail_json=canonical({'attempt_id':lease.token,'status':'DEFERRED','deferred_stage':progress.get('stage')}), created_at=now())
             c.execute(
                 text("""UPDATE jobs SET status='PENDING',result_json=:progress,
                 attempts=attempts-1,lease_owner=NULL,lease_until=NULL WHERE id=:id"""),
                 {"progress": canonical(progress), "id": lease.job_id},
             )
 
-    def retry_review(self, job_id: str, *, reason: str):
-        """Explicit operator recovery after inspecting a review stop; never auto-loop."""
-        if not reason.strip():
-            raise ValueError("Recovery reason is required")
+    def retry_review(self, job_id: str):
+        """Explicit operator retry preserving checkpoints and audit history; never auto-loop."""
         with self.repository.transaction() as c:
             job = one(c, "SELECT * FROM jobs WHERE id=:id", id=job_id)
-            if not job or job["status"] != "REVIEW":
-                raise Conflict("Only a REVIEW job can be explicitly resumed")
+            partial = job and job['kind'] == 'GENERATE_ATOMICS' and job['status'] == 'SUCCEEDED' and json.loads(job['result_json']).get('coverage', {}).get('failed_plans')
+            paused = job and job['kind'] == 'GENERATE_ATOMICS' and job['status'] == 'PAUSED'
+            if not job or job["status"] != "REVIEW" and not partial and not paused:
+                raise Conflict("Only a REVIEW, paused or partially completed generation job can be explicitly resumed")
             self.repository.event(
                 c,
                 "JOB_RETRY_REQUESTED",
                 job_id,
                 None,
                 {
-                    "reason": reason,
                     "previous_error": json.loads(job["error_json"]),
                     "previous_attempts": job["attempts"],
+                    "checkpoint_watermark": c.execute(
+                        text("SELECT coalesce(max(rowid),0) FROM job_checkpoints WHERE job_id=:j"),
+                        {"j": job_id},
+                    ).scalar_one(),
                 },
                 key=f"job-retry:{job_id}:{identifier()}",
             )
             c.execute(
                 text(
-                    "UPDATE jobs SET status='PENDING',attempts=0,lease_owner=NULL,lease_until=NULL WHERE id=:id"
+                    "UPDATE jobs SET status='PENDING',attempts=0,error_json='{}',lease_owner=NULL,lease_until=NULL WHERE id=:id"
                 ),
                 {"id": job_id},
             )
+            if job["kind"] == "GENERATE_ATOMICS":
+                if job['status'] == 'REVIEW':
+                    insert(c, 'job_stage_events', id=identifier(), job_id=job_id,
+                        stage='execution.resumed', detail_json=canonical({}), created_at=now())
+                old_control = one(c,'SELECT state FROM job_controls WHERE job_id=:j',j=job_id)
+                if old_control and old_control['state'] != 'RUN':
+                    from .task_control import record
+                    record(c,job_id,'resumed')
+                c.execute(
+                    text(
+                        "UPDATE job_controls SET state='RUN',requested_at=NULL,updated_at=:t WHERE job_id=:j"
+                    ),
+                    {"j": job_id, "t": now()},
+                )
 
     def reopen_invalid_output(self, job_id, note_id, revision_id, *, reason):
         self.reopen_outputs(job_id, [(note_id, revision_id)], reason=reason)
