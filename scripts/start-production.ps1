@@ -1,13 +1,48 @@
 param(
     [ValidateSet('Start', 'Status', 'Restart', 'Stop')][string]$Action = 'Start',
-    [switch]$Open
+    [switch]$Open,
+    [string]$RunDirectory = $env:NOODLE_PRODUCTION_RUN,
+    [string]$PythonExecutable = $env:NOODLE_PYTHON,
+    [string]$DataDirectory = $env:NOODLE_NEXT_DATA_DIR,
+    [int]$ApiPort = 8011,
+    [int]$HarnessPort = 3090
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$run = Join-Path $repo '.local-only/formal-workspace-20261025T043825Z'
-$python = 'D:\Software\miniconda3\envs\noodle-agent\python.exe'
+if (-not $RunDirectory) {
+    $instances = @(Get-ChildItem -LiteralPath (Join-Path $repo '.local-only') -Directory -ErrorAction SilentlyContinue | Where-Object {
+        $settings = Join-Path $_.FullName 'runtime-overrides.json'
+        (Test-Path -LiteralPath $settings) -and ((Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json).runtime_mode -eq 'production')
+    })
+    $live = @($instances | Where-Object {
+        $receipt = Join-Path $_.FullName 'api-process.json'
+        if (-not (Test-Path -LiteralPath $receipt)) { return $false }
+        $record = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+        $process = Get-Process -Id $record.pid -ErrorAction SilentlyContinue
+        $stamp = if ($record.started_at -is [DateTime]) { $record.started_at.ToUniversalTime() }
+                 else { [DateTimeOffset]::Parse([string]$record.started_at).UtcDateTime }
+        $null -ne $process -and $process.ProcessName -eq 'python' -and
+            [Math]::Abs(($process.StartTime.ToUniversalTime() - $stamp).TotalSeconds) -lt 15
+    })
+    if ($live.Count -eq 1) { $RunDirectory = $live[0].FullName }
+    elseif ($instances.Count -eq 1) { $RunDirectory = $instances[0].FullName }
+    elseif ($instances.Count -gt 1) { throw 'Multiple instances found. Specify -RunDirectory or NOODLE_PRODUCTION_RUN.' }
+    else { $RunDirectory = Join-Path $repo '.local-only/production' }
+}
+$run = [IO.Path]::GetFullPath($(if ([IO.Path]::IsPathRooted($RunDirectory)) { $RunDirectory } else { Join-Path $repo $RunDirectory }))
+if (-not $PythonExecutable) {
+    $venv = Join-Path $repo '.venv/Scripts/python.exe'
+    $PythonExecutable = if (Test-Path -LiteralPath $venv) { $venv } else { (Get-Command python -ErrorAction Stop).Source }
+}
+$python = $PythonExecutable
 $runner = Join-Path $repo 'scripts\formal-workspace.py'
+if (-not (Test-Path -LiteralPath (Join-Path $run 'manifest.json'))) {
+    if ($Action -in @('Status', 'Stop')) { Write-Host 'No initialized production instance.'; return }
+    if (-not $DataDirectory) { $DataDirectory = Join-Path $repo 'data/production' }
+    & $python -X utf8 (Join-Path $repo 'scripts/production-instance.py') --run $run --library $DataDirectory --port $ApiPort --harness-port $HarnessPort
+    if ($LASTEXITCODE -ne 0) { throw 'Production initialization failed; existing instances were not changed.' }
+}
 $manifest = Get-Content -LiteralPath (Join-Path $run 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $override = Get-Content -LiteralPath (Join-Path $run 'runtime-overrides.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($override.runtime_mode -ne 'production' -or $override.require_parse_reuse -ne $false) {
