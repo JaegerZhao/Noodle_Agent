@@ -127,8 +127,14 @@ def test_writer_schema_does_not_suggest_extrapolating_global_unit_numbers():
         assert schema['maxProperties'] == 3
 
 
-def test_cost_observations_survive_retry_and_explicit_recovery_starts_a_new_window(request):
+@pytest.mark.parametrize('same_timestamp', [False, True])
+def test_cost_observations_survive_retry_and_explicit_recovery_starts_a_new_window(request, monkeypatch, same_timestamp):
     store, _source, lease, _journal, _profile, _ = request.getfixturevalue('corpus')
+    if same_timestamp:
+        from noodle_agent.next.repository import now
+        stamp = now()
+        for module in ('attempts', 'jobs', 'repository'):
+            monkeypatch.setattr('noodle_agent.next.' + module + '.now', lambda: stamp)
     charge(store, lease, 'atomic:a', 'next.section_write', 1)
     charge(store, lease, 'atomic:a', 'next.section_write', 1)
     store.jobs.fail(lease, {'code': 'TEMPORARY'}, retry=True)

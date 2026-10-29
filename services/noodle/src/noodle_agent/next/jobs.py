@@ -292,6 +292,10 @@ class JobQueue:
                         text("SELECT coalesce(max(rowid),0) FROM job_checkpoints WHERE job_id=:j"),
                         {"j": job_id},
                     ).scalar_one(),
+                    "artifact_watermark": c.execute(
+                        text("SELECT coalesce(max(rowid),0) FROM build_artifacts WHERE job_id=:j"),
+                        {"j": job_id},
+                    ).scalar_one(),
                 },
                 key=f"job-retry:{job_id}:{identifier()}",
             )

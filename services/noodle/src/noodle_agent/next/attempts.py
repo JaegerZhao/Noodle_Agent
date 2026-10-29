@@ -1,4 +1,4 @@
-"""Durable paid-attempt limits survive transport failures and Job retries."""
+"""Durable paid-attempt observations survive failures and explicit recovery."""
 
 import json
 from collections import Counter
@@ -12,14 +12,18 @@ def charge(store, lease, unit, operation, limit, *, request_sha256=None):
     key = sha(unit)
     with store.repository.transaction() as c:
         require_lease(c, lease)
-        recovery = one(c, "SELECT id,created_at FROM events WHERE event_type='JOB_RETRY_REQUESTED' AND entity_id=:j ORDER BY rowid DESC LIMIT 1", j=lease.job_id)
-        count = c.exec_driver_sql(
-            "SELECT count(*) FROM build_artifacts WHERE job_id=? AND kind='MODEL_ATTEMPT' AND input_sha256=? AND created_at>=?",
-            (lease.job_id, key, recovery['created_at'] if recovery else ''),
-        ).scalar_one()
+        recovery = one(c, "SELECT id,created_at,payload_json FROM events WHERE event_type='JOB_RETRY_REQUESTED' AND entity_id=:j ORDER BY rowid DESC LIMIT 1", j=lease.job_id)
+        watermark = json.loads(recovery['payload_json']).get('artifact_watermark') if recovery else None
+        # Clock ticks can repeat on any platform. Explicit recovery records the
+        # append boundary in the same transaction as its authorization event.
+        boundary = 'rowid>:watermark' if watermark is not None else 'created_at>=:since'
+        params = {'j': lease.job_id, 'k': key, 'watermark': watermark,
+                  'since': recovery['created_at'] if recovery else ''}
+        where = "job_id=:j AND kind='MODEL_ATTEMPT' AND input_sha256=:k AND " + boundary
+        count = one(c, 'SELECT count(*) n FROM build_artifacts WHERE ' + where, **params)['n']
         completed = c.exec_driver_sql("SELECT count(*) FROM job_checkpoints WHERE job_id=? AND state='DONE'",(lease.job_id,)).scalar_one()
         if count == limit:
-            previous = rows(c,"SELECT storage_ref,sha256 FROM build_artifacts WHERE job_id=:j AND kind='MODEL_ATTEMPT' AND input_sha256=:k AND created_at>=:t ORDER BY created_at",j=lease.job_id,k=key,t=recovery['created_at'] if recovery else '')
+            previous = rows(c, 'SELECT storage_ref,sha256 FROM build_artifacts WHERE ' + where + ' ORDER BY rowid', **params)
             history = [json.loads(store.read(r['storage_ref'],r['sha256'])) for r in previous]
             signatures = Counter(r['request_sha256'] for r in history if r.get('request_sha256'))
             repeated = bool(request_sha256 and signatures[request_sha256]>=2)

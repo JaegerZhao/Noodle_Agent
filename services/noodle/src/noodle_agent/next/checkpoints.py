@@ -56,7 +56,7 @@ class Checkpoints:
         with self.repository.db.engine.connect() as c:
             event = one(
                 c,
-                "SELECT id,created_at,payload_json FROM events WHERE event_type='JOB_RETRY_REQUESTED' AND entity_id=:job ORDER BY created_at DESC,id DESC LIMIT 1",
+                "SELECT id,created_at,payload_json FROM events WHERE event_type='JOB_RETRY_REQUESTED' AND entity_id=:job ORDER BY rowid DESC LIMIT 1",
                 job=self.lease.job_id,
             )
             params = {f"s{i}": stage for i, stage in enumerate(stages)}

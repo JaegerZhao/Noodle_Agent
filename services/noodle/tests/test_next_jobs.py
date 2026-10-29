@@ -168,3 +168,22 @@ def test_retry_api_needs_no_reason_and_rejects_duplicate_requests(store, body):
         assert audit['previous_error']['code'] == 'INSPECTED_FAILURE'
         assert audit['previous_attempts'] == 1
         assert 'reason' not in audit
+
+
+def test_recovery_uses_append_order_when_event_times_tie(store):
+    from noodle_agent.next.checkpoints import Checkpoints
+    from noodle_agent.next.contracts import canonical
+    from noodle_agent.next.repository import insert, now
+
+    store.jobs.enqueue(event_id(store), 'INGEST', {})
+    lease = store.jobs.claim('test', kind='INGEST')
+    journal = Checkpoints(store.repository, lease)
+    journal.save('failed', {}, {'error': 'checked failure'})
+    with store.repository.transaction() as c:
+        watermark = c.exec_driver_sql('SELECT max(rowid) FROM job_checkpoints').scalar_one()
+        stamp = now()
+        for identity, limit in [('zz-older', 0), ('aa-newer', watermark)]:
+            insert(c, 'events', id=identity, dedupe_key=identity, event_type='JOB_RETRY_REQUESTED',
+                   entity_id=lease.job_id, revision_id=None,
+                   payload_json=canonical({'checkpoint_watermark': limit}), status='QUEUED', created_at=stamp)
+    assert journal.operator_recovery(['failed']) == {'event_id': 'aa-newer'}
