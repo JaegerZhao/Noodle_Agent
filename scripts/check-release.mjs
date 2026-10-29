@@ -3,11 +3,13 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, statSync, lstatSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
+import { checkHarnessContext } from './container-context.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const deleted = new Set(execFileSync('git',['ls-files','-z','--deleted'],{cwd:root}).toString().split('\0').filter(Boolean))
 const paths = [...new Set(execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root }).toString().split('\0').filter(path=>path&&!deleted.has(path)))]
 const issues = []
+try { checkHarnessContext(root) } catch (error) { issues.push(error.message) }
 const secretPatterns = [
   /\bsk-[A-Za-z0-9_-]{24,}\b/,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
