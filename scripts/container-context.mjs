@@ -23,7 +23,7 @@ export function checkHarnessContext(root){
  const pkg=JSON.parse(readFileSync(resolve(root,'package.json'),'utf8'));
  const build=/^node\s+(\S+)$/.exec(pkg.scripts.build);
  if(!build)throw Error('Review Harness build entry for container dependency checks');
- const pending=[build[1],'scripts/start-harness.mjs'],seen=new Set();
+ const pending=['src/client-view.js','scripts/start-harness.mjs',build[1]],seen=new Set();
  while(pending.length){
   const path=pending.pop();if(seen.has(path))continue;seen.add(path);
   const content=readFileSync(available(path),'utf8');

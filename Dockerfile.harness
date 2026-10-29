@@ -12,6 +12,7 @@ RUN npm ci --include=dev
 
 COPY tsconfig.json cordis.patch.yml ./
 COPY src ./src
+COPY services/noodle/src/noodle_agent/web/next ./services/noodle/src/noodle_agent/web/next
 COPY scripts/build-plugin.mjs scripts/build-graph.mjs scripts/build-agent-client.mjs scripts/start-harness.mjs ./scripts/
 COPY config/agent-presets/noodle-knowledge ./config/agent-presets/noodle-knowledge
 RUN npm run build
