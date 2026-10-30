@@ -23,6 +23,7 @@ htmlcov/
 # Knowledge stores, task output and private archives
 .runtime/
 .local-only/
+/showcase/
 .noodle/
 data/
 output/

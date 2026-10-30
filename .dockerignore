@@ -9,6 +9,7 @@ build
 .local-only
 data
 docs
+showcase
 .venv
 **/.noodle
 **/output

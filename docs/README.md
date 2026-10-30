@@ -16,7 +16,7 @@
 
 `schemas/`、`examples/`、`design/examples/` 和 `evaluations/` 是契约、示例和评测数据，继续保留。`project-introduction-assets-2026-10-29/` 保存项目图示，`assets/` 保存日志引用的截图。
 
-博客与演示幻灯片移至 [showcase](../showcase/README.md)，资源随目录保留。
+博客与演示幻灯片仅在本地 `showcase/` 保留，已加入 Git 和 Docker 构建上下文忽略规则，不随仓库分发。
 
 整理前的 237 个文件已完整压缩归档，并逐文件核对 SHA-256。私有归档位于 `.local-only/docs-consolidation-2026-10-29/`，含原始 ZIP、哈希清单和迁移映射，不进入 Git。恢复历史原文时应查归档，不要以修改时间反推实施日期。
 

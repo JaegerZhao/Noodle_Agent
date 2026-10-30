@@ -182,6 +182,11 @@
 
 源码备份、隔离脚本及哈希清单：`.local-only/system-convergence-20261029/`。完整验收边界见[验证说明](TESTING.md)，运行和恢复方法见[运维说明](OPERATIONS.md)。
 
+## 2026-10-30
+
+- 将 `showcase/` 的博客、插图和演示材料改为仅本地保留；从 Git 跟踪中移除，加入 Git 和 Docker 构建上下文忽略规则，更新公开文档入口。
+- 本地文件保留并核对哈希，发布门禁阻止误加入该目录。本次不改写 Git 历史，之前提交中的展示材料仍可从历史版本读取。
+
 ## 原始材料与归档
 
 原文保存在 `.local-only/docs-consolidation-2026-10-29/docs-original.zip`；`manifest.json` 记录原路径、大小和 SHA-256，`relocations.json` 记录保留、展示迁移或历史归档去向。

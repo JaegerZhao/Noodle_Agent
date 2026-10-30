@@ -85,6 +85,6 @@ npm run smoke:workflow
 
 [文档导航](docs/README.md) · [当前架构](docs/ARCHITECTURE.md) · [产品需求](docs/PRODUCT-REQUIREMENTS-AND-IMPLEMENTATION.md) · [使用与运维](docs/OPERATIONS.md)
 
-[DSH 与 RAG 架构](docs/AGENT-AND-RAG.md) · [开发日志与验收记录](docs/DEVELOPMENT-LOG.md) · [博客与演示材料](showcase/README.md)
+[DSH 与 RAG 架构](docs/AGENT-AND-RAG.md) · [开发日志与验收记录](docs/DEVELOPMENT-LOG.md)
 
 历史设计和逐轮验收已汇总到开发日志，原文留在私有文档归档中；旧命令不代表当前执行入口。私有数据、隔离备份和冻结运行记录位于被 Git 忽略的 data、.local-only、.runtime 等目录。

@@ -20,6 +20,7 @@ for (const path of paths) {
   if (/(^|\/)(?:node_modules|\.runtime|\.local-only|\.venv|__pycache__|\.noodle)(\/|$)/.test(path)
       || /(^|\/)\.env(?:\..*)?$/.test(path) && !path.endsWith('.example')
       || /\.(?:db(?:-wal|-shm)?|sqlite3?(?:-wal|-shm)?|pem|key|p12|pfx|log|pdf|zip)$/.test(path)
+      || /^showcase\//.test(path)
       || /^data\//.test(path) && path !== 'data/.gitkeep') {
     issues.push(`${path}: private/runtime artifact in source snapshot`)
     continue
